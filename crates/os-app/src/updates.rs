@@ -5,6 +5,9 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 pub const VERSION: u64 = 2026103104;
+/// KNAY build: automatic updates from the Michael Lane feed are switched off, so a remote
+/// release can never replace this customized lemonstudio.exe.
+pub const ENABLED: bool = false;
 pub const FEED: &str = "https://michaellanemusic.de/lemon-studio/updates/stable.json";
 const ROOT: &str = "https://michaellanemusic.de/lemon-studio/updates/";
 const PRODUCT: &str = "lemon-studio-michael-lane-windows-x64";
@@ -88,9 +91,10 @@ fn check() -> Result<Option<PathBuf>> {
     fs::write(dir.join("signed.json"),bytes)?;
     Ok(Some(dir))
 }
-pub fn start() { if cfg!(windows) { status().lock().unwrap().started=true; request(); } }
+pub fn start() { if ENABLED && cfg!(windows) { status().lock().unwrap().started=true; request(); } }
 pub fn request() {
     let mut s=status().lock().unwrap();
+    if !ENABLED { s.message="Automatic updates are turned off in this build.".into(); return; }
     if !cfg!(windows) { s.message="Automatic updates currently support Windows x64.".into(); return; }
     if s.busy || s.ready.is_some() { return; }
     s.busy=true; s.last=Some(Instant::now()); s.message="Checking for updates…".into(); drop(s);

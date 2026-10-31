@@ -43,6 +43,8 @@ mod high_visibility;
 mod history;
 mod hold;
 mod keep_on_disk;
+mod key_detect;
+mod key_match;
 mod icons;
 mod init;
 mod knobs;

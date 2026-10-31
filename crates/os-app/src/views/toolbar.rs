@@ -154,7 +154,7 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo, width: f32) {
     let action_font = Font::new(12);
     let update_w = ui.c.text_width(action_font, "Update").ceil() + 12.0;
     let donate_w = ui.c.text_width(action_font, "Donate").ceil() + 12.0;
-    let actions_w = update_w + donate_w + 12.0;
+    let actions_w = if crate::updates::ENABLED { update_w + donate_w + 12.0 } else { 0.0 };
     let content_width = (width - actions_w).max(100.0);
     let fit = fit(s, content_width);
     let (rows, h) = (l.rows.len(), l.height());
@@ -217,7 +217,7 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo, width: f32) {
         grips(ui, s);
     }
 
-    {
+    if crate::updates::ENABLED {
         let r = Rect::new(width - actions_w + 2.0, 8.0, update_w, 24.0);
         let (label, hint) = crate::updates::display();
         ui.hit(r, Action::Updates, if !cfg!(windows) { "Open the latest downloads".to_string() } else if hint.is_empty() { "Automatic updates: check now".to_string() } else { hint });

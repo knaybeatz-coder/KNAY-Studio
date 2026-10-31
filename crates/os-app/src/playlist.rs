@@ -61,6 +61,9 @@ impl PlTool {
     pub fn from_letter(c: &str) -> Option<PlTool> {
         Some(match c.to_ascii_lowercase().as_str() {
             "b" => PlTool::Paint,
+            "p" => PlTool::Draw,
+            "y" => PlTool::Playback,
+            "s" => PlTool::Slip,
             "g" => PlTool::Comp,
             "d" => PlTool::Delete,
             "t" => PlTool::Mute,
@@ -285,6 +288,8 @@ pub enum Cmd {
     ClipRandomColor(usize),
     ClipPreview(usize),
     FitLoop(usize, crate::loop_fit::Fit),
+    /// KNAY Key match commands for audio clip `usize` (`crate::key_match`).
+    KeyMatch(usize, crate::key_match::KCmd),
     /// A picker item's menu (§10a) on an audio or automation clip source: the command and the source's channel index.
     Pick(PickCmd, u16),
     PointDelete(u16, usize),
@@ -2576,6 +2581,9 @@ pub fn clip_menu(s: &State, i: usize, x: f32, y: f32) -> Popup {
         items.push(PItem::sub("Stretch / fit options", fitting));
         items.push(PItem::new("Stretch clip edges", Cmd::FitLoop(i, Fit::Edges)).mark(Mark::Radio(s.playlist.stretch)));
         items.push(PItem::new("Trim clip edges", Cmd::FitLoop(i, Fit::Trim)).mark(Mark::Radio(!s.playlist.stretch)));
+        if let Some(k) = crate::key_match::menu(s, i) {
+            items.push(k);
+        }
         items.push(PItem::sep());
     }
     if let ClipSource::Pattern(_) = c.source {
@@ -4233,6 +4241,11 @@ pub fn run(app: &mut App, cmd: Cmd) -> Option<String> {
             return None;
         }
         Cmd::FitLoop(i, cmd) => return crate::loop_fit::run(app, i, cmd),
+        Cmd::KeyMatch(i, cmd) => {
+            let m = crate::key_match::run(app, i, cmd);
+            app.invalidate();
+            return m;
+        }
         Cmd::ClipPreview(i) => {
             if let Some(c) = clips(&app.state).get(i).copied() {
                 app.preview_clip(&c);
@@ -4373,7 +4386,7 @@ pub fn run(app: &mut App, cmd: Cmd) -> Option<String> {
             snapshot(s);
             (!delete_space(s)).then(|| "Delete space: make a time selection first (right-drag the ruler)".into())
         }
-        Cmd::Consolidate | Cmd::ExportTracks | Cmd::QuantizeStarts | Cmd::PointValue(..) | Cmd::ClipPreview(_) | Cmd::FitLoop(..) | Cmd::TypeIn(_) | Cmd::Reset(_) | Cmd::Remote(_) | Cmd::PeakLink(_) | Cmd::MidiExt(_) => None,
+        Cmd::Consolidate | Cmd::ExportTracks | Cmd::QuantizeStarts | Cmd::PointValue(..) | Cmd::ClipPreview(_) | Cmd::FitLoop(..) | Cmd::KeyMatch(..) | Cmd::TypeIn(_) | Cmd::Reset(_) | Cmd::Remote(_) | Cmd::PeakLink(_) | Cmd::MidiExt(_) => None,
         Cmd::StretchMode => {
             s.playlist.stretch = !s.playlist.stretch;
             if s.playlist.stretch { crate::playlist_tools::select(s, PlTool::Paint); }
@@ -4871,6 +4884,11 @@ pub fn export_tracks(app: &mut App) -> String {
 }
 
 pub fn consolidate(app: &mut App) -> String {
+    consolidate_from(app, false)
+}
+
+/// `consolidate`; `from_start`: the render begins at the song start (bar 1) instead of the selection's start.
+pub fn consolidate_from(app: &mut App, from_start: bool) -> String {
     let s = &mut app.state;
     let sel = s.playlist.sel.clone();
     let (a, b) = match (s.playlist.range, sel.is_empty()) {
@@ -4881,6 +4899,7 @@ pub fn consolidate(app: &mut App) -> String {
         }
         _ => return "Consolidate: select clips or a time range first".into(),
     };
+    let a = if from_start { 0 } else { a };
     if b <= a {
         return "Consolidate: nothing to render".into();
     }
@@ -4988,6 +5007,13 @@ pub fn key(app: &mut App, key: &winit::keyboard::Key, ctrl: bool, alt: bool) -> 
         return true;
     }
     let cmd = match key {
+        // KNAY: Ctrl+Alt+Shift+C renders from the song start (FL's "Consolidate from song start").
+        Key::Character(c) if ctrl && alt && shift && c.eq_ignore_ascii_case("c") => {
+            let m = consolidate_from(app, true);
+            app.state.message = Some(m);
+            app.invalidate();
+            return true;
+        }
         Key::Character(c) if ctrl && alt && c.eq_ignore_ascii_case("c") => Cmd::Consolidate,
         Key::Character(c) if ctrl && shift && c.eq_ignore_ascii_case("c") => Cmd::MakeUnique,
         // Performance mode (live clip launching, Ctrl+P in FL's menu) is not built yet.
@@ -5006,6 +5032,9 @@ pub fn key(app: &mut App, key: &winit::keyboard::Key, ctrl: bool, alt: bool) -> 
         Key::Character(c) if shift && !ctrl && !alt && c.eq_ignore_ascii_case("z") => Cmd::ZoomSelection,
         Key::Character(c) if shift && !ctrl && !alt && c.eq_ignore_ascii_case("m") => Cmd::StretchMode,
         Key::Character(c) if shift && !ctrl && !alt && c.eq_ignore_ascii_case("i") => Cmd::InvertSelection,
+        // KNAY: Shift+C selects by selected source (as the Select menu says), Shift+Q quick-quantizes start times.
+        Key::Character(c) if shift && !ctrl && !alt && c.eq_ignore_ascii_case("c") => Cmd::SelectSource,
+        Key::Character(c) if shift && !ctrl && !alt && c.eq_ignore_ascii_case("q") => Cmd::QuantizeStarts,
         Key::Character(c) if shift && !ctrl && !alt && (c == "4" || c == "$") => Cmd::ZoomAll,
         Key::Character(c) if shift && !ctrl && !alt && (c == "5" || c == "%") => Cmd::ZoomSelection,
         Key::Character(c) if shift && !ctrl && !alt && c.eq_ignore_ascii_case("g") => Cmd::GroupClips,
@@ -5020,7 +5049,6 @@ pub fn key(app: &mut App, key: &winit::keyboard::Key, ctrl: bool, alt: bool) -> 
         }
         // Tool letters; with Shift too, which the typing keyboard leaves alone (it takes the plain letters as notes).
         // Shift+T and Shift+Z were taken above (as in the piano roll, spec: ui/piano-keys.md §4 rule 16).
-        Key::Character(c) if !ctrl && !alt && ["p","y"].iter().any(|k| c.eq_ignore_ascii_case(k)) => return true,
         Key::Character(c) if !ctrl && !alt && (shift || !app.typing_on() || ["b","c","e","g"].iter().any(|k| c.eq_ignore_ascii_case(k))) && PlTool::from_letter(c).is_some() => {
             Cmd::Tool(PlTool::from_letter(c).expect("checked"))
         }

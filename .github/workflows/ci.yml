@@ -4,7 +4,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, knay-lemon]
   pull_request:
   workflow_dispatch:
 
@@ -60,3 +60,28 @@ jobs:
 
       - name: Test
         run: cargo test --workspace --locked
+
+      # KNAY: the ready-to-run program, downloadable from the run's Artifacts.
+      - name: Build release program (Windows)
+        if: runner.os == 'Windows'
+        env:
+          OPENSTUDIO_NO_PLUGIN_BUILD: "1"
+        run: cargo build --locked --release -p os-app
+
+      - name: Upload Windows program
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: KNAY-Lemon-Studio-Windows
+          path: target/release/lemonstudio.exe
+
+      - name: Zip the Mac app
+        if: runner.os == 'macOS'
+        run: ditto -c -k --keepParent "target/bundled/Lemon Studio.app" "target/KNAY-Lemon-Studio-Mac.zip"
+
+      - name: Upload Mac app
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: KNAY-Lemon-Studio-Mac
+          path: target/KNAY-Lemon-Studio-Mac.zip

@@ -9,7 +9,7 @@ use os_ui::{Canvas, Color, Rect};
 pub const POP_MS: u128 = 180;
 
 pub fn select(s: &mut State, tool: PlTool) {
-    let tool = match tool { PlTool::Draw => PlTool::Paint, PlTool::Slip | PlTool::Playback => return, t => t };
+    // KNAY: Draw (P), Slip (S) and Playback (Y) are real tools again (their mouse handling is in playlist.rs).
     s.playlist.tool = tool;
     s.playlist.tool_changed = Some(std::time::Instant::now());
     s.playlist.overlay = None;

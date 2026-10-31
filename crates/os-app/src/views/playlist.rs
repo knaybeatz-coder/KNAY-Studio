@@ -741,7 +741,12 @@ fn clip_paint(ui: &mut Ui, s: &State, g: &PGeom, i: usize, c: &Clip) {
         }
     }
     if r.w > 16.0 {
-        ui.c.text_clip(Font::new(12), inner.x + 14.0, inner.y - 1.0, inner.w - 16.0, ic, &pl::source_name(s, c.source));
+        // KNAY Key match: an audio clip's key (and its shift) after its name.
+        let title = match crate::key_match::clip_label(s, c.source) {
+            Some(k) => format!("{}   {k}", pl::source_name(s, c.source)),
+            None => pl::source_name(s, c.source),
+        };
+        ui.c.text_clip(Font::new(12), inner.x + 14.0, inner.y - 1.0, inner.w - 16.0, ic, &title);
     }
     // Content.
     let content = if muted { dim(text).with_alpha(90) } else { dim(cc(t, NOTE)) };

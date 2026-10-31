@@ -42,6 +42,9 @@ pub enum NCmd {
     StockLength(crate::playlist::Snap),
     /// Make a channel rack row the piano roll's channel (the title's channel menu).
     Target(usize),
+    /// KNAY: S / O turn the selected notes (all of the channel's notes when none is selected) into slide or
+    /// portamento notes; when they all already are, back to plain notes.
+    NoteType(crate::hold::NoteType),
 }
 
 fn item(label: &'static str, c: NCmd) -> PItem {
@@ -127,6 +130,8 @@ pub fn key(app: &mut App, key: &winit::keyboard::Key, ctrl: bool, alt: bool) -> 
         Key::Character(c) if alt && !ctrl && is(c, "r") => NCmd::Dialog(crate::piano_dlg::Tool::Randomize),
         Key::Character(c) if alt && !ctrl && is(c, "v") => NCmd::Ghosts,
         Key::Character(c) if alt && !ctrl && !shift && is(c, "t") => NCmd::AddMarker,
+        Key::Character(c) if !ctrl && !alt && !shift && is(c, "s") => NCmd::NoteType(crate::hold::NoteType::Slide),
+        Key::Character(c) if !ctrl && !alt && !shift && is(c, "o") => NCmd::NoteType(crate::hold::NoteType::Porta),
         Key::Character(c) if ctrl && !alt && is(c, "d") => {
             app.state.piano.clear_selection();
             app.invalidate();
@@ -321,6 +326,17 @@ pub fn run(app: &mut App, cmd: NCmd) -> Option<String> {
             done(apply(s, |_, ns| f(ns)), if on { "muted" } else { "unmuted" })
         }
         NCmd::Glue => done(apply(s, |_, ns| glue(ns)), "glued"),
+        NCmd::NoteType(t) => {
+            use crate::hold::NoteType;
+            let name = if t == NoteType::Slide { "slide notes" } else { "portamento notes" };
+            let mut off = false;
+            let changed = apply_as(s, |_, ns| {
+                off = !ns.is_empty() && ns.iter().all(|n| NoteType::of(n) == t);
+                let to = if off { NoteType::Plain } else { t };
+                ns.into_iter().map(|mut n| { to.apply(&mut n); n }).collect()
+            }, Some(if t == NoteType::Slide { "Piano roll slide notes" } else { "Piano roll portamento notes" }));
+            if off { done(changed, &format!("{name} off")) } else { done(changed, name) }
+        }
         NCmd::DiscardLengths => done(apply(s, |_, ns| ns.into_iter().map(|n| Note { length: unit.unwrap_or(0), ..n }).collect()), "discarded lengths"),
         NCmd::Duplicate => {
             duplicate(s);

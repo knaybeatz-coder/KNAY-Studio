@@ -2120,6 +2120,13 @@ impl App {
                     crate::rack::set_stretch(self, &rows, method);
                 }
             }
+            Then::KeyMatch(index, semitones) => {
+                if reply == Reply::Button(Answer::Yes)
+                    && let Some(m) = crate::key_match::apply(self, index, semitones)
+                {
+                    self.state.message = Some(m);
+                }
+            }
             // spec: ui/pattern-time-signature.md §2-3: No leaves the pattern alone; closing the dialog without Accept
             // leaves it without a start marker.
             Then::ReplaceSignature(n) => {
@@ -3894,6 +3901,7 @@ impl App {
     /// Periodic housekeeping; returns whether a repaint is needed.
     pub fn tick(&mut self) -> bool {
         crate::updates::tick();
+        if crate::key_match::take_fresh() { self.invalidate(); }
         let (_, update_status) = crate::updates::display();
         if self.update_status != update_status { self.update_status = update_status; self.invalidate(); }
         if views::browser::search_changed(&self.state) { self.invalidate(); }
@@ -4255,10 +4263,15 @@ impl App {
         let track = g.track_at(y);
         let tick = crate::playlist::snap_place(s, &g, g.tick_at(x), self.alt);
         let name = path.to_string_lossy().into_owned();
-        s.message = Some(match crate::playlist::add_audio_clip(s, &name, track, tick) {
+        let added = crate::playlist::add_audio_clip(s, &name, track, tick);
+        s.message = Some(match added {
             Some(_) => format!("Added audio clip {}", path.display()),
             None => format!("Could not read {} as audio", path.display()),
         });
+        // KNAY Key match: offer to shift it into the beat's key.
+        if let Some(i) = added {
+            crate::key_match::after_drop(self, i);
+        }
         self.invalidate();
     }
 
@@ -7304,6 +7317,8 @@ impl App {
             // The browser and the pickers: General ▸ Input ▸ Manage shortcuts (spec: ui/settings-choices.md).
             Key::Named(NamedKey::F8) => self.f8_key(ctrl, alt),
             Key::Named(NamedKey::F9) => self.act(Action::ToggleWin(Win::Mixer)),
+            // KNAY: Home goes back to the start (the song position in SONG mode, the pattern's play marker in PAT).
+            Key::Named(NamedKey::Home) if !ctrl && !alt => self.set_song_pos(0, true),
             Key::Named(NamedKey::F10) => self.open_settings(views::settings::MIDI),
             // Toolbars > Hide (spec: ui/toolbar-menu.md §5).
             Key::Named(NamedKey::F11) if ctrl => self.toolbar_switch(views::toolbar::Switch::Hide),
@@ -7913,6 +7928,7 @@ impl App {
     }
 
     pub fn act(&mut self, a: Action) {
+        if !crate::updates::ENABLED && matches!(a, Action::Donate | Action::Updates) { return; }
         if a == Action::Donate {
             if let Err(error) = crate::donate::open() { self.state.message = Some(error); self.invalidate(); }
             return;
@@ -18350,6 +18366,7 @@ mod tests {
             for shift in [false,true] {
                 for (code,l,t) in [(KeyCode::KeyB,"b",PlTool::Paint),(KeyCode::KeyC,"c",PlTool::Slice),(KeyCode::KeyG,"g",PlTool::Comp),(KeyCode::KeyE,"e",PlTool::Select)] {
                     if code == KeyCode::KeyG && shift { continue; } // Shift+G remains Group clips.
+                    if code == KeyCode::KeyC && shift { continue; } // KNAY: Shift+C selects by selected source.
                     press(&mut app,code,l,shift);
                     assert_eq!(app.state.playlist.tool,t,"{l}, shift={shift}, typing={typing}");
                     assert!(app.state.playlist.tool_changed.is_some());
@@ -18357,15 +18374,16 @@ mod tests {
             }
         }
         assert_eq!(PlTool::from_letter("c"),Some(PlTool::Slice));
-        assert_eq!(PlTool::from_letter("s"),None);
-        assert_eq!(PlTool::from_letter("p"),None);
-        assert_eq!(PlTool::from_letter("y"),None);
-        assert!(!PlTool::ALL.contains(&PlTool::Draw));
-        assert!(!PlTool::ALL.contains(&PlTool::Slip));
-        assert!(!PlTool::ALL.contains(&PlTool::Playback));
+        // KNAY: P / Y / S pick the Draw, Playback and Slip tools again.
+        assert_eq!(PlTool::from_letter("s"),Some(PlTool::Slip));
+        assert_eq!(PlTool::from_letter("p"),Some(PlTool::Draw));
+        assert_eq!(PlTool::from_letter("y"),Some(PlTool::Playback));
         press(&mut app,KeyCode::KeyP,"P",true);
+        assert_eq!(app.state.playlist.tool,PlTool::Draw);
         press(&mut app,KeyCode::KeyY,"Y",true);
-        assert_eq!(app.state.playlist.tool,PlTool::Select);
+        assert_eq!(app.state.playlist.tool,PlTool::Playback);
+        press(&mut app,KeyCode::KeyS,"S",true);
+        assert_eq!(app.state.playlist.tool,PlTool::Slip);
         assert_eq!(app.state.piano.tool,piano,"background piano tool stays unchanged");
     }
 
