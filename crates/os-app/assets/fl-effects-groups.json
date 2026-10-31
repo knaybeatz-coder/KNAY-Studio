@@ -1,0 +1,1356 @@
+{
+  "00 GO TO": [
+    "1176 Balcony Left",
+    "Auto-Tune Pro",
+    "CLA-2A Mono",
+    "Edison",
+    "Fruity Compressor",
+    "Fruity Limiter",
+    "Key Detector Mono",
+    "Ozone 12",
+    "Pro-Q 4",
+    "RVox Mono",
+    "soothe2",
+    "SoundID Reference Plugin",
+    "StandardCLIP",
+    "The God Particle"
+  ],
+  "01 VOCALS / 01 Tuning": [
+    "Auto-Tune Pro"
+  ],
+  "01 VOCALS / 01 Tuning / Waves Tune": [
+    "Waves Tune LT Mono",
+    "Waves Tune LT Stereo",
+    "Waves Tune Mono",
+    "Waves Tune Real-Time Mono",
+    "Waves Tune Real-Time Stereo",
+    "Waves Tune Stereo"
+  ],
+  "01 VOCALS / 02 De-ess Cleanup": [
+    "Clear",
+    "DeBreath Mono",
+    "splitS"
+  ],
+  "01 VOCALS / 02 De-ess Cleanup / FabFilter": [
+    "Pro-DS"
+  ],
+  "01 VOCALS / 02 De-ess Cleanup / Manny Marroquin": [
+    "MannyM TripleD Mono",
+    "MannyM TripleD Stereo"
+  ],
+  "01 VOCALS / 02 De-ess Cleanup / Waves CLA": [
+    "Clarity Vx - DeReverb Mono",
+    "Clarity Vx - DeReverb Pro Mono",
+    "Clarity Vx - DeReverb Pro Stereo",
+    "Clarity Vx - DeReverb Stereo",
+    "Clarity Vx Mono",
+    "Clarity Vx Pro Mono",
+    "Clarity Vx Pro Stereo",
+    "Clarity Vx Stereo"
+  ],
+  "01 VOCALS / 02 De-ess Cleanup / Waves DeEsser": [
+    "DeEsser Mono",
+    "DeEsser Stereo"
+  ],
+  "01 VOCALS / 02 De-ess Cleanup / Waves Renaissance": [
+    "RDeEsser Mono",
+    "RDeEsser Stereo"
+  ],
+  "01 VOCALS / 02 De-ess Cleanup / Waves Sibilance": [
+    "Sibilance Mono",
+    "Sibilance Stereo",
+    "Sibilance-Live Mono",
+    "Sibilance-Live Stereo"
+  ],
+  "01 VOCALS / 03 Vocal Processing": [
+    "Butch Vig Vocals Mono",
+    "Butch Vig Vocals Stereo",
+    "Pulsar Vocal Studio"
+  ],
+  "01 VOCALS / 03 Vocal Processing / Abbey Road": [
+    "Abbey Road The King's Microphones Mono",
+    "Abbey Road The King's Microphones Stereo"
+  ],
+  "01 VOCALS / 03 Vocal Processing / Greg Wells": [
+    "GW VoiceCentric Mono",
+    "GW VoiceCentric Mono-Stereo",
+    "GW VoiceCentric Stereo"
+  ],
+  "01 VOCALS / 03 Vocal Processing / Waves CLA": [
+    "CLA Vocals Mono-Stereo",
+    "CLA Vocals Stereo"
+  ],
+  "01 VOCALS / 03 Vocal Processing / Waves JJP": [
+    "JJP-Vocals Mono-Stereo",
+    "JJP-Vocals Stereo"
+  ],
+  "01 VOCALS / 03 Vocal Processing / Waves Kramer": [
+    "EKramer VC Mono-Stereo",
+    "EKramer VC Stereo"
+  ],
+  "01 VOCALS / 03 Vocal Processing / Waves Maserati": [
+    "Maserati VX1 Mono-Stereo",
+    "Maserati VX1 Stereo"
+  ],
+  "01 VOCALS / 03 Vocal Processing / Waves Renaissance": [
+    "RVox Mono",
+    "RVox Stereo"
+  ],
+  "01 VOCALS / 03 Vocal Processing / Waves Silk Vocal": [
+    "Silk Vocal Live Mono",
+    "Silk Vocal Live Stereo",
+    "Silk Vocal Mono",
+    "Silk Vocal Stereo"
+  ],
+  "01 VOCALS / 03 Vocal Processing / Waves Vocal Rider": [
+    "Vocal Rider Live Mono",
+    "Vocal Rider Live Stereo",
+    "Vocal Rider Mono",
+    "Vocal Rider Stereo"
+  ],
+  "01 VOCALS / 04 Vocal Harmony Vocoder FX / Waves Harmony": [
+    "Waves Harmony Mono-Stereo",
+    "Waves Harmony Stereo"
+  ],
+  "01 VOCALS / 04 Vocal Harmony Vocoder FX / Waves OVox": [
+    "OVox Mono-Stereo",
+    "OVox Stereo"
+  ],
+  "01 VOCALS / 04 Vocal Harmony Vocoder FX / Waves Vocal Bender": [
+    "Vocal Bender Mono",
+    "Vocal Bender Stereo"
+  ],
+  "02 EQ TONE / 01 Clean EQ / FabFilter": [
+    "Pro-Q 3",
+    "Pro-Q 4"
+  ],
+  "02 EQ TONE / 01 Clean EQ / Waves F6": [
+    "F6 Mono",
+    "F6 Stereo",
+    "F6-RTA Mono",
+    "F6-RTA Stereo"
+  ],
+  "02 EQ TONE / 01 Clean EQ / Waves GEQ": [
+    "GEQ Classic Mono",
+    "GEQ Classic Stereo",
+    "GEQ Modern Mono",
+    "GEQ Modern Stereo"
+  ],
+  "02 EQ TONE / 01 Clean EQ / Waves H-Series": [
+    "H-EQ Mono",
+    "H-EQ Stereo",
+    "H-EQ-Light Mono",
+    "H-EQ-Light Stereo"
+  ],
+  "02 EQ TONE / 01 Clean EQ / Waves LinEQ": [
+    "LinEQ Broadband Mono",
+    "LinEQ Broadband Stereo",
+    "LinEQ Lowband Mono",
+    "LinEQ Lowband Stereo"
+  ],
+  "02 EQ TONE / 01 Clean EQ / Waves OneKnob": [
+    "OneKnob Brighter Mono",
+    "OneKnob Brighter Stereo"
+  ],
+  "02 EQ TONE / 01 Clean EQ / Waves Q-Series": [
+    "Q1 Mono",
+    "Q1 Stereo",
+    "Q10 Mono",
+    "Q10 Stereo",
+    "Q2 Mono",
+    "Q2 Stereo",
+    "Q3 Mono",
+    "Q3 Stereo",
+    "Q4 Mono",
+    "Q4 Stereo",
+    "Q6 Mono",
+    "Q6 Stereo",
+    "Q8 Mono",
+    "Q8 Stereo"
+  ],
+  "02 EQ TONE / 01 Clean EQ / Waves Renaissance": [
+    "REQ 2 Mono",
+    "REQ 2 Stereo",
+    "REQ 4 Mono",
+    "REQ 4 Stereo",
+    "REQ 6 Mono",
+    "REQ 6 Stereo"
+  ],
+  "02 EQ TONE / 01 Clean EQ / Waves TRACT": [
+    "TRACT LinPhase Mono",
+    "TRACT LinPhase Stereo"
+  ],
+  "02 EQ TONE / 01 Clean EQ / Waves eMo": [
+    "EMO-F2 Mono",
+    "EMO-F2 Stereo",
+    "EMO-Q4 Mono",
+    "EMO-Q4 Stereo"
+  ],
+  "02 EQ TONE / 02 Analog EQ": [
+    "Scheps 73 Mono",
+    "Scheps 73 Stereo",
+    "VEQ3 Mono",
+    "VEQ3 Stereo",
+    "VEQ4 Mono",
+    "VEQ4 Stereo"
+  ],
+  "02 EQ TONE / 02 Analog EQ / API": [
+    "API-550A Mono",
+    "API-550A Stereo",
+    "API-550B Mono",
+    "API-550B Stereo",
+    "API-560 Mono",
+    "API-560 Stereo"
+  ],
+  "02 EQ TONE / 02 Analog EQ / Abbey Road": [
+    "Abbey Road RS56 Passive EQ Mono",
+    "Abbey Road RS56 Passive EQ Stereo"
+  ],
+  "02 EQ TONE / 02 Analog EQ / Acustica / Gold 5": [
+    "GOLD5EQ",
+    "GOLD5EQZL"
+  ],
+  "02 EQ TONE / 02 Analog EQ / Manny Marroquin": [
+    "MannyM EQ Mono",
+    "MannyM EQ Stereo"
+  ],
+  "02 EQ TONE / 02 Analog EQ / PuigTec PuigChild": [
+    "PuigTec EQP1A Mono",
+    "PuigTec EQP1A Stereo",
+    "PuigTec MEQ5 Mono",
+    "PuigTec MEQ5 Stereo"
+  ],
+  "02 EQ TONE / 02 Analog EQ / SSL": [
+    "SSLEQ Mono",
+    "SSLEQ Stereo"
+  ],
+  "02 EQ TONE / 03 Smart EQ Resonance": [
+    "Curves Equator Mono",
+    "Curves Equator Stereo",
+    "Feedback Hunter Mono",
+    "Feedback Hunter Stereo",
+    "Fixate Midrange",
+    "Gullfoss",
+    "Gullfoss Live",
+    "Gullfoss Master",
+    "smartEQ4",
+    "Smooth Operator Pro"
+  ],
+  "03 DYNAMICS / 01 Compression": [
+    "1176 Balcony Left",
+    "Curvature",
+    "KNOCK",
+    "OTT",
+    "smartComp3",
+    "Tube-Tech CL 1B",
+    "UnFairchild"
+  ],
+  "03 DYNAMICS / 01 Compression / API": [
+    "API-2500 Mono",
+    "API-2500 Stereo"
+  ],
+  "03 DYNAMICS / 01 Compression / Abbey Road": [
+    "Abbey Road RS124 Mono",
+    "Abbey Road RS124 Stereo"
+  ],
+  "03 DYNAMICS / 01 Compression / Acustica / Gold 5": [
+    "GOLD5COMP",
+    "GOLD5COMPZL"
+  ],
+  "03 DYNAMICS / 01 Compression / FabFilter": [
+    "Pro-C 2",
+    "Pro-MB"
+  ],
+  "03 DYNAMICS / 01 Compression / Kramer": [
+    "Kramer PIE Mono",
+    "Kramer PIE Stereo"
+  ],
+  "03 DYNAMICS / 01 Compression / PuigTec PuigChild": [
+    "PuigChild 660 Mono",
+    "PuigChild 670 Stereo"
+  ],
+  "03 DYNAMICS / 01 Compression / SSL": [
+    "SSLComp Mono",
+    "SSLComp Stereo"
+  ],
+  "03 DYNAMICS / 01 Compression / Waves C-Series": [
+    "C1 comp Mono",
+    "C1 comp Stereo",
+    "C1 comp-sc Mono",
+    "C1 comp-sc Stereo",
+    "C4 Mono",
+    "C4 Stereo",
+    "C6 Mono",
+    "C6 Stereo",
+    "C6-SideChain Mono",
+    "C6-SideChain Stereo"
+  ],
+  "03 DYNAMICS / 01 Compression / Waves CLA": [
+    "CLA-2A Mono",
+    "CLA-2A Stereo",
+    "CLA-3A Mono",
+    "CLA-3A Stereo",
+    "CLA-76 Mono",
+    "CLA-76 Stereo"
+  ],
+  "03 DYNAMICS / 01 Compression / Waves DPR": [
+    "DPR-402 Mono",
+    "DPR-402 Stereo"
+  ],
+  "03 DYNAMICS / 01 Compression / Waves H-Series": [
+    "H-Comp Mono",
+    "H-Comp Stereo"
+  ],
+  "03 DYNAMICS / 01 Compression / Waves IDX": [
+    "IDX Intelligent Dynamics Mono",
+    "IDX Intelligent Dynamics Stereo",
+    "IDX LIVE Intelligent Dynamics Mono",
+    "IDX LIVE Intelligent Dynamics Stereo"
+  ],
+  "03 DYNAMICS / 01 Compression / Waves IMPusher": [
+    "IMPusher Mono",
+    "IMPusher Stereo"
+  ],
+  "03 DYNAMICS / 01 Compression / Waves LinMB": [
+    "LinMB Mono",
+    "LinMB Stereo"
+  ],
+  "03 DYNAMICS / 01 Compression / Waves MV Maxx": [
+    "MaxxVolume Mono",
+    "MaxxVolume Stereo",
+    "MV2 Mono",
+    "MV2 Stereo"
+  ],
+  "03 DYNAMICS / 01 Compression / Waves OneKnob": [
+    "OneKnob Louder Mono",
+    "OneKnob Louder Stereo",
+    "OneKnob Pressure Mono",
+    "OneKnob Pressure Stereo"
+  ],
+  "03 DYNAMICS / 01 Compression / Waves Renaissance": [
+    "RCompressor Mono",
+    "RCompressor Stereo"
+  ],
+  "03 DYNAMICS / 01 Compression / Waves V-Series Vitamin": [
+    "VComp Mono",
+    "VComp Stereo"
+  ],
+  "03 DYNAMICS / 01 Compression / Waves eMo": [
+    "EMO-D5 Mono",
+    "EMO-D5 Stereo"
+  ],
+  "03 DYNAMICS / 01 Compression / dbx": [
+    "dbx-160 Mono",
+    "dbx-160 Stereo"
+  ],
+  "03 DYNAMICS / 02 Limiting Clipping": [
+    "Pro-L 2",
+    "StandardCLIP"
+  ],
+  "03 DYNAMICS / 02 Limiting Clipping / Waves L-Series": [
+    "L1 limiter Mono",
+    "L1 limiter Stereo",
+    "L1+ Ultramaximizer Stereo",
+    "L2 Mono",
+    "L2 Stereo",
+    "L2-SC Mono",
+    "L2-SC Stereo",
+    "L3 MultiMaximizer Mono",
+    "L3 MultiMaximizer Stereo",
+    "L3 UltraMaximizer Mono",
+    "L3 UltraMaximizer Stereo",
+    "L3-LL Multi Mono",
+    "L3-LL Multi Stereo",
+    "L3-LL Ultra Mono",
+    "L3-LL Ultra Stereo",
+    "L316 Mono",
+    "L316 Stereo"
+  ],
+  "03 DYNAMICS / 03 Gates Transients": [
+    "Pro-G"
+  ],
+  "03 DYNAMICS / 03 Gates Transients / Waves C-Series": [
+    "C1 comp-gate Mono",
+    "C1 comp-gate Stereo",
+    "C1 gate Mono",
+    "C1 gate Stereo"
+  ],
+  "03 DYNAMICS / 03 Gates Transients / Waves PSE": [
+    "PSE Mono",
+    "PSE Stereo"
+  ],
+  "03 DYNAMICS / 03 Gates Transients / Waves Smack Attack": [
+    "Smack Attack Mono",
+    "Smack Attack Stereo"
+  ],
+  "03 DYNAMICS / 03 Gates Transients / Waves TransX": [
+    "TransX Multi Mono",
+    "TransX Multi Stereo",
+    "TransX Wide Mono",
+    "TransX Wide Stereo"
+  ],
+  "03 DYNAMICS / 04 Sidechain Riders": [
+    "Kickstart",
+    "PlaylistRider Mono",
+    "PlaylistRider Stereo",
+    "Trackspacer"
+  ],
+  "03 DYNAMICS / 04 Sidechain Riders / Waves OneKnob": [
+    "OneKnob Pumper Mono",
+    "OneKnob Pumper Stereo"
+  ],
+  "04 DISTORTION COLOR / 01 Saturation Distortion": [
+    "Saturn 2"
+  ],
+  "04 DISTORTION COLOR / 01 Saturation Distortion / Abbey Road": [
+    "Abbey Road Saturator Mono",
+    "Abbey Road Saturator Stereo"
+  ],
+  "04 DISTORTION COLOR / 01 Saturation Distortion / Acustica / Gold 5": [
+    "GOLD5PRE",
+    "GOLD5PREZL"
+  ],
+  "04 DISTORTION COLOR / 01 Saturation Distortion / Manny Marroquin": [
+    "MannyM Distortion Mono",
+    "MannyM Distortion Stereo"
+  ],
+  "04 DISTORTION COLOR / 01 Saturation Distortion / Soundtoys": [
+    "Decapitator",
+    "Devil-Loc",
+    "Devil-Loc Deluxe"
+  ],
+  "04 DISTORTION COLOR / 01 Saturation Distortion / Waves Berzerk": [
+    "Berzerk Distortion Mono",
+    "Berzerk Distortion Stereo"
+  ],
+  "04 DISTORTION COLOR / 01 Saturation Distortion / Waves MDMX": [
+    "MDMX Fuzz Mono",
+    "MDMX Fuzz Stereo",
+    "MDMX OverDrive Mono",
+    "MDMX OverDrive Stereo",
+    "MDMX Screamer Mono",
+    "MDMX Screamer Stereo"
+  ],
+  "04 DISTORTION COLOR / 01 Saturation Distortion / Waves OneKnob": [
+    "OneKnob Driver Mono",
+    "OneKnob Driver Stereo"
+  ],
+  "04 DISTORTION COLOR / 02 Tape Lo-Fi Vinyl": [
+    "P821 MDN Tape",
+    "RC-20 Retro Color",
+    "Tape MELLO-FI",
+    "Virtual Tape Machines"
+  ],
+  "04 DISTORTION COLOR / 02 Tape Lo-Fi Vinyl / Abbey Road": [
+    "Abbey Road J37 Tape Mono",
+    "Abbey Road J37 Tape Stereo",
+    "Abbey Road Vinyl Light Mono",
+    "Abbey Road Vinyl Light Stereo",
+    "Abbey Road Vinyl Mono",
+    "Abbey Road Vinyl Stereo"
+  ],
+  "04 DISTORTION COLOR / 02 Tape Lo-Fi Vinyl / Kramer": [
+    "Kramer Tape Mono",
+    "Kramer Tape Stereo"
+  ],
+  "04 DISTORTION COLOR / 02 Tape Lo-Fi Vinyl / Waves Lofi Space": [
+    "Lofi Space Mono",
+    "Lofi Space Mono-Stereo",
+    "Lofi Space Stereo"
+  ],
+  "04 DISTORTION COLOR / 02 Tape Lo-Fi Vinyl / Waves Retro Fi": [
+    "Retro Fi Mono",
+    "Retro Fi Mono-Stereo",
+    "Retro Fi Stereo"
+  ],
+  "04 DISTORTION COLOR / 03 Exciters Color": [
+    "AnalogX Genesis"
+  ],
+  "04 DISTORTION COLOR / 03 Exciters Color / Soundtoys": [
+    "Little Radiator",
+    "Radiator"
+  ],
+  "04 DISTORTION COLOR / 03 Exciters Color / Waves Aphex": [
+    "Aphex Vintage Exciter Mono",
+    "Aphex Vintage Exciter Stereo"
+  ],
+  "04 DISTORTION COLOR / 03 Exciters Color / Waves Magma": [
+    "Magma BB Tubes Mono",
+    "Magma BB Tubes Stereo",
+    "Magma Lil Tube Mono",
+    "Magma Lil Tube Stereo"
+  ],
+  "04 DISTORTION COLOR / 03 Exciters Color / Waves Maserati": [
+    "Maserati HMX Mono-Stereo",
+    "Maserati HMX Stereo"
+  ],
+  "04 DISTORTION COLOR / 03 Exciters Color / Waves NLS": [
+    "NLS Buss Mono",
+    "NLS Buss Stereo"
+  ],
+  "04 DISTORTION COLOR / 03 Exciters Color / Waves Saphira": [
+    "Saphira Mono",
+    "Saphira Stereo"
+  ],
+  "04 DISTORTION COLOR / 03 Exciters Color / Waves V-Series Vitamin": [
+    "Vitamin Mono",
+    "Vitamin Stereo"
+  ],
+  "05 SPACE / 01 Reverb": [
+    "LX480 Complete",
+    "MPXReverb",
+    "Pro-R 2",
+    "TrueVerb Mono",
+    "TrueVerb Mono-Stereo",
+    "TrueVerb Stereo",
+    "Wet Reverb"
+  ],
+  "05 SPACE / 01 Reverb / Abbey Road": [
+    "Abbey Road Chambers Mono",
+    "Abbey Road Chambers Mono-Stereo",
+    "Abbey Road Chambers Stereo",
+    "Abbey Road Plates Mono",
+    "Abbey Road Plates Mono-Stereo",
+    "Abbey Road Plates Stereo"
+  ],
+  "05 SPACE / 01 Reverb / Lexicon": [
+    "LexChamber",
+    "LexConcertHall",
+    "LexHall",
+    "LexPlate",
+    "LexRandomHall",
+    "LexRoom",
+    "LexVintagePlate"
+  ],
+  "05 SPACE / 01 Reverb / Manny Marroquin": [
+    "MannyM Reverb Mono",
+    "MannyM Reverb Mono-Stereo",
+    "MannyM Reverb Stereo"
+  ],
+  "05 SPACE / 01 Reverb / Valhalla": [
+    "ValhallaPlate",
+    "ValhallaRoom",
+    "ValhallaVintageVerb"
+  ],
+  "05 SPACE / 01 Reverb / Waves H-Reverb": [
+    "H-Reverb long Mono",
+    "H-Reverb long Mono-Stereo",
+    "H-Reverb long Stereo",
+    "H-Reverb Mono",
+    "H-Reverb Mono-Stereo",
+    "H-Reverb Stereo"
+  ],
+  "05 SPACE / 01 Reverb / Waves IR": [
+    "IR-L efficient Stereo",
+    "IR-L full Stereo",
+    "IR-L Mono",
+    "IR-L Mono-Stereo",
+    "IR1 efficient Stereo",
+    "IR1 full Stereo",
+    "IR1 Mono",
+    "IR1 Mono-Stereo",
+    "IRLive Mono",
+    "IRLive Mono-Stereo",
+    "IRLive Stereo"
+  ],
+  "05 SPACE / 01 Reverb / Waves Renaissance": [
+    "RVerb Mono-Stereo",
+    "RVerb Stereo"
+  ],
+  "05 SPACE / 02 Delay": [
+    "SuperTap 2-Taps Mono",
+    "SuperTap 2-Taps Mono-Stereo",
+    "SuperTap 2-Taps Stereo",
+    "SuperTap 6-Taps Mono",
+    "SuperTap 6-Taps Mono-Stereo",
+    "SuperTap 6-Taps Stereo",
+    "Timeless 3"
+  ],
+  "05 SPACE / 02 Delay / Manny Marroquin": [
+    "MannyM Delay Mono-Stereo",
+    "MannyM Delay Stereo"
+  ],
+  "05 SPACE / 02 Delay / Soundtoys": [
+    "EchoBoy",
+    "Little PrimalTap",
+    "PrimalTap"
+  ],
+  "05 SPACE / 02 Delay / Valhalla": [
+    "ValhallaDelay",
+    "ValhallaFreqEcho"
+  ],
+  "05 SPACE / 02 Delay / Waves CLA": [
+    "CLA EchoSphere Mono-Stereo",
+    "CLA EchoSphere Stereo"
+  ],
+  "05 SPACE / 02 Delay / Waves H-Delay": [
+    "H-Delay Mono",
+    "H-Delay Mono-Stereo",
+    "H-Delay Stereo"
+  ],
+  "05 SPACE / 03 Special Space FX": [
+    "Cloudmax 2",
+    "Crystalline",
+    "Crystallizer",
+    "Frostbite 2",
+    "Space Rider Mono-Stereo",
+    "Space Rider Stereo"
+  ],
+  "05 SPACE / 03 Special Space FX / Valhalla": [
+    "ValhallaShimmer",
+    "ValhallaSupermassive"
+  ],
+  "05 SPACE / 03 Special Space FX / Waves CLA": [
+    "CLA Epic Mono-Stereo",
+    "CLA Epic Stereo"
+  ],
+  "05 SPACE / 03 Special Space FX / Waves Magma": [
+    "Magma Springs Mono",
+    "Magma Springs Mono-Stereo",
+    "Magma Springs Stereo"
+  ],
+  "05 SPACE / 03 Special Space FX / Waves OneKnob": [
+    "OneKnob Wetter Mono",
+    "OneKnob Wetter Mono-Stereo",
+    "OneKnob Wetter Stereo"
+  ],
+  "06 MOVEMENT FX / 01 Chorus Phaser Flanger / Soundtoys": [
+    "PanMan",
+    "PhaseMistress",
+    "Tremolator"
+  ],
+  "06 MOVEMENT FX / 01 Chorus Phaser Flanger / Valhalla": [
+    "ValhallaSpaceModulator",
+    "ValhallaUberMod"
+  ],
+  "06 MOVEMENT FX / 01 Chorus Phaser Flanger / Waves Brauer Motion": [
+    "Brauer Motion Mono-Stereo",
+    "Brauer Motion Stereo"
+  ],
+  "06 MOVEMENT FX / 01 Chorus Phaser Flanger / Waves Doppler": [
+    "Doppler Mono-Stereo",
+    "Doppler Stereo"
+  ],
+  "06 MOVEMENT FX / 01 Chorus Phaser Flanger / Waves Kaleidoscopes": [
+    "Kaleidoscopes Mono",
+    "Kaleidoscopes Mono-Stereo",
+    "Kaleidoscopes Stereo"
+  ],
+  "06 MOVEMENT FX / 01 Chorus Phaser Flanger / Waves MetaFlanger": [
+    "MetaFlanger Mono",
+    "MetaFlanger Mono-Stereo",
+    "MetaFlanger Stereo"
+  ],
+  "06 MOVEMENT FX / 01 Chorus Phaser Flanger / Waves MondoMod": [
+    "MondoMod Mono",
+    "MondoMod Mono-Stereo",
+    "MondoMod Stereo"
+  ],
+  "06 MOVEMENT FX / 02 Filters Sweeps": [
+    "Endless Smile",
+    "MetaFilter Mono",
+    "MetaFilter Mono-Stereo",
+    "MetaFilter Stereo"
+  ],
+  "06 MOVEMENT FX / 02 Filters Sweeps / FabFilter": [
+    "Micro",
+    "Simplon",
+    "Volcano 3"
+  ],
+  "06 MOVEMENT FX / 02 Filters Sweeps / Soundtoys": [
+    "FilterFreak1",
+    "FilterFreak2"
+  ],
+  "06 MOVEMENT FX / 02 Filters Sweeps / Waves OneKnob": [
+    "OneKnob Filter Mono",
+    "OneKnob Filter Stereo"
+  ],
+  "06 MOVEMENT FX / 03 Glitch Multi-FX": [
+    "Flex Beat",
+    "FREQ-FX",
+    "Portal"
+  ],
+  "06 MOVEMENT FX / 03 Glitch Multi-FX / Toolroom": [
+    "INFINITE"
+  ],
+  "06 MOVEMENT FX / 03 Glitch Multi-FX / Waves Enigma": [
+    "Enigma Mono-Stereo",
+    "Enigma Stereo"
+  ],
+  "06 MOVEMENT FX / 03 Glitch Multi-FX / Waves Gemstones": [
+    "Waves Gemstones Mono-Stereo",
+    "Waves Gemstones Stereo"
+  ],
+  "06 MOVEMENT FX / 03 Glitch Multi-FX / Waves Renaissance": [
+    "Renaissance Axx Mono",
+    "Renaissance Axx Stereo"
+  ],
+  "06 MOVEMENT FX / 03 Glitch Multi-FX / Waves SoundShifter": [
+    "SoundShifter Pitch Mono",
+    "SoundShifter Pitch Stereo"
+  ],
+  "06 MOVEMENT FX / 04 Guitar Amp FX": [
+    "Guitar Rig 6"
+  ],
+  "06 MOVEMENT FX / 04 Guitar Amp FX / Kramer": [
+    "EKramer GT Mono-Stereo",
+    "EKramer GT Stereo"
+  ],
+  "06 MOVEMENT FX / 04 Guitar Amp FX / Waves CLA": [
+    "CLA Guitars Mono-Stereo",
+    "CLA Guitars Stereo"
+  ],
+  "06 MOVEMENT FX / 04 Guitar Amp FX / Waves Guitar Amps": [
+    "GTR Amp 2Cab Mono",
+    "GTR Amp Mono",
+    "GTR Amp Mono-Stereo",
+    "GTR Amp Stereo",
+    "GTR Solo Tool Rack Mono-Stereo",
+    "GTR Solo Tool Rack Stereo",
+    "GTR Stomp 2 Mono",
+    "GTR Stomp 2 Mono-Stereo",
+    "GTR Stomp 2 Stereo",
+    "GTR Stomp 4 Mono",
+    "GTR Stomp 4 Mono-Stereo",
+    "GTR Stomp 4 Stereo",
+    "GTR Stomp 6 Mono",
+    "GTR Stomp 6 Mono-Stereo",
+    "GTR Stomp 6 Stereo",
+    "GTR Tool Rack Mono-Stereo",
+    "GTR Tool Rack Stereo",
+    "PRS Archon Mono",
+    "PRS Archon Mono-Stereo",
+    "PRS Dallas Mono",
+    "PRS Dallas Mono-Stereo",
+    "PRS V9 Mono",
+    "PRS V9 Mono-Stereo",
+    "Voltage Amps Guitar Mono",
+    "Voltage Amps Guitar Mono-Stereo",
+    "Voltage Amps Guitar Stereo"
+  ],
+  "06 MOVEMENT FX / 04 Guitar Amp FX / Waves Maserati": [
+    "Maserati GTi Mono-Stereo",
+    "Maserati GTi Stereo"
+  ],
+  "06 MOVEMENT FX / 05 Pitch Time Formant": [
+    "Auto-Key 2",
+    "GTR Tuner Mono",
+    "Key Detector Mono",
+    "Key Detector Stereo",
+    "Little AlterBoy",
+    "Vocodine"
+  ],
+  "06 MOVEMENT FX / 05 Pitch Time Formant / Waves Morphoder": [
+    "Morphoder Mono",
+    "Morphoder Mono-Stereo",
+    "Morphoder Stereo"
+  ],
+  "06 MOVEMENT FX / 05 Pitch Time Formant / Waves Torque": [
+    "Torque Mono",
+    "Torque Stereo",
+    "Torque-Live Mono",
+    "Torque-Live Stereo"
+  ],
+  "06 MOVEMENT FX / 05 Pitch Time Formant / Waves UltraPitch": [
+    "UltraPitch 3 Voices Mono",
+    "UltraPitch 3 Voices Mono-Stereo",
+    "UltraPitch 6 Voices Mono",
+    "UltraPitch 6 Voices Mono-Stereo",
+    "UltraPitch Shift Mono",
+    "UltraPitch Shift Mono-Stereo"
+  ],
+  "07 BASS SUB / 01 Bass Enhancers": [
+    "Bassmaker"
+  ],
+  "07 BASS SUB / 01 Bass Enhancers / Image-Line": [
+    "Fruity Bass Boost",
+    "Low Lifter"
+  ],
+  "07 BASS SUB / 01 Bass Enhancers / Waves Bass": [
+    "MaxxBass Mono",
+    "MaxxBass Stereo"
+  ],
+  "07 BASS SUB / 01 Bass Enhancers / Waves OneKnob": [
+    "OneKnob Phatter Mono",
+    "OneKnob Phatter Stereo"
+  ],
+  "07 BASS SUB / 01 Bass Enhancers / Waves Renaissance": [
+    "RBass Mono",
+    "RBass Stereo"
+  ],
+  "07 BASS SUB / 02 Sub Tools / Waves Bass": [
+    "LoAir Mono",
+    "LoAir Stereo",
+    "Submarine Mono",
+    "Submarine Stereo"
+  ],
+  "07 BASS SUB / 03 Bass Mix Chains": [
+    "Basslane Pro"
+  ],
+  "07 BASS SUB / 03 Bass Mix Chains / Kramer": [
+    "EKramer BA Mono",
+    "EKramer BA Stereo"
+  ],
+  "07 BASS SUB / 03 Bass Mix Chains / Waves Bass Rider": [
+    "Bass Rider Live Mono",
+    "Bass Rider Live Stereo",
+    "Bass Rider Mono",
+    "Bass Rider Stereo"
+  ],
+  "07 BASS SUB / 03 Bass Mix Chains / Waves CLA": [
+    "CLA Bass Mono-Stereo",
+    "CLA Bass Stereo"
+  ],
+  "07 BASS SUB / 03 Bass Mix Chains / Waves Guitar Amps": [
+    "Voltage Amps Bass Mono",
+    "Voltage Amps Bass Mono-Stereo",
+    "Voltage Amps Bass Stereo"
+  ],
+  "07 BASS SUB / 03 Bass Mix Chains / Waves JJP": [
+    "JJP-Bass Mono",
+    "JJP-Bass Mono-Stereo",
+    "JJP-Bass Stereo"
+  ],
+  "07 BASS SUB / 03 Bass Mix Chains / Waves Maserati": [
+    "Maserati B72 Mono",
+    "Maserati B72 Mono-Stereo",
+    "Maserati B72 Stereo"
+  ],
+  "08 STEREO UTILITY / 01 Width Doubler Imaging": [
+    "Abbey Road Studio 3 Stereo",
+    "Center Stereo",
+    "CLA Nx Stereo",
+    "NX Mono-Stereo",
+    "NX Stereo"
+  ],
+  "08 STEREO UTILITY / 01 Width Doubler Imaging / Abbey Road ADT": [
+    "Abbey Road Reel ADT Live Mono",
+    "Abbey Road Reel ADT Live Mono-Stereo",
+    "Abbey Road Reel ADT Live Stereo",
+    "Abbey Road Reel ADT Mono",
+    "Abbey Road Reel ADT Mono-Stereo",
+    "Abbey Road Reel ADT Stereo",
+    "Abbey Road Reel ADT2V Live Mono-Stereo",
+    "Abbey Road Reel ADT2V Live Stereo",
+    "Abbey Road Reel ADT2V Mono-Stereo",
+    "Abbey Road Reel ADT2V Stereo"
+  ],
+  "08 STEREO UTILITY / 01 Width Doubler Imaging / Soundtoys": [
+    "Little MicroShift",
+    "MicroShift"
+  ],
+  "08 STEREO UTILITY / 01 Width Doubler Imaging / Waves Doubler": [
+    "Doubler2 Mono",
+    "Doubler2 Mono-Stereo",
+    "Doubler2 Stereo",
+    "Doubler4 Mono",
+    "Doubler4 Mono-Stereo",
+    "Doubler4 Stereo"
+  ],
+  "08 STEREO UTILITY / 01 Width Doubler Imaging / Waves Nx": [
+    "Nx Germano Studios Stereo",
+    "Nx Ocean Way Nashville Stereo"
+  ],
+  "08 STEREO UTILITY / 01 Width Doubler Imaging / Waves PS22": [
+    "PS22 Split Mono-Stereo",
+    "PS22 Split Stereo",
+    "PS22 Spread Mono-Stereo",
+    "PS22 Spread Stereo",
+    "PS22 Spread(10) Mono-Stereo",
+    "PS22 Spread(10) Stereo",
+    "PS22 XSplit Mono-Stereo",
+    "PS22 XSplit Stereo"
+  ],
+  "08 STEREO UTILITY / 01 Width Doubler Imaging / Waves S-Series": [
+    "S1 Imager Stereo",
+    "S1 MS Matrix Stereo",
+    "S1 Shuffler Stereo"
+  ],
+  "08 STEREO UTILITY / 02 Metering Analyzer": [
+    "VU Meter Mono",
+    "VU Meter Stereo"
+  ],
+  "08 STEREO UTILITY / 02 Metering Analyzer / Abbey Road": [
+    "Abbey Road TG Meter Bridge Mono",
+    "Abbey Road TG Meter Bridge Stereo"
+  ],
+  "08 STEREO UTILITY / 02 Metering Analyzer / Dorrough": [
+    "Dorrough Mono",
+    "Dorrough Stereo"
+  ],
+  "08 STEREO UTILITY / 02 Metering Analyzer / Waves PAZ": [
+    "PAZ- Analyzer Stereo",
+    "PAZ- Frequency Mono",
+    "PAZ- Frequency Stereo",
+    "PAZ- Meters Mono",
+    "PAZ- Meters Stereo",
+    "PAZ- Position Stereo"
+  ],
+  "08 STEREO UTILITY / 02 Metering Analyzer / Waves WLM": [
+    "WLM Meter Mono",
+    "WLM Meter Stereo",
+    "WLM Plus Mono",
+    "WLM Plus Stereo"
+  ],
+  "08 STEREO UTILITY / 03 Routing Utility": [
+    "VoxengoRecorder"
+  ],
+  "08 STEREO UTILITY / 03 Routing Utility / Audiomovers Transmitter": [
+    "Transmitter"
+  ],
+  "08 STEREO UTILITY / 03 Routing Utility / Waves Bass": [
+    "Sub Align Mono",
+    "Sub Align Stereo"
+  ],
+  "08 STEREO UTILITY / 03 Routing Utility / Waves InPhase": [
+    "InPhase Live Mono",
+    "InPhase Live Stereo",
+    "InPhase LT Live Mono",
+    "InPhase LT Live Stereo",
+    "InPhase LT Mono",
+    "InPhase LT Stereo",
+    "InPhase Mono",
+    "InPhase Stereo"
+  ],
+  "08 STEREO UTILITY / 03 Routing Utility / Waves Q-Series": [
+    "Q-Capture Mono",
+    "Q-Clone Mono",
+    "Q-Clone Stereo"
+  ],
+  "08 STEREO UTILITY / 03 Routing Utility / Waves Stream": [
+    "Waves Stream Receive Mono",
+    "Waves Stream Receive Stereo",
+    "Waves Stream Send Mono",
+    "Waves Stream Send Stereo"
+  ],
+  "08 STEREO UTILITY / 03 Routing Utility / Waves TRACT": [
+    "TRACT Mono",
+    "TRACT Stereo"
+  ],
+  "08 STEREO UTILITY / 03 Routing Utility / Waves eMo": [
+    "EMO-Generator Mono",
+    "EMO-Generator Stereo"
+  ],
+  "09 CLEANUP REPAIR / 01 Noise Click Hum": [
+    "NS1 Mono",
+    "NS1 Stereo",
+    "W43 Mono",
+    "W43 Stereo",
+    "WNS Mono",
+    "WNS Stereo",
+    "Z-Noise Mono",
+    "Z-Noise Stereo"
+  ],
+  "09 CLEANUP REPAIR / 01 Noise Click Hum / Waves X-Series": [
+    "X-Click Mono",
+    "X-Click Stereo",
+    "X-Crackle Mono",
+    "X-Crackle Stereo",
+    "X-FDBK Mono",
+    "X-FDBK Stereo",
+    "X-Hum Mono",
+    "X-Hum Stereo",
+    "X-Noise Mono",
+    "X-Noise Stereo"
+  ],
+  "09 CLEANUP REPAIR / 02 RX Tools / iZotope RX": [
+    "RX 10 Breath Control",
+    "RX 10 Connect",
+    "RX 10 De-click",
+    "RX 10 De-clip",
+    "RX 10 De-crackle",
+    "RX 10 De-ess",
+    "RX 10 De-hum",
+    "RX 10 De-plosive",
+    "RX 10 De-reverb",
+    "RX 10 Guitar De-noise",
+    "RX 10 Monitor",
+    "RX 10 Mouth De-click",
+    "RX 10 Repair Assistant",
+    "RX 10 Spectral De-noise",
+    "RX 10 Voice De-noise"
+  ],
+  "10 CHANNEL STRIPS & ALL-IN-ONE / 01 Channel Strips / Abbey Road": [
+    "Abbey Road EMI TG12345 Ch Mono",
+    "Abbey Road EMI TG12345 Ch Stereo",
+    "Abbey Road REDD.17 Mono",
+    "Abbey Road REDD.17 Stereo",
+    "Abbey Road REDD.37.51 Mono",
+    "Abbey Road REDD.37.51 Stereo"
+  ],
+  "10 CHANNEL STRIPS & ALL-IN-ONE / 01 Channel Strips / Acustica / Gold 5": [
+    "GOLD5",
+    "GOLD5ZL"
+  ],
+  "10 CHANNEL STRIPS & ALL-IN-ONE / 01 Channel Strips / Kramer": [
+    "Kramer HLS Mono",
+    "Kramer HLS Stereo"
+  ],
+  "10 CHANNEL STRIPS & ALL-IN-ONE / 01 Channel Strips / SSL": [
+    "SSL EV2 Channel Mono",
+    "SSL EV2 Channel Stereo",
+    "SSLChannel Mono",
+    "SSLChannel Stereo",
+    "SSLGChannel Mono",
+    "SSLGChannel Stereo"
+  ],
+  "10 CHANNEL STRIPS & ALL-IN-ONE / 01 Channel Strips / Scheps": [
+    "Scheps Omni Channel 2 Mono",
+    "Scheps Omni Channel 2 Stereo"
+  ],
+  "10 CHANNEL STRIPS & ALL-IN-ONE / 01 Channel Strips / Waves AudioTrack": [
+    "AudioTrack Mono",
+    "AudioTrack Stereo"
+  ],
+  "10 CHANNEL STRIPS & ALL-IN-ONE / 01 Channel Strips / Waves CLA": [
+    "CLA MixHub Lite Mono",
+    "CLA MixHub Lite Stereo",
+    "CLA MixHub Mono",
+    "CLA MixHub Stereo"
+  ],
+  "10 CHANNEL STRIPS & ALL-IN-ONE / 01 Channel Strips / Waves Magma": [
+    "Magma Channel Strip Mono",
+    "Magma Channel Strip Stereo"
+  ],
+  "10 CHANNEL STRIPS & ALL-IN-ONE / 01 Channel Strips / Waves NLS": [
+    "NLS Channel Mono",
+    "NLS Channel Stereo"
+  ],
+  "10 CHANNEL STRIPS & ALL-IN-ONE / 01 Channel Strips / Waves Renaissance": [
+    "RChannel Mono",
+    "RChannel Mono-Stereo",
+    "RChannel Stereo"
+  ],
+  "10 CHANNEL STRIPS & ALL-IN-ONE / 02 Modular Racks": [
+    "Virtual Mix Rack"
+  ],
+  "10 CHANNEL STRIPS & ALL-IN-ONE / 02 Modular Racks / Soundtoys": [
+    "EffectRack"
+  ],
+  "10 CHANNEL STRIPS & ALL-IN-ONE / 02 Modular Racks / Waves MultiMod": [
+    "MultiMod Rack Mono",
+    "MultiMod Rack Mono-Stereo",
+    "MultiMod Rack Stereo"
+  ],
+  "10 CHANNEL STRIPS & ALL-IN-ONE / 02 Modular Racks / Waves StudioVerse": [
+    "StudioVerse Audio Effects Mono",
+    "StudioVerse Audio Effects Mono-Stereo",
+    "StudioVerse Audio Effects Stereo"
+  ],
+  "10 CHANNEL STRIPS & ALL-IN-ONE / 03 All-In-One Processors": [
+    "Ozone 12",
+    "The God Particle"
+  ],
+  "10 CHANNEL STRIPS & ALL-IN-ONE / 03 All-In-One Processors / Abbey Road": [
+    "Abbey Road TG Mastering Live Mono",
+    "Abbey Road TG Mastering Live Stereo",
+    "Abbey Road TG Mastering Mono",
+    "Abbey Road TG Mastering Stereo"
+  ],
+  "10 CHANNEL STRIPS & ALL-IN-ONE / 03 All-In-One Processors / Avalon": [
+    "Avalon VT-747SP"
+  ],
+  "10 CHANNEL STRIPS & ALL-IN-ONE / 03 All-In-One Processors / Baby Audio": [
+    "Parallel Aggressor"
+  ],
+  "10 CHANNEL STRIPS & ALL-IN-ONE / 03 All-In-One Processors / Greg Wells": [
+    "GW MixCentric Mono",
+    "GW MixCentric Stereo",
+    "GW PianoCentric Mono",
+    "GW PianoCentric Mono-Stereo",
+    "GW PianoCentric Stereo",
+    "GW ToneCentric Mono",
+    "GW ToneCentric Stereo"
+  ],
+  "10 CHANNEL STRIPS & ALL-IN-ONE / 03 All-In-One Processors / Manny Marroquin": [
+    "MannyM Tone Shaper Mono",
+    "MannyM Tone Shaper Stereo"
+  ],
+  "10 CHANNEL STRIPS & ALL-IN-ONE / 03 All-In-One Processors / Scheps": [
+    "Scheps Parallel Particles Mono",
+    "Scheps Parallel Particles Stereo"
+  ],
+  "10 CHANNEL STRIPS & ALL-IN-ONE / 03 All-In-One Processors / Waves CLA": [
+    "CLA Drums Mono-Stereo",
+    "CLA Drums Stereo",
+    "CLA Effects Mono-Stereo",
+    "CLA Effects Stereo",
+    "CLA MixDown Mono",
+    "CLA MixDown Stereo",
+    "CLA Unplugged Mono-Stereo",
+    "CLA Unplugged Stereo"
+  ],
+  "10 CHANNEL STRIPS & ALL-IN-ONE / 03 All-In-One Processors / Waves JJP": [
+    "JJP-Cymb-Perc Mono-Stereo",
+    "JJP-Cymb-Perc Stereo",
+    "JJP-Drums Mono",
+    "JJP-Drums Mono-Stereo",
+    "JJP-Drums Stereo",
+    "JJP-Guitars Mono-Stereo",
+    "JJP-Guitars Stereo",
+    "JJP-Strings-Keys Mono-Stereo",
+    "JJP-Strings-Keys Stereo"
+  ],
+  "10 CHANNEL STRIPS & ALL-IN-ONE / 03 All-In-One Processors / Waves Kramer": [
+    "EKramer DR Mono",
+    "EKramer DR Stereo",
+    "EKramer FX Mono-Stereo",
+    "EKramer FX Stereo"
+  ],
+  "10 CHANNEL STRIPS & ALL-IN-ONE / 03 All-In-One Processors / Waves Maserati": [
+    "Maserati ACG Mono-Stereo",
+    "Maserati ACG Stereo",
+    "Maserati DRM Mono",
+    "Maserati DRM Stereo",
+    "Maserati GRP Mono",
+    "Maserati GRP Stereo"
+  ],
+  "90 FL STOCK / 01 EQ Dynamics": [
+    "EQUO",
+    "Soundgoodizer",
+    "Transient Processor"
+  ],
+  "90 FL STOCK / 01 EQ Dynamics / Image-Line": [
+    "Fruity 7 Band EQ",
+    "Fruity Compressor",
+    "Fruity Limiter",
+    "Fruity Multiband Compressor",
+    "Fruity Parametric EQ",
+    "Fruity Parametric EQ 2",
+    "Fruity Soft Clipper",
+    "Maximus"
+  ],
+  "90 FL STOCK / 02 Space Delay": [
+    "Multiband Delay"
+  ],
+  "90 FL STOCK / 02 Space Delay / Image-Line": [
+    "Fruity Convolver",
+    "Fruity Delay",
+    "Fruity Delay 2",
+    "Fruity Delay 3",
+    "Fruity Delay Bank",
+    "Fruity Reeverb",
+    "Fruity Reeverb 2",
+    "Luxeverb"
+  ],
+  "90 FL STOCK / 03 Color Movement": [
+    "Hyper Chorus",
+    "Vintage Chorus",
+    "Vintage Phaser"
+  ],
+  "90 FL STOCK / 03 Color Movement / Image-Line": [
+    "Distructor",
+    "Frequency Shifter",
+    "Frequency Splitter",
+    "Fruity Blood Overdrive",
+    "Fruity Chorus",
+    "Fruity Fast Dist",
+    "Fruity Fast LP",
+    "Fruity Filter",
+    "Fruity Flanger",
+    "Fruity Flangus",
+    "Fruity Free Filter",
+    "Fruity Love Philter",
+    "Fruity Phaser",
+    "Fruity Squeeze",
+    "Fruity WaveShaper",
+    "Spreader"
+  ],
+  "90 FL STOCK / 04 Pitch Vocal": [
+    "Pitch Shifter"
+  ],
+  "90 FL STOCK / 04 Pitch Vocal / Image-Line": [
+    "Fruity Vocoder",
+    "Newtime",
+    "Newtone",
+    "Pitcher",
+    "Tuner",
+    "Vocodex"
+  ],
+  "90 FL STOCK / 05 Utility Visual": [
+    "Razer Chroma",
+    "VFX Color Mapper",
+    "VFX Envelope",
+    "VFX Key Mapper",
+    "VFX Keyboard Splitter",
+    "VFX Level Scaler",
+    "VFX Script",
+    "VFX Sequencer"
+  ],
+  "90 FL STOCK / 05 Utility Visual / Image-Line": [
+    "Control Surface",
+    "Edison",
+    "Fruity Balance",
+    "Fruity Big Clock",
+    "Fruity Center",
+    "Fruity dB Meter",
+    "Fruity Formula Controller",
+    "Fruity HTML NoteBook",
+    "Fruity Mute 2",
+    "Fruity NoteBook",
+    "Fruity NoteBook 2",
+    "Fruity PanOMatic",
+    "Fruity Peak Controller",
+    "Fruity Phase Inverter",
+    "Fruity Send",
+    "Fruity Spectroman",
+    "Fruity Wrapper",
+    "Fruity X-Y Controller",
+    "Fruity X-Y-Z Controller",
+    "Patcher",
+    "Transporter",
+    "Wave Candy",
+    "ZGameEditor Visualizer"
+  ],
+  "90 FL STOCK / 06 Creative / Image-Line": [
+    "Effector",
+    "Fruity LSD",
+    "Fruity Scratcher",
+    "Gross Beat",
+    "Hardcore"
+  ],
+  "90 FL STOCK / 99 Other FL Stock": [
+    "Emphasis",
+    "Emphasizer"
+  ],
+  "90 FL STOCK / 99 Other FL Stock / Image-Line": [
+    "Fruity Stereo Enhancer",
+    "Fruity Stereo Shaper"
+  ],
+  "99 SURROUND RARE / Abbey Road": [
+    "Abbey Road Studio 3 5.1-Stereo",
+    "Abbey Road Studio 3 7.1-Stereo"
+  ],
+  "99 SURROUND RARE / Dorrough": [
+    "Dorrough360 5.0",
+    "Dorrough360 5.1"
+  ],
+  "99 SURROUND RARE / Waves 360 Surround": [
+    "B360 5.0-Quad",
+    "B360 5.1-Quad",
+    "B360 7.1-Quad",
+    "B360 AmbiX-FuMa Quad",
+    "B360 FuMa-AmbiX Quad",
+    "B360 Mono-Quad",
+    "B360 Stereo-Quad",
+    "C360 5.0",
+    "C360 5.1",
+    "IDR360 5.0",
+    "IDR360 5.1",
+    "IR360 discrete Mono-5.0",
+    "IR360 eff discrete 5.0",
+    "IR360 eff discrete 5.1",
+    "IR360 eff discrete Stereo-5.0",
+    "IR360 eff s.field Stereo-5.0",
+    "IR360 sound field 5.0",
+    "IR360 sound field 5.1",
+    "IR360 sound field Mono-5.0",
+    "IR360 sound field Stereo-5.0",
+    "LFE360 5.1",
+    "LFE360 Mono",
+    "M360 Manager 5.0",
+    "M360 Manager 5.0-5.1",
+    "M360 Manager 5.1",
+    "M360 Mixdown 5.0",
+    "M360 Mixdown 5.1",
+    "MV360 5.0",
+    "MV360 5.1",
+    "R360 5.0",
+    "R360 5.1",
+    "R360 Mono-5.0",
+    "R360 Mono-5.1",
+    "R360 Stereo-5.0",
+    "R360 Stereo-5.1",
+    "UM225 Stereo-5.0",
+    "UM226 Stereo-5.1"
+  ],
+  "99 SURROUND RARE / Waves Bass": [
+    "LoAir 5.0-5.1",
+    "LoAir 5.1"
+  ],
+  "99 SURROUND RARE / Waves H-Reverb": [
+    "H-Reverb 5.0",
+    "H-Reverb 5.1",
+    "H-Reverb long 5.0",
+    "H-Reverb long 5.1",
+    "H-Reverb long Mono-5.0",
+    "H-Reverb long Mono-5.1",
+    "H-Reverb long Stereo-5.0",
+    "H-Reverb long Stereo-5.1",
+    "H-Reverb Mono-5.0",
+    "H-Reverb Mono-5.1",
+    "H-Reverb Stereo-5.0",
+    "H-Reverb Stereo-5.1"
+  ],
+  "99 SURROUND RARE / Waves Immersive Wrapper": [
+    "Immersive Wrapper 5.0",
+    "Immersive Wrapper 5.0.2",
+    "Immersive Wrapper 5.0.4",
+    "Immersive Wrapper 5.1",
+    "Immersive Wrapper 5.1.2",
+    "Immersive Wrapper 5.1.4",
+    "Immersive Wrapper 6.0",
+    "Immersive Wrapper 6.1",
+    "Immersive Wrapper 7.0",
+    "Immersive Wrapper 7.0.2",
+    "Immersive Wrapper 7.0.4",
+    "Immersive Wrapper 7.0.6",
+    "Immersive Wrapper 7.1",
+    "Immersive Wrapper 7.1.2",
+    "Immersive Wrapper 7.1.4",
+    "Immersive Wrapper 7.1.6",
+    "Immersive Wrapper 9.0.4",
+    "Immersive Wrapper 9.0.6",
+    "Immersive Wrapper 9.1.4",
+    "Immersive Wrapper 9.1.6",
+    "Immersive Wrapper LCR",
+    "Immersive Wrapper Mono",
+    "Immersive Wrapper Quad",
+    "Immersive Wrapper Stereo"
+  ],
+  "99 SURROUND RARE / Waves L-Series": [
+    "L360 5.0",
+    "L360 5.1"
+  ],
+  "99 SURROUND RARE / Waves Nx": [
+    "NX 5.0",
+    "NX 5.0-Stereo",
+    "NX 5.1",
+    "NX 5.1-Stereo",
+    "NX 7.1",
+    "NX 7.1-Stereo",
+    "NX Ambisonics Quad",
+    "Nx Ambisonics Quad-Stereo",
+    "Nx Germano Studios 5.1-Stereo"
+  ],
+  "99 SURROUND RARE / Waves S-Series": [
+    "S360 Imager 5.0",
+    "S360 Imager 5.1",
+    "S360 Imager Mono-5.0",
+    "S360 Imager Mono-5.1",
+    "S360 Imager Stereo-5.0",
+    "S360 Imager Stereo-5.1",
+    "S360 Panner Mono-5.0",
+    "S360 Panner Mono-5.1",
+    "S360 Panner Stereo-5.0",
+    "S360 Panner Stereo-5.1"
+  ],
+  "99 SURROUND RARE / Waves Spherix": [
+    "Spherix Compressor 7.1.2",
+    "Spherix Compressor 7.1.4",
+    "Spherix Limiter 7.1.2",
+    "Spherix Limiter 7.1.4"
+  ],
+  "99 SURROUND RARE / Waves WLM": [
+    "WLM Meter 5.0",
+    "WLM Meter 5.1",
+    "WLM Plus 5.0",
+    "WLM Plus 5.1"
+  ],
+  "Fx": [
+    "Humanoid"
+  ],
+  "Fx-Generator": [
+    "Scaler Detector Audio"
+  ]
+}

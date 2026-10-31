@@ -1,0 +1,12 @@
+[package]
+name = "os-flp"
+description = "Lossless FLP project file reader/writer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+os-model.workspace = true
+thiserror.workspace = true
+# The local time a new project starts at (event 237; spec: flp/events/project-info.md).
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }

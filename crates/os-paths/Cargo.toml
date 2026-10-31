@@ -1,0 +1,11 @@
+[package]
+name = "os-paths"
+description = "Where Lemon Studio keeps its own files (settings, themes, presets) on each platform"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_UI_Shell", "Win32_System_Com"] }

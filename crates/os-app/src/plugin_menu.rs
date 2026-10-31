@@ -1,0 +1,376 @@
+// Copyright (C) 2026 ItsAlphaNeon
+// Copyright (C) 2026 thacer13
+// SPDX-License-Identifier: GPL-3.0-or-later
+// This file is part of Lemon Studio: https://github.com/ItsAlphaNeon/Lemon-Studio
+
+//! Plugin menus (the full-screen plugin picker is retired): F8, the toolbar's plugin button, the channel rack's "+",
+//! Add one ▸ / Insert ▸ and the mixer slots open the app's own popup listing the installed plugins, and a pick adds
+//! the plugin where that menu says.
+// spec: ui/plugin-menu.md
+
+use std::collections::BTreeMap;
+
+use crate::app::{App, State};
+use crate::playlist::{Cmd, Mark, PItem, Popup};
+use crate::plugin_db::{self as db, Entry, MenuView, Mode};
+
+/// What a plugin menu entry does (`Cmd::Plugin`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PlugCmd {
+    /// Generator `index` (into `Plugins::available`): a new channel at the bottom of the rack, or right below row
+    /// `after`.
+    Generator { index: usize, after: Option<usize> },
+    /// Generator `index` in place of rack row `row`'s (channel menu / plugin window menu > Replace ▸).
+    Replace { index: usize, row: usize },
+    /// Effect `index` (into `Plugins::effects`) into the selected mixer track: slot `slot`, else its first empty slot.
+    Effect { index: usize, slot: Option<u8> },
+    /// Find new plugins (a background scan).
+    Find,
+    /// Settings > Plugins.
+    Manage,
+    View(MenuView),
+}
+
+/// Which plugins a menu lists and where a pick goes (spec §1).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Target {
+    /// F8, the toolbar button, VIEW / ADD > Plugin picker: generators and effects.
+    All,
+    /// Generators: a new channel at the bottom (`None`) or right below row `r`.
+    Gen(Option<usize>),
+    /// Generators in place of rack row `r`'s generator.
+    Replace(usize),
+    /// Effects into the selected track: slot `k`, else its first empty slot.
+    Fx(Option<u8>),
+}
+
+fn pick(target: Target, effect: bool, index: usize) -> Cmd {
+    Cmd::Plugin(match (target, effect) {
+        (Target::Fx(slot), _) => PlugCmd::Effect { index, slot },
+        (_, true) => PlugCmd::Effect { index, slot: None },
+        (Target::Gen(after), false) => PlugCmd::Generator { index, after },
+        (Target::Replace(row), false) => PlugCmd::Replace { index, row },
+        (Target::All, false) => PlugCmd::Generator { index, after: None },
+    })
+}
+
+fn item(e: &Entry, target: Target, effect: bool) -> PItem {
+    PItem::new(e.label.clone(), pick(target, effect, e.index))
+}
+
+/// A header with a run-time label.
+fn head(label: String) -> PItem {
+    PItem { head: true, ..PItem::new(label, Cmd::Nothing) }
+}
+
+#[derive(Default)]
+struct Folder { items: Vec<PItem>, children: BTreeMap<String, Folder> }
+impl Folder {
+    fn rows(self) -> Vec<PItem> {
+        let mut rows: Vec<_> = self.children.into_iter().map(|(name, folder)| PItem::sub(name, folder.rows())).collect();
+        rows.extend(self.items);
+        rows
+    }
+}
+
+/// One section's entries (spec §2): favourites, a separator, then the rest by display mode. `nested`: the list is a
+/// submenu itself, so "By vendor" uses headers instead of submenus (popups open one submenu level).
+fn section(s: &State, effect: bool, target: Target, nested: bool) -> Vec<PItem> {
+    let list = if effect { &s.plugdb.lists.fx } else { &s.plugdb.lists.gens };
+    if list.is_empty() {
+        return vec![PItem::new(if effect { "(no effect plugins found)" } else { "(no instruments found)" }, Cmd::Nothing).off()];
+    }
+    let mut v: Vec<PItem> = list.iter().filter(|e| e.favorite).map(|e| item(e, target, effect)).collect();
+    let rest: Vec<&Entry> = list.iter().filter(|e| !e.favorite).collect();
+    if !v.is_empty() && !rest.is_empty() {
+        v.push(PItem::sep());
+    }
+    if s.plugdb.prefs.menu_view == MenuView::Categories {
+        let defaults = if effect { include_str!("../assets/native-effects-groups.json") } else { include_str!("../assets/native-generators-groups.json") };
+        let groups: BTreeMap<String, Vec<String>> = crate::prefs::text(if effect { "fl_effect_groups" } else { "fl_generator_groups" })
+            .and_then(|v| serde_json::from_str(&v).ok()).unwrap_or_else(|| serde_json::from_str(defaults).unwrap_or_default());
+        if !groups.is_empty() {
+            v.clear();
+            let mut used = std::collections::HashSet::new();
+            let mut folders = Folder::default();
+            for (group, names) in groups {
+                let es: Vec<_> = list.iter().filter(|e| names.iter().any(|n| normalized(n) == normalized(&e.name))).collect();
+                if es.is_empty() { continue; }
+                let mut folder = &mut folders;
+                for part in group.split(" / ") { folder = folder.children.entry(part.to_owned()).or_default(); }
+                for e in es { used.insert(e.uid.clone()); folder.items.push(item(e, target, effect)); }
+            }
+            let other: Vec<_> = list.iter().filter(|e| !used.contains(&e.uid)).map(|e| item(e, target, effect)).collect();
+            if !other.is_empty() { folders.children.entry("Other installed plugins".into()).or_default().items = other; }
+            v.extend(folders.rows());
+            return v;
+        }
+    }
+    match s.plugdb.prefs.menu_view {
+        MenuView::Simple => v.extend(rest.iter().map(|e| item(e, target, effect))),
+        MenuView::Categories => {
+            for cat in db::categories(effect) {
+                let in_cat: Vec<&&Entry> = rest.iter().filter(|e| e.category == cat).collect();
+                if !in_cat.is_empty() {
+                    v.push(PItem::head(cat));
+                    v.extend(in_cat.iter().map(|e| item(e, target, effect)));
+                }
+            }
+        }
+        MenuView::Vendor => {
+            let mut by: BTreeMap<String, (String, Vec<&Entry>)> = BTreeMap::new();
+            for e in &rest {
+                by.entry(e.vendor.to_lowercase()).or_insert_with(|| (e.vendor.clone(), Vec::new())).1.push(e);
+            }
+            for (_, (vendor, es)) in by {
+                let items: Vec<PItem> = es.iter().map(|e| item(e, target, effect)).collect();
+                if nested {
+                    v.push(head(vendor));
+                    v.extend(items);
+                } else {
+                    v.push(PItem { children: items, ..PItem::new(vendor, Cmd::Nothing) });
+                }
+            }
+        }
+    }
+    v
+}
+
+/// The display modes as their radio items name them (spec §2-3); ADD's radios are the same.
+pub const VIEWS: &[(&str, MenuView)] = &[("Categories", MenuView::Categories), ("Simple", MenuView::Simple), ("By vendor", MenuView::Vendor)];
+
+/// After the lists (spec §2): Find new plugins, Manage plugins..., the display modes.
+fn footer(s: &State) -> Vec<PItem> {
+    let view = s.plugdb.prefs.menu_view;
+    let scanning = s.plugdb.progress.is_some();
+    let find = PItem::new(if scanning { "Find new plugins (scanning...)" } else { "Find new plugins" }, Cmd::Plugin(PlugCmd::Find));
+    let mut v = vec![PItem::sep(), if scanning { find.off() } else { find }, PItem::new("Manage plugins...", Cmd::Plugin(PlugCmd::Manage)), PItem::sep()];
+    v.extend(VIEWS.iter().map(|&(label, m)| PItem::new(label, Cmd::Plugin(PlugCmd::View(m))).mark(Mark::Radio(view == m))));
+    v
+}
+
+/// The entries of a plugin menu for `target`; `nested` when they fill a submenu.
+pub fn items(s: &State, target: Target, nested: bool) -> Vec<PItem> {
+    let mut v = Vec::new();
+    match target {
+        Target::All => {
+            v.push(PItem::head("Generators"));
+            v.extend(section(s, false, target, nested));
+            v.push(PItem::col());
+            v.push(PItem::head("Effects"));
+            v.extend(section(s, true, target, nested));
+        }
+        Target::Gen(_) | Target::Replace(_) => v.extend(section(s, false, target, nested)),
+        Target::Fx(_) => v.extend(section(s, true, target, nested)),
+    }
+    v.extend(footer(s));
+    v
+}
+
+/// A plugin menu for `target` at (x, y).
+pub fn menu(s: &State, target: Target, x: f32, y: f32) -> Popup {
+    Popup { x, y, items: items(s, target, false), sub: None, scroll: [0; 2] }
+}
+
+/// Whether the open popup is a plugin menu (F8 closes it).
+pub fn is_open(s: &State) -> bool {
+    s.playlist.popup.as_ref().is_some_and(|p| p.items.iter().any(|i| i.cmd == Cmd::Plugin(PlugCmd::Manage)))
+}
+
+impl App {
+    /// Opens the plugin menu for `target` at (x, y); F8 while one is open closes it.
+    pub fn open_plugin_menu(&mut self, target: Target, at: (f32, f32)) {
+        self.state.menu_open = None;
+        self.state.playlist.popup = Some(menu(&self.state, target, at.0, at.1));
+        self.invalidate();
+    }
+
+    /// F8 (spec §1): the all-plugins menu at the mouse, or closes an open plugin menu.
+    pub fn toggle_plugin_menu(&mut self) {
+        if is_open(&self.state) {
+            self.state.playlist.popup = None;
+            self.invalidate();
+        } else {
+            self.open_plugin_menu(Target::All, self.mouse);
+        }
+    }
+}
+
+/// Runs a plugin menu command. Returns a status message.
+pub fn run(app: &mut App, c: PlugCmd) -> Option<String> {
+    let m = match c {
+        PlugCmd::Generator { index, after } => add_generator(app, index, after),
+        PlugCmd::Replace { index, row } => replace_generator(app, index, row),
+        PlugCmd::Effect { index, slot } => add_effect(app, index, slot),
+        PlugCmd::Find => {
+            app.start_scan(Mode::Changed);
+            None
+        }
+        PlugCmd::Manage => {
+            app.open_settings(crate::views::settings::PLUGINS);
+            None
+        }
+        PlugCmd::View(v) => {
+            app.state.plugdb.prefs.menu_view = v;
+            app.prefs_changed();
+            None
+        }
+    };
+    app.invalidate();
+    m
+}
+
+/// A new channel for generator `index` (spec §1): at the bottom of the rack, or right below row `after`; selected and
+/// in view. Lemon Sampler makes an empty sampler channel (hosted on the next tick); any other generator a plugin
+/// channel hosting it. Its plugin window opens once it is hosted.
+pub fn add_generator(app: &mut App, index: usize, after: Option<usize>) -> Option<String> {
+    let d = app.plugins.available.get(index)?.desc.clone();
+    let s = &mut app.state;
+    let sampler = d.name == crate::plugins::LEMON_SAMPLER && crate::project_plugins::is_builtin(&d);
+    // One step, at the bottom (`history::add_channel`) or inserted higher up (`history::insert_channel`).
+    let plugin = (!sampler).then_some(index);
+    match after.filter(|&r| r + 1 < s.project.channels.len()) {
+        Some(r) => crate::history::insert_channel(s, r + 1, plugin),
+        None => crate::history::add_channel(s, plugin),
+    }
+    let mut ch = if sampler { crate::app::add_channel(&mut s.project) } else { crate::app::add_plugin_channel(&mut s.project, &d.name) };
+    if sampler {
+        s.pending_open = Some(ch);
+    } else {
+        s.pending_plugin = Some((ch, index));
+    }
+    s.piano.dirty = true;
+    if let Some(r) = after.filter(|&r| r + 1 < ch) {
+        let order: Vec<usize> = (0..=r).chain([ch]).chain(r + 1..ch).collect();
+        crate::rack::reorder(app, &order);
+        ch = r + 1;
+    }
+    let s = &mut app.state;
+    s.selected_channel = ch;
+    s.rack.select_only(ch);
+    crate::rack::autosize(s);
+    if after.is_none() {
+        // Keep the new row in view.
+        let r = crate::views::rack::rect(s);
+        let view_h = crate::views::rack::panel(r).h;
+        s.rack_scroll = (crate::views::rack::content_h(s) - view_h).max(0.0);
+    }
+    sampler.then(|| "Added a sampler channel (Lemon Sampler)".into())
+}
+
+/// Generator `index` in place of rack row `row`'s (channel menu and plugin window menu > Replace ▸; FL: "the plugin list
+/// of Add one", spec ui/channel-rack.md §18). The channel keeps its row, notes and steps, mixer track, levels and
+/// Misc settings; its old instance goes, the new one starts from its defaults, and the channel takes the new
+/// plugin's name. Lemon Studio choice where FL was not measured: the name follows the plugin.
+pub fn replace_generator(app: &mut App, index: usize, row: usize) -> Option<String> {
+    let d = app.plugins.available.get(index)?.desc.clone();
+    app.state.project.channels.get(row)?;
+    let sampler = d.name == crate::plugins::LEMON_SAMPLER && crate::project_plugins::is_builtin(&d);
+    // One step, with the old instrument's state (`history::replace_channel`).
+    let old = app.plugin_copy(row);
+    crate::history::replace_channel(&mut app.state, row, old, (!sampler).then_some(index));
+    app.plugins.drop_key(row);
+    app.state.hosted_rows.retain(|&r| r != row);
+    app.transport.set_instruments(app.plugins.instruments());
+    let s = &mut app.state;
+    let ch = &mut s.project.channels[row];
+    ch.plugin_state = None;
+    if sampler {
+        ch.kind = os_model::ChannelKind::Sampler;
+        ch.plugin = None;
+        ch.clear_sample();
+        ch.name = Some(d.name.clone());
+        s.pending_open = Some(row);
+    } else {
+        ch.kind = os_model::ChannelKind::Plugin;
+        ch.plugin = Some(crate::osc3::file_name(&d.name).to_string());
+        ch.name = Some(d.name.clone());
+        // A Lemon Trio channel's sample is its custom shape's (spec: plugins/lemon-3x-osc.md §6): the new instance has
+        // none, so neither does the channel.
+        if crate::osc3::is_osc3(ch) {
+            ch.sample_path = None;
+        }
+        s.pending_plugin = Some((row, index));
+    }
+    s.piano.dirty = true;
+    s.selected_channel = row;
+    s.rack.select_only(row);
+    Some(format!("Replaced with {}", d.name))
+}
+
+/// Effect `index` into the selected mixer track (spec §1): slot `slot`, else the first empty one.
+pub fn add_effect(app: &mut App, index: usize, slot: Option<u8>) -> Option<String> {
+    let s = &app.state;
+    let t = s.selected_mixer;
+    let slot = slot.or_else(|| s.project.mixer.iter().find(|m| m.index == t).and_then(|m| m.slots.iter().take(10).position(Option::is_none)).map(|k| k as u8));
+    match slot {
+        Some(k) => crate::mixer::run(app, crate::mixer::MCmd::AddEffect(k, index)),
+        None => Some("Every slot of this track is in use".into()),
+    }
+}
+
+pub(crate) fn normalized(s: &str) -> String {
+ s.to_lowercase().replace(" (vst3)", "").replace(" (vst2)", "").chars().filter(|c| c.is_alphanumeric()).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn native_default_tree_contains_every_shipped_effect() {
+        let mut app=App::new(None);app.plugins=crate::plugins::Plugins::builtins();app.state.plugdb.rebuild(&app.plugins);
+        let rows=items(&app.state,Target::Fx(Some(2)),false);
+        assert!(rows.iter().any(|r|r.label=="Reverb and Delay"));
+        assert!(!rows.iter().any(|r|r.label=="Other installed plugins"));
+        fn found(rows:&[PItem],name:&str)->bool {rows.iter().any(|r|r.label==name||found(&r.children,name))}
+        for e in &app.plugins.effects {assert!(found(&rows,&e.desc.name),"missing {}",e.desc.name);}
+    }
+
+    #[test]
+    fn nested_plugin_folders_open_and_go_back() {
+        let mut app=App::new(None);
+        crate::prefs::set_text("fl_effect_groups", r#"{"Vocals / Vocal Processing / Waves CLA":["CLA-2A Mono"]}"#);
+        app.plugins.effects.push(db::fake("CLA-2A Mono",os_host::Kind::Effect));
+        app.state.plugdb.rebuild(&app.plugins);
+        app.state.playlist.popup=Some(menu(&app.state,Target::Fx(Some(4)),200.0,150.0));
+        app.act(crate::app::Action::PlPopup(0));
+        app.act(crate::app::Action::PlPopupSub(0));
+        let p=app.state.playlist.popup.as_ref().unwrap();
+        assert_eq!(p.items[1].label,"Vocal Processing");
+        assert_eq!(p.items[2].label,"Waves CLA");
+        app.act(crate::app::Action::PlPopup(0));
+        assert_eq!(app.state.playlist.popup.as_ref().unwrap().items[0].label,"Vocals");
+        app.act(crate::app::Action::PlPopupSub(0));
+        app.act(crate::app::Action::PlPopup(2));
+        let p=app.state.playlist.popup.as_ref().unwrap();
+        let leaf=&p.items[2].children[0];
+        assert!(matches!(leaf.cmd,Cmd::Plugin(PlugCmd::Effect{slot:Some(4),..})));
+        let mut canvas=os_ui::Canvas::new(1280,900,1.25).unwrap();app.paint(&mut canvas,None);
+        assert!(app.hits.iter().any(|h|matches!(h.action,crate::app::Action::PlPopupSub(0))));
+        if let Some(dir)=std::env::var_os("OS_SHOT_DIR") {canvas.pixmap.save_png(std::path::PathBuf::from(dir).join("nested-plugin-folders.png")).unwrap();}
+    }
+
+    #[test]
+    fn personal_folders_preserve_slot_targets() {
+        let mut app = App::new(None);
+        crate::prefs::set_text("fl_effect_groups",include_str!("../assets/fl-effects-groups.json"));
+        for name in ["CLA-2A Mono", "ValhallaVintageVerb", "Uncategorized Test Effect"] {
+            app.plugins.effects.push(db::fake(name, os_host::Kind::Effect));
+        }
+        app.state.plugdb.rebuild(&app.plugins);
+        let rows = items(&app.state, Target::Fx(Some(4)), false);
+        let go = rows.iter().find(|r| r.label == "00 GO TO").expect("FL favorites folder");
+        assert!(go.children.iter().any(|r| r.label == "CLA-2A Mono"));
+        fn find<'a>(rows: &'a [PItem], name: &str) -> Option<&'a PItem> {
+            rows.iter().find(|r| r.label == name).or_else(|| rows.iter().find_map(|r| find(&r.children,name)))
+        }
+        let space = rows.iter().find(|r| r.label == "05 SPACE").expect("FL space folder");
+        assert!(find(&space.children,"ValhallaVintageVerb").is_some());
+        for name in ["CLA-2A Mono", "ValhallaVintageVerb", "Uncategorized Test Effect"] {
+            let entry = find(&rows, name).expect("every plugin reachable");
+            let index = app.plugins.effects.iter().position(|a| a.desc.name == name).unwrap();
+            assert_eq!(entry.cmd, Cmd::Plugin(PlugCmd::Effect { index, slot: Some(4) }));
+        }
+    }
+}

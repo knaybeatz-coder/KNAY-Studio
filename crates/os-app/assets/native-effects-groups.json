@@ -1,0 +1,30 @@
+{
+  "Dynamics": [
+    "Lemon Limiter",
+    "Lemon Soft Clipper",
+    "Lemon Transient Processor",
+    "Press"
+  ],
+  "EQ and Filters": [
+    "Lemon Parametric EQ",
+    "Pulp Filter"
+  ],
+  "Reverb and Delay": [
+    "Lemon Reverb",
+    "Lemon Delay"
+  ],
+  "Modulation": [
+    "Lemon Chorus"
+  ],
+  "Distortion": [
+    "Lemon Fast Distortion"
+  ],
+  "Stereo and Utility": [
+    "Lemon Balance",
+    "Lemon Stereo Enhancer",
+    "Lemon Stereo Shaper"
+  ],
+  "Audio Editing": [
+    "Tesla"
+  ]
+}

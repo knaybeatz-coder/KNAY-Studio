@@ -1,0 +1,7 @@
+# Preset files are read byte for byte (a saved state is binary): no line-end conversion on checkout.
+*.ospreset -text
+*.command text eol=lf
+*.sh text eol=lf
+*.py text eol=lf
+*.wav -text
+*.flp -text

@@ -1,0 +1,2 @@
+SnapTune DSP from https://github.com/NicoFerni/snaptune at 40c7f5aa23387b7c3567bd11c971bed0e339a198. AGPL-3.0; see LICENSE.
+Lemon adaptation (31 October 2026): DSP only; no telemetry, UI, update checks or JUCE code. Replaced JUCE utility calls with local clamp, constants, linear smoothing and radix-2 FFT. Replaced editor FIFO with single-thread latest frame. Pitch detection/correction algorithms retained. C ABI wrapper selects Live mode, maps one amount control, and processes stereo in fixed-size scratch blocks.

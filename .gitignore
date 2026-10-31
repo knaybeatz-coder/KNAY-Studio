@@ -1,0 +1,29 @@
+/target
+/target-*/
+target-dev/
+
+# Project files and audio never belong in the repo
+*.flp
+*.wav
+
+# Local notes and secrets
+.env
+CLAUDE.md
+.claude/
+
+# macOS Finder metadata
+.DS_Store
+
+# Local backups, build caches and private publishing configuration
+*.before-*
+__pycache__/
+*.pyc
+*.pem
+*.key
+*.enc
+publish.local.json
+.venv/
+
+# Public native starter assets must travel with the shared repository.
+!crates/os-app/assets/startup.wav
+!crates/os-app/assets/templates/Lemon Starter.flp
