@@ -72,7 +72,6 @@ impl NoteType {
     }
 
     /// Note `n`'s type.
-    #[cfg(test)]
     pub fn of(n: &Note) -> NoteType {
         if n.slide() {
             NoteType::Slide
