@@ -59,7 +59,7 @@ jobs:
         run: cargo fetch --locked
 
       - name: Test
-        run: cargo test --workspace --locked
+        run: cargo test --workspace --locked --no-fail-fast
 
       # KNAY: the ready-to-run program, downloadable from the run's Artifacts.
       - name: Build release program (Windows)

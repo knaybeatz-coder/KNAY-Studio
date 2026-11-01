@@ -1527,7 +1527,7 @@ mod tests {
         let mut l = logic();
         let (x, y) = centre(&l, Target::Token(0));
         l.moved(x, y, Mods::default());
-        assert_eq!(l.hint, "0.0dB 63Hz 61%\tBand 1 (low shelf)");
+        assert_eq!(l.hint, "0.0dB 63Hz 61%\tBand 1 (low shelf / Stereo)");
         let (x, y) = centre(&l, Target::Fader(MAIN_FADER));
         l.moved(x, y, Mods::default());
         assert_eq!(l.hint, "Main level: 0.0dB");
