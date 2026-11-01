@@ -4,20 +4,23 @@ Usage: python packaging/windows/prepare-update.py --output ABSOLUTE_STAGING_FOLD
 Build and test the app first. Review output before publishing a new release.
 """
 from pathlib import Path
-import argparse, hashlib, json, re, shutil, subprocess, zipfile
+import argparse, hashlib, json, re, shutil, subprocess, zipfile, sys
 from cryptography.hazmat.primitives.serialization import load_pem_private_key, Encoding, PublicFormat
 
 root = Path(__file__).resolve().parents[2]
+sys.path.insert(0,str(root/"packaging"))
+from private_build import require_public_binary
 parser = argparse.ArgumentParser()
 parser.add_argument('--output', required=True, type=Path)
 parser.add_argument('--key', type=Path, default=Path.home()/'.lemon-studio-release/update-signing-key.pem')
-parser.add_argument('--notes', default='Automatic background updates, streamlined audio-level linking, and per-band Stereo/Mid/Side/Left/Right EQ.')
+parser.add_argument('--notes', default='Native .lmn project files with legacy .flp support; closed voting indicators and disabled voting controls; private community moderation support; recent bounce, comping and piano-roll selection fixes.')
 args = parser.parse_args()
 out = args.output.resolve()
 if out == root or root in out.parents:
     raise SystemExit('Stage releases outside the source checkout.')
 version = int(re.search(r'pub const VERSION: u64 = (\d+);', (root/'crates/os-app/src/updates.rs').read_text()).group(1))
 exe = root/'target/release/lemonstudio.exe'
+require_public_binary(exe)
 actual = subprocess.check_output([str(exe),'--update-version'],text=True).strip()
 if actual != str(version): raise SystemExit('Rebuild the executable after changing its version.')
 key = load_pem_private_key(args.key.read_bytes(),None)
@@ -27,13 +30,7 @@ if public != (root/'crates/os-app/src/update-public-key.hex').read_text().strip(
 site = out/'lemon-studio'
 release = site/'updates'/str(version)
 release.mkdir(parents=True,exist_ok=True)
-names = subprocess.check_output(['git','ls-files','--cached','--others','--exclude-standard','-z'],cwd=root).decode().split('\0')
-names = {n for n in names if n and '.before-' not in n and not n.endswith(('.pem','.key','.enc'))}
-names.update(['crates/os-app/assets/startup.wav','crates/os-app/assets/templates/Lemon Starter.flp'])
-with zipfile.ZipFile(release/'Lemon Studio Source.zip','w',zipfile.ZIP_DEFLATED,compresslevel=9) as archive:
-    for n in sorted(names):
-        p=root/n
-        if p.is_file(): archive.write(p,'Source/'+n)
+subprocess.run([sys.executable,str(root/'packaging/export-source.py'),str(release/'Lemon Studio Source.zip'),'--public'],check=True)
 for name in ['LICENSE','THIRD-PARTY-NOTICES.txt']:shutil.copy2(root/name,release/name)
 shutil.copy2(exe,release/'lemonstudio.exe')
 files=[]

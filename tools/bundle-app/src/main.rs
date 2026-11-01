@@ -109,13 +109,14 @@ fn info_plist() -> String {
 	<array>
 		<dict>
 			<key>CFBundleTypeName</key>
-			<string>FL Studio project</string>
+			<string>Lemon Studio project</string>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>LSHandlerRank</key>
 			<string>Alternate</string>
 			<key>CFBundleTypeExtensions</key>
 			<array>
+				<string>lmn</string>
 				<string>flp</string>
 			</array>
 		</dict>

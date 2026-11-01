@@ -1208,11 +1208,25 @@ pub fn paint_overlays(ui: &mut Ui, s: &State) {
         // At the Pop-ups scaling (spec: ui/ui-scaling.md §1).
         ui.scaled(super::popup_scale(ui.c.scale), |ui, k| {
             let (w, h) = ui.c.size();
-            let (_, rows) = popup_list(ui, &p.items, p.x / k, p.y / k, (w, h), p.sub, false, p.scroll[0]);
-            if let Some(i) = p.sub {
-                if let (Some(item), Some(rr)) = (p.items.get(i), rows.get(i)) {
-                    popup_list(ui, &item.children, rr.right(), rr.y - 2.0, (w, h), None, true, p.scroll[1]);
+            let (rect, mut rows) = popup_list(ui,&p.items,p.x/k,p.y/k,(w,h),p.sub,0,p.scroll[0],&[]);
+            let mut occupied=vec![rect];
+            let mut entries=&p.items;
+            let mut selected=p.sub;
+            let mut depth=1;
+            while let Some(index)=selected {
+                let (Some(item),Some(row))=(entries.get(index),rows.get(index)) else {break};
+                if item.children.is_empty() || depth>240 {break;}
+                entries=&item.children;
+                let open=p.cascade.get(depth-1).map(|e|e.0);
+                let scroll=if depth==1 {p.scroll[1]} else {p.cascade[depth-2].1};
+                // Anchor to the column containing the selected item, not the far edge of a
+                // multi-column menu (e.g. the rack's separate Cut/Copy/Fill column).
+                if let Some(parent)=occupied.last_mut() {
+                    let border=os_ui::kit::menu::metrics(ui.c.scale).border;
+                    *parent=Rect::new(row.x-border,parent.y,row.w+2.0*border,parent.h);
                 }
+                let (rect,next_rows)=popup_list(ui,entries,row.right(),row.y-2.0,(w,h),open,depth,scroll,&occupied);
+                occupied.push(rect);rows=next_rows;selected=open;depth+=1;
             }
         });
     }
@@ -1264,7 +1278,7 @@ fn any_enabled(items: &[pl::PItem]) -> bool {
 /// screen: the ones that fit from column `scroll` on, and a scroll bar under them (spec: ui/menus.md "Menus wider than
 /// the window").
 #[allow(clippy::too_many_arguments)]
-fn popup_list(ui: &mut Ui, items: &[pl::PItem], x: f32, y: f32, screen: (f32, f32), open: Option<usize>, sub: bool, scroll: usize) -> (Rect, Vec<Rect>) {
+fn popup_list(ui: &mut Ui, items: &[pl::PItem], x: f32, y: f32, screen: (f32, f32), open: Option<usize>, depth: usize, scroll: usize, occupied: &[Rect]) -> (Rect, Vec<Rect>) {
     let t = ui.t;
     let font = Font::new(14);
     let mut lw: f32 = 80.0;
@@ -1290,10 +1304,15 @@ fn popup_list(ui: &mut Ui, items: &[pl::PItem], x: f32, y: f32, screen: (f32, f3
     let shown = if bar_h > 0.0 { ((room / cw) as usize).clamp(1, cols) } else { cols };
     let first = scroll.min(cols - shown);
     let (w, h) = (cw * shown as f32, body_h + 2.0 * m.border + bar_h);
-    let x = x.min(screen.0 - w - 2.0).max(0.0);
+    let x = if let Some(parent)=occupied.last() {
+        let left=occupied.iter().map(|r|r.x).fold(parent.x,f32::min);
+        let right=occupied.iter().map(|r|r.right()).fold(parent.right(),f32::max);
+        [parent.right(),parent.x-w,right,left-w].into_iter().find(|&at|at>=0.0 && at+w<=screen.0-2.0 && occupied.iter().all(|r|at+w<=r.x+0.1 || at>=r.right()-0.1))
+            .unwrap_or_else(||if parent.x>=w {parent.x-w} else {x.min(screen.0-w-2.0).max(0.0)})
+    } else {x.min(screen.0-w-2.0).max(0.0)};
     let y = y.min(screen.1 - h - 2.0).max(0.0);
     let r = Rect::new(x, y, w, h);
-    let menu = if sub { crate::app::MENU_SUB } else { crate::app::MENU_POPUP };
+    let menu = match depth {0=>crate::app::MENU_POPUP,1=>crate::app::MENU_SUB,d=>crate::app::MENU_DEEP+(d-2) as u8};
     let mut rows = Vec::with_capacity(items.len());
     let lemon = super::lemon(ui);
     if lemon {
@@ -1309,7 +1328,7 @@ fn popup_list(ui: &mut Ui, items: &[pl::PItem], x: f32, y: f32, screen: (f32, f3
         let at = |col: usize| r.x + m.border + (col as f32 - first as f32) * cw;
         let rr = Rect::new(at(col), r.y + m.border + off, cw - 2.0 * m.border, item_h(&m, it));
         rows.push(rr);
-        let action = if sub { Action::PlPopupSub(i) } else { Action::PlPopup(i) };
+        let action = match depth {0=>Action::PlPopup(i),1=>Action::PlPopupSub(i),d=>Action::PlPopupDeep(d,i)};
         if col < first || col >= first + shown {
             // The wheel still steps to its rows: where the scroll that shows the column puts them.
             if it.enabled && !it.head && !it.sep && !it.col {
@@ -1387,7 +1406,7 @@ fn popup_list(ui: &mut Ui, items: &[pl::PItem], x: f32, y: f32, screen: (f32, f3
     if bar_h > 0.0 {
         // In whole columns.
         let track = Rect::new(r.x + m.border + 2.0, r.bottom() - m.border - bar_h + 2.0, r.w - 2.0 * m.border - 4.0, bar_h - 4.0);
-        let target = if sub { crate::app::Scroll::PopupSub } else { crate::app::Scroll::Popup };
+        let target = match depth {0=>crate::app::Scroll::Popup,1=>crate::app::Scroll::PopupSub,d=>crate::app::Scroll::PopupDeep(d)};
         super::scrollbar(ui, track, false, first as f32, shown as f32, cols as f32, target);
     }
     (r, rows)

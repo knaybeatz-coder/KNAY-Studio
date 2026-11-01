@@ -1,0 +1,29 @@
+LEMON STUDIO - COMMON SHORTCUTS
+
+Mac: use Command for Ctrl and Option for Alt.
+
+Space: play/stop. Ctrl+Space: play/pause.
+L: pattern/song. R: recording. Ctrl+H: stop sound.
+Ctrl+S: save. Ctrl+Shift+S: Save As. Ctrl+O: open.
+Ctrl+N: save a new version. Ctrl+R: WAV export.
+Ctrl+Shift+R: MP3 export. Ctrl+Shift+M: MIDI export.
+Ctrl+Z: undo (history preference). Ctrl+Alt+Z: alternate undo/redo.
+Ctrl+Shift+Z or Ctrl+Y: redo.
+
+F5: playlist. F6: channel rack. F7: piano roll. F9: mixer.
+F8: plugin picker. Alt+F8: browser (customizable).
+F4: next empty pattern. F2: rename in the active context.
+Tab: cycle open windows. Escape: close. F12: close windows.
+
+Playlist/piano roll: Ctrl+A select all; Ctrl+D deselect;
+Ctrl+C/X/V copy/cut/paste; Ctrl+B duplicate; Delete remove.
+Playlist: P/B pointer, C slice, E select, D delete,
+T mute, S slip, Y audition, Z zoom, G comp.
+Piano roll: Ctrl+Q quantize, Ctrl+L legato, Ctrl+U chop;
+Ctrl+Up/Down transpose an octave. Alt+Q opens quantize.
+Playlist Home: start; Ctrl+Enter: select time around clips.
+Backspace: snap on/off. Alt while dragging: bypass snap.
+
+Ctrl+T: typing keyboard piano. Turn it off for plain-letter
+shortcuts; Shift also enables most editor tool letters.
+Text boxes keep editing keys. Plugin editors may own their keys.

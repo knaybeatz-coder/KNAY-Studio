@@ -1,4 +1,4 @@
-import hashlib, importlib.util, json, tempfile, unittest
+import hashlib, importlib.util, json, tempfile, unittest, zipfile
 from pathlib import Path
 from unittest.mock import patch
 import ftplib
@@ -62,8 +62,17 @@ class WorkflowTests(unittest.TestCase):
         self.assertTrue(r.permitted('mac/123/file.dmg','mac-arm64'))
         for p in ('updates/stable.json','platforms/windows.json','platforms/mac-x86_64.json','mac/../index.html','/mac/123/a','mac\\123\\a'):
             self.assertFalse(r.permitted(p,'mac-arm64'))
+    def test_unix_feeds_have_isolated_scopes(self):
+        for scope,prefix in [('windows-linux','updates/linux-x64'),('mac-arm64','mac/updates/arm64'),('mac-x86_64','mac/updates/x86_64')]:
+            self.assertTrue(r.permitted(prefix+'/stable.json',scope))
+        self.assertTrue(r.permitted('mac/updates/arm64/123/Contents/MacOS/lemonstudio','mac-arm64'))
+        self.assertFalse(r.permitted('mac/updates/x86_64/stable.json','mac-arm64'))
+        self.assertFalse(r.permitted('updates/linux-x64/stable.json','mac-arm64'))
+        self.assertFalse(r.permitted('mac/updates/arm64/123/Contents/../escape','mac-arm64'))
+
     def fixture(self,root):
-        source=root/'source.zip';source.write_bytes(b'corresponding source')
+        source=root/'source.zip'
+        with zipfile.ZipFile(source,'w') as archive:archive.writestr('source.txt','corresponding source')
         dmg=root/'app.dmg';dmg.write_bytes(b'app')
         manifest=root/'mac-arm64.json';manifest.write_text(json.dumps({'version':123}))
         entries=[{'path':rel,'local':p.name,'sha256':r.digest(p)} for rel,p in [('platforms/mac-arm64.json',manifest),('mac/123/app.dmg',dmg),('mac/123/source.zip',source)]]

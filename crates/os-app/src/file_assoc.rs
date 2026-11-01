@@ -3,7 +3,7 @@
 // This file is part of Lemon Studio: https://github.com/ItsAlphaNeon/Lemon-Studio
 
 //! General ▸ System ▸ "Associate project files with application" on Windows: the per-user registration that makes
-//! `.flp` files open with this copy of Lemon Studio. Spec: ui/settings-choices.md "System: Associate project files with
+//! `.lmn` files open with this copy of Lemon Studio. Spec: ui/settings-choices.md "System: Associate project files with
 //! application (2026-10-16)".
 //!
 //! The decisions are pure: `look` gathers what the registry holds through a reader it is given, `ticked` and `blocked`
@@ -13,19 +13,19 @@
 
 use crate::app::App;
 
-/// Lemon Studio's own file type for `.flp` files (spec).
-pub const PROG_ID: &str = "LemonStudio.Project";
+/// Lemon Studio's own file type for `.lmn` files (spec).
+pub const PROG_ID: &str = "LemonStudio.LmnProject";
 /// The extension it registers.
-pub const EXT: &str = ".flp";
+pub const EXT: &str = ".lmn";
 /// The type's description and the open verb's name (spec).
 const DESCRIPTION: &str = "Lemon Studio project";
 const FRIENDLY_NAME: &str = "Lemon Studio";
 /// The per-user classes, where every write goes (`Root::Classes`).
 const CLASSES: &str = r"Software\Classes";
-/// Windows' "Open with ▸ Always" choice for `.flp` (`Root::User`), value `ProgId`.
-const USER_CHOICE: &str = r"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.flp\UserChoice";
+/// Windows' "Open with ▸ Always" choice for `.lmn` (`Root::User`), value `ProgId`.
+const USER_CHOICE: &str = r"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.lmn\UserChoice";
 /// The hint bar's text when a `UserChoice` keeps another program after a tick (spec).
-pub const BLOCKED_HINT: &str = "Windows opens .flp files with another program: choose Lemon Studio under Open with ▸ Choose another app";
+pub const BLOCKED_HINT: &str = "Windows opens .lmn files with another program: choose Lemon Studio under Open with ▸ Choose another app";
 
 /// Where a read looks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -49,14 +49,14 @@ pub enum Op {
     DeleteTree { key: String },
 }
 
-/// What the registry holds for `.flp` (`look`).
+/// What the registry holds for `.lmn` (`look`).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Seen {
-    /// The per-user `.flp` default value: the name of its file type.
+    /// The per-user `.lmn` default value: the name of its file type.
     pub ext_type: Option<String>,
     /// That type's per-user open command.
     pub open_command: Option<String>,
-    /// `LemonStudio.Project`'s `Previous`: the `.flp` default the tick replaced.
+    /// `LemonStudio.LmnProject`'s `Previous`: the `.lmn` default the tick replaced.
     pub previous: Option<String>,
     /// The "Open with ▸ Always" choice: its ProgId and that type's open command.
     pub user_choice: Option<(String, Option<String>)>,
@@ -98,23 +98,23 @@ pub fn runs(command: &str, program: &str) -> bool {
     command.strip_prefix(&program).is_some_and(|rest| rest.is_empty() || rest.starts_with(char::is_whitespace))
 }
 
-/// Whether a `UserChoice` names a program other than `program`: then Windows keeps opening `.flp` files with it.
+/// Whether a `UserChoice` names a program other than `program`: then Windows keeps opening `.lmn` files with it.
 pub fn blocked(program: &str, seen: &Seen) -> bool {
     seen.user_choice.as_ref().is_some_and(|(id, command)| !id.eq_ignore_ascii_case(PROG_ID) && !command.as_deref().is_some_and(|c| runs(c, program)))
 }
 
-/// What the check shows (spec: "The check shows the truth"): the per-user `.flp` type's open command runs `program`
+/// What the check shows (spec: "The check shows the truth"): the per-user `.lmn` type's open command runs `program`
 /// and no `UserChoice` names another program.
 pub fn ticked(program: &str, seen: &Seen) -> bool {
     seen.open_command.as_deref().is_some_and(|c| runs(c, program)) && !blocked(program, seen)
 }
 
-/// Whether the per-user `.flp` default names Lemon Studio's type.
+/// Whether the per-user `.lmn` default names Lemon Studio's type.
 fn ours(seen: &Seen) -> bool {
     seen.ext_type.as_deref().is_some_and(|t| t.eq_ignore_ascii_case(PROG_ID))
 }
 
-/// The writes of a tick for `program` (spec): the type first, then `.flp` pointed at it. `Previous` keeps the `.flp`
+/// The writes of a tick for `program` (spec): the type first, then `.lmn` pointed at it. `Previous` keeps the `.lmn`
 /// default it replaces (removed when there was none); a tick over Lemon Studio's own registration (another copy's, or
 /// one a `UserChoice` overrides) keeps the `Previous` it has.
 pub fn tick(program: &str, seen: &Seen) -> Vec<Op> {
@@ -138,8 +138,8 @@ pub fn tick(program: &str, seen: &Seen) -> Vec<Op> {
     ops
 }
 
-/// The writes of an untick (spec): when `.flp` still names Lemon Studio's type its default goes back to `Previous`
-/// (or is removed when there was none); `.flp`'s `OpenWithProgids` entry and the type itself are removed. Another
+/// The writes of an untick (spec): when `.lmn` still names Lemon Studio's type its default goes back to `Previous`
+/// (or is removed when there was none); `.lmn`'s `OpenWithProgids` entry and the type itself are removed. Another
 /// program's type is never touched.
 pub fn untick(seen: &Seen) -> Vec<Op> {
     let mut ops = Vec::new();
@@ -348,7 +348,7 @@ mod tests {
     /// The made-up program path `program` gives in tests.
     pub const PROGRAM: &str = r"C:\Programs\Lemon Studio\lemonstudio.exe";
     const OTHER: &str = r"C:\Program Files\Other DAW\other.exe";
-    const FL_TYPE: &str = "Other.flp.1";
+    const FL_TYPE: &str = "Other.lmn.1";
 
     fn seen() -> Seen {
         look(reg::get)
@@ -356,8 +356,8 @@ mod tests {
 
     /// The other program's per-user registration, as found on the measured machine (spec).
     fn other_registration() {
-        reg::put("HKCU", r"Software\Classes\.flp", "", FL_TYPE);
-        reg::put("HKCU", r"Software\Classes\.flp\OpenWithProgids", FL_TYPE, "");
+        reg::put("HKCU", r"Software\Classes\.lmn", "", FL_TYPE);
+        reg::put("HKCU", r"Software\Classes\.lmn\OpenWithProgids", FL_TYPE, "");
         reg::put("HKCU", &format!(r"Software\Classes\{FL_TYPE}\shell\open\command"), "", &format!("\"{OTHER}\" \"%1\""));
     }
 
@@ -374,7 +374,7 @@ mod tests {
         assert!(!runs("", PROGRAM));
     }
 
-    /// A clean registry: the tick writes the spec's keys, the type before `.flp`; then the check is ticked. The untick
+    /// A clean registry: the tick writes the spec's keys, the type before `.lmn`; then the check is ticked. The untick
     /// removes everything again.
     #[test]
     fn tick_and_untick_on_a_clean_registry() {
@@ -387,11 +387,11 @@ mod tests {
             [
                 Op::DeleteValue { key: PROG_ID.into(), name: "Previous" },
                 set(PROG_ID, "", "Lemon Studio project"),
-                set(r"LemonStudio.Project\DefaultIcon", "", &format!("\"{PROGRAM}\",0")),
-                set(r"LemonStudio.Project\shell\open", "FriendlyAppName", "Lemon Studio"),
-                set(r"LemonStudio.Project\shell\open\command", "", &format!("\"{PROGRAM}\" \"%1\"")),
-                set(".flp", "", PROG_ID),
-                set(r".flp\OpenWithProgids", PROG_ID, ""),
+                set(r"LemonStudio.LmnProject\DefaultIcon", "", &format!("\"{PROGRAM}\",0")),
+                set(r"LemonStudio.LmnProject\shell\open", "FriendlyAppName", "Lemon Studio"),
+                set(r"LemonStudio.LmnProject\shell\open\command", "", &format!("\"{PROGRAM}\" \"%1\"")),
+                set(".lmn", "", PROG_ID),
+                set(r".lmn\OpenWithProgids", PROG_ID, ""),
             ]
         );
         assert!(reg::apply(&ops));
@@ -401,13 +401,13 @@ mod tests {
         assert_eq!(
             untick(&s),
             [
-                Op::DeleteValue { key: ".flp".into(), name: "" },
-                Op::DeleteValue { key: r".flp\OpenWithProgids".into(), name: PROG_ID },
+                Op::DeleteValue { key: ".lmn".into(), name: "" },
+                Op::DeleteValue { key: r".lmn\OpenWithProgids".into(), name: PROG_ID },
                 Op::DeleteTree { key: PROG_ID.into() },
             ]
         );
         reg::apply(&untick(&s));
-        // What is left: the empty `.flp` and `OpenWithProgids` keys hold no values.
+        // What is left: the empty `.lmn` and `OpenWithProgids` keys hold no values.
         assert_eq!(reg::dump(), (vec![], 2));
         assert!(!ticked(PROGRAM, &seen()));
     }
@@ -430,14 +430,14 @@ mod tests {
         assert!(!ticked(PROGRAM, &seen()), "now the other copy's");
         assert_eq!(seen().previous.as_deref(), Some(FL_TYPE));
         reg::apply(&tick(PROGRAM, &seen()));
-        // Unticked: `.flp` names the other program's type again; its values are as they were.
+        // Unticked: `.lmn` names the other program's type again; its values are as they were.
         let s = seen();
-        assert_eq!(untick(&s)[0], Op::Set { key: ".flp".into(), name: "", data: FL_TYPE.into() });
+        assert_eq!(untick(&s)[0], Op::Set { key: ".lmn".into(), name: "", data: FL_TYPE.into() });
         reg::apply(&untick(&s));
         assert_eq!(reg::dump().0, before);
         assert!(ticked(OTHER, &seen()));
-        // An untick while `.flp` names another type leaves `.flp` alone.
-        assert!(!untick(&seen()).iter().any(|op| matches!(op, Op::Set { key, .. } | Op::DeleteValue { key, name: "" } if key == ".flp")));
+        // An untick while `.lmn` names another type leaves `.lmn` alone.
+        assert!(!untick(&seen()).iter().any(|op| matches!(op, Op::Set { key, .. } | Op::DeleteValue { key, name: "" } if key == ".lmn")));
     }
 
     /// "Open with ▸ Always" (`UserChoice`): naming another program it keeps the check unticked over a full registration
@@ -446,12 +446,12 @@ mod tests {
     fn a_user_choice_can_keep_another_program() {
         reg::apply(&tick(PROGRAM, &seen()));
         assert!(ticked(PROGRAM, &seen()) && !blocked(PROGRAM, &seen()));
-        let choice = r"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.flp\UserChoice";
+        let choice = r"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.lmn\UserChoice";
         reg::put("HKCU", choice, "ProgId", FL_TYPE);
         reg::put("HKLM", &format!(r"Software\Classes\{FL_TYPE}\shell\open\command"), "", &format!("\"{OTHER}\" \"%1\""));
         assert_eq!(seen().user_choice, Some((FL_TYPE.into(), Some(format!("\"{OTHER}\" \"%1\"")))));
         assert!(blocked(PROGRAM, &seen()) && !ticked(PROGRAM, &seen()));
-        reg::put("HKCU", choice, "ProgId", "lemonstudio.project");
+        reg::put("HKCU", choice, "ProgId", "lemonstudio.lmnproject");
         assert!(ticked(PROGRAM, &seen()), "Lemon Studio's own type, any case");
         reg::put("HKCU", choice, "ProgId", r"Applications\lemonstudio.exe");
         reg::put("HKCU", r"Software\Classes\Applications\lemonstudio.exe\shell\open\command", "", &format!("\"{PROGRAM}\" \"%1\""));
@@ -505,7 +505,7 @@ mod tests {
         click(&mut app, &mut c, general);
         assert!(!app.state.settings.assoc);
         // Another program's "Always": the tick is written, the check stays unticked and the hint bar says why.
-        reg::put("HKCU", r"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.flp\UserChoice", "ProgId", FL_TYPE);
+        reg::put("HKCU", r"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.lmn\UserChoice", "ProgId", FL_TYPE);
         app.paint(&mut c, None);
         let r = hit_rect(&app, &key);
         click(&mut app, &mut c, r);
@@ -513,7 +513,7 @@ mod tests {
         assert_eq!(seen().ext_type.as_deref(), Some(PROG_ID));
         assert_eq!(app.state.message.as_deref(), Some(BLOCKED_HINT));
         // Once the choice is gone the check is ticked.
-        reg::remove("HKCU", r"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.flp\UserChoice", "ProgId");
+        reg::remove("HKCU", r"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.lmn\UserChoice", "ProgId");
         app.open_settings(settings::GENERAL);
         assert!(app.state.settings.assoc);
     }

@@ -92,6 +92,9 @@ pub struct PianoState {
     pub overlay: Option<Overlay>,
     /// Ctrl+C copies (positions as copied).
     pub clipboard: Vec<Note>,
+    /// Channel event-panel focus; note-grid clicks restore note shortcuts.
+    pub event_focus: bool,
+    pub event_clipboard: Vec<ControlPoint>,
     /// Zoom tool: the view before "zoom out" (px per beat, scroll x, scroll y), for right-click.
     pub zoom_back: Option<(f32, f32, f32)>,
     /// Play-start marker in the ruler (ticks; pattern playback starts here, §10).
@@ -138,6 +141,8 @@ impl Default for PianoState {
             pitch_center: 0,
             overlay: None,
             clipboard: Vec::new(),
+            event_focus: false,
+            event_clipboard: Vec::new(),
             zoom_back: None,
             marker: 0,
             marker_placed: false,
@@ -587,6 +592,7 @@ pub fn rescale(s: &mut State, from: u16, to: u16) {
     p.marker = rescale_tick(p.marker, from, to);
     p.range = p.range.map(|(a, b)| (rescale_tick(a, from, to), rescale_tick(b, from, to)));
     p.clipboard.iter_mut().for_each(|n| n.rescale(from, to));
+    p.event_clipboard.iter_mut().for_each(|c| c.rescale(from, to));
     if let Some((_, x, _)) = &mut p.zoom_back {
         *x *= k;
     }
@@ -1235,7 +1241,8 @@ mod tests {
     fn typing_keyboard_keys() {
         use winit::keyboard::KeyCode;
         let mut a = app();
-        assert!(a.typing_on(), "on by default");
+        // Test the enabled typing keyboard without assuming the user's startup preference.
+        if !a.typing_on() { a.toggle_typing(); }
         assert!(a.typing_key(KeyCode::KeyZ, true, false, false));
         assert!(a.typing_key(KeyCode::KeyQ, true, false, false));
         assert!(a.typing_key(KeyCode::KeyQ, true, false, false), "repeat is taken, not replayed");

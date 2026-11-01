@@ -264,6 +264,9 @@ impl App {
             }
             crate::mixer_recording::flag(Opt::Smart,true);
             if let Some((lane,pattern))=crate::smart_recording::instrument_lane(&self.state) {
+                if crate::playlist::track_info(&self.state,lane).is_some_and(|t|t.frozen.is_some()) {
+                    self.state.message=Some("Unfreeze this track before recording into it".into());self.invalidate();return;
+                }
                 self.state.pattern=pattern;self.state.project.current_pattern=Some(pattern);
                 self.state.playlist.track=lane;self.state.song_mode=true;
             }
@@ -295,7 +298,7 @@ impl App {
             PItem::new("Don't ask again", Cmd::Rec(RecCmd::AskOff)),
         ];
         let (x, y) = self.hits.iter().find(|h| h.action == crate::app::Action::Record).map_or((486.0, 35.0), |h| (h.rect.x, h.rect.bottom() + 2.0));
-        self.state.playlist.popup = Some(Popup { x, y, items, sub: None, scroll: [0; 2] });
+        self.state.playlist.popup = Some(Popup { x, y, items, sub: None, scroll: [0; 2], cascade: Vec::new() });
     }
 
     /// A record popup's command (`Cmd::Rec`); returns the message to show.
@@ -358,7 +361,7 @@ impl App {
                     PItem::new("Replace", Cmd::Rec(RecCmd::DumpAs(minutes, true))),
                     PItem::new("Cancel", Cmd::Nothing),
                 ];
-                self.state.playlist.popup = Some(Popup { x, y, items, sub: None, scroll: [0; 2] });
+                self.state.playlist.popup = Some(Popup { x, y, items, sub: None, scroll: [0; 2], cascade: Vec::new() });
                 return None;
             }
             None => false,
@@ -456,7 +459,7 @@ impl App {
             }
             _ => return,
         };
-        self.state.playlist.popup = Some(Popup { x, y, items, sub: None, scroll: [0; 2] });
+        self.state.playlist.popup = Some(Popup { x, y, items, sub: None, scroll: [0; 2], cascade: Vec::new() });
     }
 
     /// An option switch (the buttons, OPTIONS menu, Ctrl+I / Ctrl+P / Ctrl+B); turning Start on input off ends a wait.
@@ -491,7 +494,7 @@ impl App {
             it("Note start time", Opt::QuantizeStart),
             it("Note end time", Opt::QuantizeEnd),
         ];
-        self.state.playlist.popup = Some(Popup { x, y, items, sub: None, scroll: [0; 2] });
+        self.state.playlist.popup = Some(Popup { x, y, items, sub: None, scroll: [0; 2], cascade: Vec::new() });
     }
 
     /// Whether something played now is recorded: armed, `what` on in the filter, playing and not paused.

@@ -69,7 +69,9 @@ pub struct Category {
 
 /// Template `name`'s file in category `cat`.
 pub(crate) fn file_in(root: &Path, cat: &str, name: &str) -> PathBuf {
-    root.join(cat).join(name).join(format!("{name}.flp"))
+    let native=root.join(cat).join(name).join(format!("{name}.lmn"));
+    let legacy=native.with_extension("flp");
+    if native.exists() || !legacy.exists() {native} else {legacy}
 }
 
 /// The folders in `dir`, by name, sorted without regard to case.
@@ -153,7 +155,7 @@ impl App {
                 .collect();
             items.push(PItem { children, ..PItem::new(c.name, Cmd::Nothing) });
         }
-        self.state.playlist.popup = Some(Popup { x, y: y + 1.0, items, sub: None, scroll: [0; 2] });
+        self.state.playlist.popup = Some(Popup { x, y: y + 1.0, items, sub: None, scroll: [0; 2], cascade: Vec::new() });
         self.invalidate();
     }
 
@@ -387,7 +389,7 @@ mod tests {
         assert_eq!(app.state.path, None, "untitled: Save asks where");
         assert!(app.state.file.is_some(), "the template's events are kept for the save");
         assert!(!app.unsaved());
-        assert_eq!(app.title(), "[untitled]");
+        assert_eq!(app.title(), "[Basic with limiter]");
         assert_eq!(app.state.message.as_deref(), Some("New project from the template Basic with limiter"));
         assert_eq!(last_project(), None);
         let w = app.state.project.work_time.expect("started");
@@ -617,7 +619,7 @@ mod public_tests {
         let mut p=crate::app::default_project();p.tempo=personal.tempo;p.ppq=personal.ppq;
         p.arrangements=vec![os_model::Arrangement{number:0,name:Some("Arrangement".into()),tracks:(1..=500).map(os_model::PlaylistTrack::new).collect(),..Default::default()}];
         p.mixer=personal.mixer.clone();
-        for m in &mut p.mixer {m.slots=Default::default();m.slot_on=[true;11];m.slot_mix=[1.0;11];m.slots_enabled=true;m.origin=None;m.latency_in=0.0;m.latency_out=0.0;}
+        for m in &mut p.mixer {m.slots=std::array::from_fn(|_|None);m.slot_on=[true;64];m.slot_mix=[1.0;64];m.slots_enabled=true;m.origin=None;m.latency_in=0.0;m.latency_out=0.0;}
         let vocal=p.mixer.iter().find(|m|m.name.as_deref().is_some_and(|n|n.eq_ignore_ascii_case("vocal mix")||n.eq_ignore_ascii_case("vox mix")||n.eq_ignore_ascii_case("vocals"))).map(|m|m.index).unwrap_or(6);
         println!("Ducking source: {} {:?}",vocal,p.mixer[vocal as usize].name);
         let vr=p.mixer.iter().find(|m|m.name.as_deref()==Some("VOCAL VERB")).unwrap().index;

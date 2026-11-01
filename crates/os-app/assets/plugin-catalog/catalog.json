@@ -1,0 +1,3298 @@
+[
+  {
+    "id": "surge-xt",
+    "name": "Surge XT",
+    "category": "Synthesizers",
+    "description": "Hybrid synth with wavetable, FM and MPE.",
+    "source": "https://github.com/surge-synthesizer/surge",
+    "license": "GPL-3.0",
+    "license_url": "https://github.com/surge-synthesizer/surge/blob/master/LICENSE",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://github.com/surge-synthesizer/releases-xt/releases/download/1.3.4/surge-xt-win64-1.3.4-setup.exe",
+        "filename": "surge-xt-win64-1.3.4-setup.exe",
+        "version": "1.3.4",
+        "note": "",
+        "sha256": "6e221e05f29254508142b9e0ed76a85f22fa1b512501bebde571951e7eefecca",
+        "size": 183385478,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://github.com/surge-synthesizer/releases-xt/releases/download/1.3.4/surge-xt-macOS-1.3.4.dmg",
+        "filename": "surge-xt-macOS-1.3.4.dmg",
+        "version": "1.3.4",
+        "note": "",
+        "sha256": "b56e8d51a8dc2382ae668c9ff4e96bae38dbd452af4e584d5a5ef50ab2d09b07",
+        "size": 416715686,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://github.com/surge-synthesizer/releases-xt/releases/download/1.3.4/surge-xt-linux-x64-1.3.4.deb",
+        "filename": "surge-xt-linux-x64-1.3.4.deb",
+        "version": "1.3.4",
+        "note": "Debian/Ubuntu package; other Linux distributions may need manual extraction. Debian/Ubuntu package; other Linux distributions may need manual extraction.",
+        "sha256": "a6e55064487f624147d515b9ae5fc79a568b69746675b2083abde628ca7bb151",
+        "size": 223339140,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://surge-synthesizer.github.io/images/hero_dark.png",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Hybrid synth with wavetable, FM and MPE. Create evolving pads, basses and expressive leads using several synthesis methods in one instrument."
+  },
+  {
+    "id": "dexed",
+    "name": "Dexed",
+    "category": "Synthesizers",
+    "description": "DX7-style FM synthesis and patch editing.",
+    "source": "https://github.com/asb2m10/dexed",
+    "license": "GPL-3.0",
+    "license_url": "https://github.com/asb2m10/dexed/blob/master/LICENSE",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://github.com/asb2m10/dexed/releases/download/v1.1.0/Dexed-1.1.0-win.exe",
+        "filename": "Dexed-1.1.0-win.exe",
+        "version": "v1.1.0",
+        "note": "",
+        "sha256": "a5ebac7578f45ccf691cd5887b0af0c7206bdc763e85d479795c2c1866f54d5f",
+        "size": 13827494,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://github.com/asb2m10/dexed/releases/download/v1.1.0/Dexed-1.1.0-macOS.dmg",
+        "filename": "Dexed-1.1.0-macOS.dmg",
+        "version": "v1.1.0",
+        "note": "",
+        "sha256": "f95b5d4a8985af444094fd3d76c5f4c86795f56169b9b9a1f4d620bb54c300ce",
+        "size": 22849347,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://github.com/asb2m10/dexed/releases/download/v1.1.0/Dexed-1.1.0-lnx.zip",
+        "filename": "Dexed-1.1.0-lnx.zip",
+        "version": "v1.1.0",
+        "note": "",
+        "sha256": "3a1a01511e3428f432cc91c7bf5267d72bfcb68aded4f084d4f9d002dcc42da6",
+        "size": 12206213,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://raw.githubusercontent.com/asb2m10/dexed/master/assets/ui/dexed-logo.png",
+    "note": "",
+    "thumbnail_kind": "brand icon",
+    "info": "DX7-style FM synthesis and patch editing. Useful for classic electric pianos, metallic bells and FM basses; also works as a DX7 patch editor."
+  },
+  {
+    "id": "cardinal",
+    "name": "Cardinal",
+    "category": "Synthesizers",
+    "description": "Self-contained modular synth and effects rack.",
+    "source": "https://github.com/DISTRHO/Cardinal",
+    "license": "GPL-3.0",
+    "license_url": "https://github.com/DISTRHO/Cardinal/blob/main/LICENSE",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://github.com/DISTRHO/Cardinal/releases/download/26.02/Cardinal-win64-26.02-installer.exe",
+        "filename": "Cardinal-win64-26.02-installer.exe",
+        "version": "26.02",
+        "note": "",
+        "sha256": "16f21250fe656fc766f6c1df79c45244bbdf55ffa90ff0c3c3ace9af70cf3e24",
+        "size": 368923667,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://github.com/DISTRHO/Cardinal/releases/download/26.02/Cardinal-macOS-universal-26.02.pkg",
+        "filename": "Cardinal-macOS-universal-26.02.pkg",
+        "version": "26.02",
+        "note": "",
+        "sha256": "5f62f020aab3987aea4bf7bfde4caf09b4c41ab555f485c0e7ebf46944bdb415",
+        "size": 974061970,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://github.com/DISTRHO/Cardinal/releases/download/26.02/Cardinal-linux-x86_64-26.02.tar.gz",
+        "filename": "Cardinal-linux-x86_64-26.02.tar.gz",
+        "version": "26.02",
+        "note": "",
+        "sha256": "657df0beeec04184de7359cbd3e173a36eeab78077e1e26da81405632f98ec25",
+        "size": 1113893699,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://raw.githubusercontent.com/DISTRHO/Cardinal/main/docs/Screenshot_Basic-Patching.png",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Self-contained modular synth and effects rack. Connect virtual modules to build instruments, sequencers and experimental effects without a separate modular host."
+  },
+  {
+    "id": "odin-2",
+    "name": "Odin 2",
+    "category": "Synthesizers",
+    "description": "Subtractive synth with flexible oscillators.",
+    "source": "https://github.com/TheWaveWarden/odin2",
+    "license": "GPL-3.0",
+    "license_url": "https://github.com/TheWaveWarden/odin2/blob/master/LICENSE",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://www.dropbox.com/scl/fi/ry724e80orl3sb2kam8h7/Odin2.4.0WinInstaller.exe?rlkey=eek7d00l6rbu9fzgpm93wgzdx&st=1sohdfiw&dl=1",
+        "filename": "Odin2.4.0WinInstaller.exe",
+        "version": "2.4.0",
+        "note": "",
+        "sha256": "bc478890d3ffe875bb46e716947a7700c16fa3c01dc96e404eb53ba837bf6ed9",
+        "size": 40947816,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://www.dropbox.com/scl/fi/qonadn6d5t3azpjne5a4l/Odin2.4.0MacInstaller.pkg?rlkey=z8soys4s579w6c4cpjp1iq61r&st=lybmxi7y&dl=1",
+        "filename": "Odin2.4.0MacInstaller.pkg",
+        "version": "2.4.0",
+        "note": "",
+        "sha256": "5b248a9d57e9f2ab00afa7e2860753ff5add2041a183d817484b888bff9aa8e5",
+        "size": 132362390,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://www.dropbox.com/scl/fi/np6so66d4f92s59lt3l7p/Odin2-synth_2.4-1.deb?rlkey=e9zf5ed44emhez98h0q7jnkhu&st=jhttoejy&dl=1",
+        "filename": "Odin2.4.1Linux.zip",
+        "version": "2.4.1",
+        "note": "",
+        "sha256": "dd3c20fbf78c863fb8d7c70ceb746c52800f498022d95a2ef19abcf62c7a6c57",
+        "size": 61834296,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://raw.githubusercontent.com/TheWaveWarden/odin2/master/screenshot.png",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Subtractive synth with flexible oscillators. Combine oscillator types and modulation to build basses, leads and layered pads."
+  },
+  {
+    "id": "octasine",
+    "name": "OctaSine",
+    "category": "Synthesizers",
+    "description": "Four-operator stereo FM synth.",
+    "source": "https://github.com/greatest-ape/OctaSine",
+    "license": "AGPL-3.0",
+    "license_url": "https://github.com/greatest-ape/OctaSine/blob/master/LICENSE",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://github.com/greatest-ape/OctaSine/releases/download/v0.9.1/OctaSine-v0.9.1-Windows.zip",
+        "filename": "OctaSine-v0.9.1-Windows.zip",
+        "version": "0.9.1",
+        "note": "Installs only this selected portable plugin into your Lemon Studio profile and scans it automatically.",
+        "sha256": "7ac928ddfe8f54a26c4264b95d3f1c4ccd047db106694bf5c722748662cb2d5f",
+        "size": 4624717,
+        "install": [
+          "OctaSine/CLAP/OctaSine v0.9.clap"
+        ]
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://github.com/greatest-ape/OctaSine/releases/download/v0.9.1/OctaSine-v0.9.1-macOS.zip",
+        "filename": "OctaSine-v0.9.1-macOS.zip",
+        "version": "0.9.1",
+        "note": "",
+        "sha256": "449f99fdb00febc8f716ccebbc74767ff73e268f3f7b27717478d1dfa1fea468",
+        "size": 10292979,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://github.com/greatest-ape/OctaSine/releases/download/v0.9.1/OctaSine-v0.9.1-Ubuntu-20_04.zip",
+        "filename": "OctaSine-v0.9.1-Ubuntu-20_04.zip",
+        "version": "0.9.1",
+        "note": "",
+        "sha256": "cfa2a955bffdb3537bf782b70c175f3ae2071aded2832b464b6b30e5161de173",
+        "size": 5760864,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://raw.githubusercontent.com/greatest-ape/OctaSine/master/images/screenshot-dark.png",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Four-operator stereo FM synth. Shape bright, metallic or percussive tones by routing four FM operators and adjusting their stereo behavior."
+  },
+  {
+    "id": "dragonfly-hall",
+    "name": "Dragonfly Hall",
+    "category": "Reverb",
+    "description": "Hall ambience with detailed tone controls.",
+    "source": "https://github.com/michaelwillis/dragonfly-reverb",
+    "license": "GPL-3.0",
+    "license_url": "https://github.com/michaelwillis/dragonfly-reverb/blob/master/LICENSE",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://github.com/michaelwillis/dragonfly-reverb/releases/download/3.2.10/dragonfly-reverb-3.2.10-win64.zip",
+        "filename": "dragonfly-reverb-3.2.10-win64.zip",
+        "version": "3.2.10",
+        "note": "Installs only this selected portable plugin into your Lemon Studio profile and scans it automatically.",
+        "sha256": "ca5f35f9dcd9a33f06490d3c92f04061a1a798cb81257d5ca5851bdda0824c66",
+        "size": 22447365,
+        "install": [
+          "dragonfly-reverb-3.2.10/DragonflyHallReverb.vst3"
+        ]
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://github.com/michaelwillis/dragonfly-reverb/releases/download/3.2.10/dragonfly-reverb-3.2.10-macos-universal.dmg",
+        "filename": "dragonfly-reverb-3.2.10-macos-universal.dmg",
+        "version": "3.2.10",
+        "note": "",
+        "sha256": "e0b854b92a4e51ce5851320fb1a9f91ab1a4309f997de070e175b3e5cab4adaf",
+        "size": 24954281,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://github.com/michaelwillis/dragonfly-reverb/releases/download/3.2.10/dragonfly-reverb-3.2.10-linux-x86_64.tar.xz",
+        "filename": "dragonfly-reverb-3.2.10-linux-x86_64.tar.xz",
+        "version": "3.2.10",
+        "note": "",
+        "sha256": "59f1593120de82e31dd194e2ab1536af14fec2b3ec6ec45abf6d9c8ac02ef430",
+        "size": 2267368,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://michaelwillis.github.io/dragonfly-reverb/images/dragonfly-hall-reverb/interface.png",
+    "note": "Download includes all four Dragonfly reverbs.",
+    "thumbnail_kind": "interface",
+    "info": "Hall ambience with detailed tone controls. Use on a send for spacious vocals, pads or orchestral material, then adjust the tail to fit the arrangement."
+  },
+  {
+    "id": "dragonfly-room",
+    "name": "Dragonfly Room",
+    "category": "Reverb",
+    "description": "Room ambience with detailed tone controls.",
+    "source": "https://github.com/michaelwillis/dragonfly-reverb",
+    "license": "GPL-3.0",
+    "license_url": "https://github.com/michaelwillis/dragonfly-reverb/blob/master/LICENSE",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://github.com/michaelwillis/dragonfly-reverb/releases/download/3.2.10/dragonfly-reverb-3.2.10-win64.zip",
+        "filename": "dragonfly-reverb-3.2.10-win64.zip",
+        "version": "3.2.10",
+        "note": "Installs only this selected portable plugin into your Lemon Studio profile and scans it automatically.",
+        "sha256": "ca5f35f9dcd9a33f06490d3c92f04061a1a798cb81257d5ca5851bdda0824c66",
+        "size": 22447365,
+        "install": [
+          "dragonfly-reverb-3.2.10/DragonflyRoomReverb.vst3"
+        ]
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://github.com/michaelwillis/dragonfly-reverb/releases/download/3.2.10/dragonfly-reverb-3.2.10-macos-universal.dmg",
+        "filename": "dragonfly-reverb-3.2.10-macos-universal.dmg",
+        "version": "3.2.10",
+        "note": "",
+        "sha256": "e0b854b92a4e51ce5851320fb1a9f91ab1a4309f997de070e175b3e5cab4adaf",
+        "size": 24954281,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://github.com/michaelwillis/dragonfly-reverb/releases/download/3.2.10/dragonfly-reverb-3.2.10-linux-x86_64.tar.xz",
+        "filename": "dragonfly-reverb-3.2.10-linux-x86_64.tar.xz",
+        "version": "3.2.10",
+        "note": "",
+        "sha256": "59f1593120de82e31dd194e2ab1536af14fec2b3ec6ec45abf6d9c8ac02ef430",
+        "size": 2267368,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://michaelwillis.github.io/dragonfly-reverb/images/dragonfly-room-reverb/interface.png",
+    "note": "Download includes all four Dragonfly reverbs.",
+    "thumbnail_kind": "interface",
+    "info": "Room ambience with detailed tone controls. Useful for putting dry recordings into a shared small space or adding subtle depth without a long hall tail."
+  },
+  {
+    "id": "dragonfly-plate",
+    "name": "Dragonfly Plate",
+    "category": "Reverb",
+    "description": "Plate ambience with detailed tone controls.",
+    "source": "https://github.com/michaelwillis/dragonfly-reverb",
+    "license": "GPL-3.0",
+    "license_url": "https://github.com/michaelwillis/dragonfly-reverb/blob/master/LICENSE",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://github.com/michaelwillis/dragonfly-reverb/releases/download/3.2.10/dragonfly-reverb-3.2.10-win64.zip",
+        "filename": "dragonfly-reverb-3.2.10-win64.zip",
+        "version": "3.2.10",
+        "note": "Installs only this selected portable plugin into your Lemon Studio profile and scans it automatically.",
+        "sha256": "ca5f35f9dcd9a33f06490d3c92f04061a1a798cb81257d5ca5851bdda0824c66",
+        "size": 22447365,
+        "install": [
+          "dragonfly-reverb-3.2.10/DragonflyPlateReverb.vst3"
+        ]
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://github.com/michaelwillis/dragonfly-reverb/releases/download/3.2.10/dragonfly-reverb-3.2.10-macos-universal.dmg",
+        "filename": "dragonfly-reverb-3.2.10-macos-universal.dmg",
+        "version": "3.2.10",
+        "note": "",
+        "sha256": "e0b854b92a4e51ce5851320fb1a9f91ab1a4309f997de070e175b3e5cab4adaf",
+        "size": 24954281,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://github.com/michaelwillis/dragonfly-reverb/releases/download/3.2.10/dragonfly-reverb-3.2.10-linux-x86_64.tar.xz",
+        "filename": "dragonfly-reverb-3.2.10-linux-x86_64.tar.xz",
+        "version": "3.2.10",
+        "note": "",
+        "sha256": "59f1593120de82e31dd194e2ab1536af14fec2b3ec6ec45abf6d9c8ac02ef430",
+        "size": 2267368,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://michaelwillis.github.io/dragonfly-reverb/images/dragonfly-plate-reverb/interface.png",
+    "note": "Download includes all four Dragonfly reverbs.",
+    "thumbnail_kind": "interface",
+    "info": "Plate ambience with detailed tone controls. Try on vocals, snare drums and synths for a dense tail with a plate-like character."
+  },
+  {
+    "id": "socalabs-mverb-2020",
+    "name": "SocaLabs Mverb 2020",
+    "category": "Reverb",
+    "description": "Plate reverb based on MVerb.",
+    "source": "https://github.com/FigBug/mverb",
+    "license": "GPL-3.0",
+    "license_url": "https://github.com/FigBug/mverb/blob/master/LICENSE",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=Mverb2020.exe",
+        "filename": "Mverb2020.exe",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "179f6252cc7e0a8b63d10d0405eaaf98b4a3f6799919e3a85862a1864f3cd0d2",
+        "size": 6541088,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://socalabs.com/files/get.php?id=Mverb2020.pkg",
+        "filename": "Mverb2020.pkg",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "b6e0154a2d78f8225ec0e245338428a69d83dd15cdc0fe9192385cac38050680",
+        "size": 30007825,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=Mverb2020.deb",
+        "filename": "Mverb2020.deb",
+        "version": "2026-10-31 snapshot",
+        "note": "Debian/Ubuntu package; other Linux distributions may need manual extraction. Debian/Ubuntu package; other Linux distributions may need manual extraction.",
+        "sha256": "d0af0419bb157d1d10d4dc872e260204e2ba86a12ba16dd54ac35032f706eeab",
+        "size": 21745066,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://socalabs.com/images/mverb.png",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Plate reverb based on MVerb. Adds a smooth plate-like tail to dry instruments; useful on a shared reverb send."
+  },
+  {
+    "id": "socalabs-simple-verb",
+    "name": "SocaLabs Simple Verb",
+    "category": "Reverb",
+    "description": "Straightforward room and ambience reverb.",
+    "source": "https://github.com/FigBug/slPlugins",
+    "license": "BSD-3-Clause",
+    "license_url": "https://github.com/FigBug/slPlugins/blob/master/LICENSE.md",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=SimpleVerb.exe",
+        "filename": "SimpleVerb.exe",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "2bbfc2f798fe2c8f79b759677e081b458e7858c204b7112b82191df58f107531",
+        "size": 8118880,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://socalabs.com/files/get.php?id=SimpleVerb.pkg",
+        "filename": "SimpleVerb.pkg",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "1258f97d1c37b475b299e4d1b8c95140720c99d44fb1708f95e2b30781b092e1",
+        "size": 45817985,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=SimpleVerb.deb",
+        "filename": "SimpleVerb.deb",
+        "version": "2026-10-31 snapshot",
+        "note": "Debian/Ubuntu package; other Linux distributions may need manual extraction. Debian/Ubuntu package; other Linux distributions may need manual extraction.",
+        "sha256": "bc1a28d046dae3b3f80247711dce73bdd2279150e0f48d1ca0434039b7407cf2",
+        "size": 23271800,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://socalabs.com/images/simpleverb.png",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Straightforward room and ambience reverb. A quick way to add space to a dry source without navigating a complex reverb interface."
+  },
+  {
+    "id": "chow-matrix",
+    "name": "CHOW Matrix",
+    "category": "Delay",
+    "description": "Build branching networks of modulated echoes.",
+    "source": "https://github.com/Chowdhury-DSP/ChowMatrix",
+    "license": "BSD-3-Clause",
+    "license_url": "https://github.com/Chowdhury-DSP/ChowMatrix/blob/main/LICENSE",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://github.com/Chowdhury-DSP/ChowMatrix/releases/download/v1.3.0/ChowMatrix-Win-1.3.0.exe",
+        "filename": "ChowMatrix-Win-1.3.0.exe",
+        "version": "v1.3.0",
+        "note": "",
+        "sha256": "b1e2451ae66362bf82112e77fccc48a1233780b6cbfb58fe1a588b17a77456c5",
+        "size": 7958887,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://github.com/Chowdhury-DSP/ChowMatrix/releases/download/v1.3.0/ChowMatrix-Mac-1.3.0.dmg",
+        "filename": "ChowMatrix-Mac-1.3.0.dmg",
+        "version": "v1.3.0",
+        "note": "",
+        "sha256": "11705e4cfb023525e8b6830fb29feb046eac05688428a12a8fdad48dc9a9fdcf",
+        "size": 17091478,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://github.com/Chowdhury-DSP/ChowMatrix/releases/download/v1.3.0/ChowMatrix-Linux-x64-1.3.0.deb",
+        "filename": "ChowMatrix-Linux-x64-1.3.0.deb",
+        "version": "v1.3.0",
+        "note": "Debian/Ubuntu package; other Linux distributions may need manual extraction. Debian/Ubuntu package; other Linux distributions may need manual extraction.",
+        "sha256": "332749bba2fcfefeb68c105b9f55fd71aa7a8bfb524f592cbb68cc6c0581a767",
+        "size": 2990012,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://raw.githubusercontent.com/Chowdhury-DSP/ChowMatrix/main/manual/screenshots/full_gui.png",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Build branching networks of modulated echoes. Each echo can feed other echoes, allowing rhythmic patterns and evolving sound-design textures."
+  },
+  {
+    "id": "socalabs-delay",
+    "name": "SocaLabs Delay",
+    "category": "Delay",
+    "description": "Simple feedback echo.",
+    "source": "https://github.com/FigBug/slPlugins",
+    "license": "BSD-3-Clause",
+    "license_url": "https://github.com/FigBug/slPlugins/blob/master/LICENSE.md",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=Delay.exe",
+        "filename": "Delay.exe",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "081d084f0df476f7d10586750d4206090817174bb3a62380bc50131091ace9ea",
+        "size": 8120456,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://socalabs.com/files/get.php?id=Delay.pkg",
+        "filename": "Delay.pkg",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "5640823685c9c70976560ca1bf290305bbfa28f73516908e580bb4271f966f7d",
+        "size": 45840469,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=Delay.deb",
+        "filename": "Delay.deb",
+        "version": "2026-10-31 snapshot",
+        "note": "Debian/Ubuntu package; other Linux distributions may need manual extraction. Debian/Ubuntu package; other Linux distributions may need manual extraction.",
+        "sha256": "033b70b95dd3658caf1ce01dfdaff7af54428ab2834705c5925f3cdfd9d0bbca",
+        "size": 23282812,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://socalabs.com/images/delay.png",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Simple feedback echo. Use it for repeating echoes on vocals or instruments; feedback determines how long repetitions continue."
+  },
+  {
+    "id": "socalabs-sample-delay",
+    "name": "SocaLabs Sample Delay",
+    "category": "Delay",
+    "description": "Sample-accurate timing alignment; not a feedback echo.",
+    "source": "https://github.com/FigBug/slPlugins",
+    "license": "BSD-3-Clause",
+    "license_url": "https://github.com/FigBug/slPlugins/blob/master/LICENSE.md",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=SampleDelay.exe",
+        "filename": "SampleDelay.exe",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "f2dc3c738ba885555792238f289d5c20dd60ab5bd7cb44ae50265d8c73e77351",
+        "size": 8115288,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://socalabs.com/files/get.php?id=SampleDelay.pkg",
+        "filename": "SampleDelay.pkg",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "d5b2f30bb853449774bfa59a8cfb06c4f179bdf23eea59931db5c1f9c32d1417",
+        "size": 45822697,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=SampleDelay.deb",
+        "filename": "SampleDelay.deb",
+        "version": "2026-10-31 snapshot",
+        "note": "Debian/Ubuntu package; other Linux distributions may need manual extraction. Debian/Ubuntu package; other Linux distributions may need manual extraction.",
+        "sha256": "623c993d1af5b1ef47710e1063ec3f194ac6abc660e34930f3185a0f76175ccf",
+        "size": 23271686,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://socalabs.com/images/sampledelay.png",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Sample-accurate timing alignment; not a feedback echo. Use it to offset a signal by samples for timing or phase alignment between parallel paths."
+  },
+  {
+    "id": "airwindows-tapedelay2",
+    "name": "Airwindows TapeDelay2",
+    "category": "Delay",
+    "description": "Tape-style echo.",
+    "source": "https://github.com/airwindows/airwindows",
+    "license": "MIT",
+    "license_url": "https://github.com/airwindows/airwindows/blob/master/LICENSE",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://www.airwindows.com/wp-content/uploads/2021/08/TapeDelay2.zip",
+        "filename": "TapeDelay2.zip",
+        "version": "original release",
+        "note": "Installs only this selected portable plugin into your Lemon Studio profile and scans it automatically.",
+        "sha256": "4fccf86d3c4ef42a6b83225099fb252dfa9fac55cb60a7bbda955bb31a184989",
+        "size": 632859,
+        "install": [
+          "TapeDelay2/TapeDelay264.dll"
+        ]
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://www.airwindows.com/wp-content/uploads/SignedMacVSTs.dmg",
+        "filename": "SignedMacVSTs.dmg",
+        "version": "2026-10-31 snapshot",
+        "note": "Includes the full Airwindows VST2 collection.",
+        "sha256": "1a95dc2a45bddc9e62dc8875a9fc21b45b152a2a93bfda78b53a9dbfd6d7dc66",
+        "size": 14105789,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://www.airwindows.com/wp-content/uploads/LinuxVSTs.zip",
+        "filename": "LinuxVSTs.zip",
+        "version": "2026-10-31 snapshot",
+        "note": "Includes the full Airwindows VST2 collection.",
+        "sha256": "0f8fe901e4a5756254495afdd93e7b638a62210a75b8751e55ce7cb7a21a8909",
+        "size": 16048217,
+        "install": []
+      }
+    ],
+    "thumbnail": "",
+    "note": "No custom GUI: uses host parameter controls.",
+    "homepage": "https://www.airwindows.com/tapedelay2/",
+    "thumbnail_kind": "label",
+    "info": "Tape-style echo. Adds colored repeats for dub echoes, rhythmic depth and transitions."
+  },
+  {
+    "id": "airwindows-purestecho",
+    "name": "Airwindows PurestEcho",
+    "category": "Delay",
+    "description": "Four-tap echo without feedback.",
+    "source": "https://github.com/airwindows/airwindows",
+    "license": "MIT",
+    "license_url": "https://github.com/airwindows/airwindows/blob/master/LICENSE",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://www.airwindows.com/wp-content/uploads/2017/06/PurestEcho.zip",
+        "filename": "PurestEcho.zip",
+        "version": "original release",
+        "note": "Installs only this selected portable plugin into your Lemon Studio profile and scans it automatically.",
+        "sha256": "1e30373810fc23f99c9c52848749035b77935c145881c312952504fb754d5c25",
+        "size": 353688,
+        "install": [
+          "PurestEcho64.dll"
+        ]
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://www.airwindows.com/wp-content/uploads/SignedMacVSTs.dmg",
+        "filename": "SignedMacVSTs.dmg",
+        "version": "2026-10-31 snapshot",
+        "note": "Includes the full Airwindows VST2 collection.",
+        "sha256": "1a95dc2a45bddc9e62dc8875a9fc21b45b152a2a93bfda78b53a9dbfd6d7dc66",
+        "size": 14105789,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://www.airwindows.com/wp-content/uploads/LinuxVSTs.zip",
+        "filename": "LinuxVSTs.zip",
+        "version": "2026-10-31 snapshot",
+        "note": "Includes the full Airwindows VST2 collection.",
+        "sha256": "0f8fe901e4a5756254495afdd93e7b638a62210a75b8751e55ce7cb7a21a8909",
+        "size": 16048217,
+        "install": []
+      }
+    ],
+    "thumbnail": "",
+    "note": "No custom GUI: uses host parameter controls.",
+    "homepage": "https://www.airwindows.com/purestecho/",
+    "thumbnail_kind": "label",
+    "info": "Four-tap echo without feedback. Useful for rhythmic repeat patterns where you want distinct taps without a regenerating delay tail."
+  },
+  {
+    "id": "zl-equalizer-2",
+    "name": "ZL Equalizer 2",
+    "category": "EQ and filters",
+    "description": "Parametric dynamic EQ with spectrum display.",
+    "source": "https://github.com/ZL-Audio/ZLEqualizer",
+    "license": "AGPL-3.0",
+    "license_url": "https://github.com/ZL-Audio/ZLEqualizer/blob/main/LICENSE.md",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://github.com/ZL-Audio/ZLEqualizer/releases/download/1.4.1/ZL.Equalizer.2-1.4.1-Windows-x86-64.msi",
+        "filename": "ZL.Equalizer.2-1.4.1-Windows-x86-64.msi",
+        "version": "1.4.1",
+        "note": "",
+        "sha256": "4410231ca0f739bc73646006701ae6b64d553910b8abc969575e562dc1cf79b7",
+        "size": 9961472,
+        "install": []
+      },
+      {
+        "platform": "macos-aarch64",
+        "url": "https://github.com/ZL-Audio/ZLEqualizer/releases/download/1.4.1/ZL.Equalizer.2-1.4.1-macOS-arm64.dmg",
+        "filename": "ZL.Equalizer.2-1.4.1-macOS-arm64.dmg",
+        "version": "1.4.1",
+        "note": "",
+        "sha256": "770167ead54bccdbac5ad3a2f6bc844013808247fa633c434f39140fef085c2d",
+        "size": 11194539,
+        "install": []
+      },
+      {
+        "platform": "macos-x86_64",
+        "url": "https://github.com/ZL-Audio/ZLEqualizer/releases/download/1.4.1/ZL.Equalizer.2-1.4.1-macOS-x86-64.dmg",
+        "filename": "ZL.Equalizer.2-1.4.1-macOS-x86-64.dmg",
+        "version": "1.4.1",
+        "note": "",
+        "sha256": "2d7a44ec73f8a30bfcce022e14efb74ef5adf8bdc1bf7165b4289400453ce5b3",
+        "size": 12530783,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://github.com/ZL-Audio/ZLEqualizer/releases/download/1.4.1/ZL.Equalizer.2-1.4.1-Linux-x86-64.zip",
+        "filename": "ZL.Equalizer.2-1.4.1-Linux-x86-64.zip",
+        "version": "1.4.1",
+        "note": "",
+        "sha256": "ba253ef4e608e5d6f72b2c341a7bc0d9c48b79e051806c2367d481814a4dc896",
+        "size": 10850259,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://drive.google.com/uc?export=view&id=1xnUGRs3NvWL-2MZ2i8rg0g0bUnG6MSO2",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Parametric dynamic EQ with spectrum display. Use bands to correct resonances or adjust tonal balance while watching the spectrum."
+  },
+  {
+    "id": "zl-spectrum-equalizer",
+    "name": "ZL Spectrum Equalizer",
+    "category": "EQ and filters",
+    "description": "Dynamic spectrum-based tonal control.",
+    "source": "https://github.com/ZL-Audio/ZLSpectrumEqualizer",
+    "license": "AGPL-3.0",
+    "license_url": "https://github.com/ZL-Audio/ZLSpectrumEqualizer/blob/main/LICENSE.md",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://github.com/ZL-Audio/ZLSpectrumEqualizer/releases/download/0.1.1/ZL.Spectrum.Equalizer-0.1.1-Windows-x86-64.msi",
+        "filename": "ZL.Spectrum.Equalizer-0.1.1-Windows-x86-64.msi",
+        "version": "0.1.1",
+        "note": "",
+        "sha256": "658d6ad75f0b52bf0fc8238b2c4a4485b332003ab2692be8dd57a445ac1c6947",
+        "size": 5787648,
+        "install": []
+      },
+      {
+        "platform": "macos-aarch64",
+        "url": "https://github.com/ZL-Audio/ZLSpectrumEqualizer/releases/download/0.1.1/ZL.Spectrum.Equalizer-0.1.1-macOS-arm64.dmg",
+        "filename": "ZL.Spectrum.Equalizer-0.1.1-macOS-arm64.dmg",
+        "version": "0.1.1",
+        "note": "",
+        "sha256": "1c98b6daacadd2b1d17ce41878e588cb176b01d739619b6f80cdf143c22aaf7d",
+        "size": 5615636,
+        "install": []
+      },
+      {
+        "platform": "macos-x86_64",
+        "url": "https://github.com/ZL-Audio/ZLSpectrumEqualizer/releases/download/0.1.1/ZL.Spectrum.Equalizer-0.1.1-macOS-x86-64.dmg",
+        "filename": "ZL.Spectrum.Equalizer-0.1.1-macOS-x86-64.dmg",
+        "version": "0.1.1",
+        "note": "",
+        "sha256": "15287c827b850fabf73026facb06c5d02d830068f57026fc106562bc4573a3ce",
+        "size": 6418535,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://github.com/ZL-Audio/ZLSpectrumEqualizer/releases/download/0.1.1/ZL.Spectrum.Equalizer-0.1.1-Linux-x86-64.zip",
+        "filename": "ZL.Spectrum.Equalizer-0.1.1-Linux-x86-64.zip",
+        "version": "0.1.1",
+        "note": "",
+        "sha256": "886f2959b77902591c9d77463e39a10ed4ad8efed024ff9baed956233e3e31b5",
+        "size": 6002928,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://drive.google.com/uc?export=view&id=1P3VNweMNSP9esDAmQqbVtesbs-d5cs9Q",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Dynamic spectrum-based tonal control. Useful for controlling changing tonal problems across the spectrum rather than using only fixed EQ cuts."
+  },
+  {
+    "id": "chow-multitool",
+    "name": "CHOW MultiTool",
+    "category": "EQ and filters",
+    "description": "Drawable EQ, waveshaper and band splitting.",
+    "source": "https://github.com/Chowdhury-DSP/ChowMultiTool",
+    "license": "GPL-3.0",
+    "license_url": "https://github.com/Chowdhury-DSP/ChowMultiTool/blob/main/LICENSE",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://github.com/Chowdhury-DSP/ChowMultiTool/releases/download/v1.1.0/ChowMultiTool-Win-64bit-1.1.0.exe",
+        "filename": "ChowMultiTool-Win-64bit-1.1.0.exe",
+        "version": "v1.1.0",
+        "note": "",
+        "sha256": "0ed347e15d244f2a115e0ecbfc219dbca1dd666ec371292d6a8c56f6deaaffbb",
+        "size": 7437272,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://github.com/Chowdhury-DSP/ChowMultiTool/releases/download/v1.1.0/ChowMultiTool-Mac-1.1.0.dmg",
+        "filename": "ChowMultiTool-Mac-1.1.0.dmg",
+        "version": "v1.1.0",
+        "note": "",
+        "sha256": "d56bd047d8d833306890ebc05102f1d4da31045d1986982caf571c98cdf3f747",
+        "size": 30594689,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://github.com/Chowdhury-DSP/ChowMultiTool/releases/download/v1.1.0/ChowMultiTool-Linux-x64-1.1.0.deb",
+        "filename": "ChowMultiTool-Linux-x64-1.1.0.deb",
+        "version": "v1.1.0",
+        "note": "Debian/Ubuntu package; other Linux distributions may need manual extraction. Debian/Ubuntu package; other Linux distributions may need manual extraction.",
+        "sha256": "69b6718b08a1072d1f27817dace1e07a689a2b8ce7cee9bc9530b107e2343803",
+        "size": 11107512,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://raw.githubusercontent.com/Chowdhury-DSP/ChowMultiTool/main/images/drawn_eq.png",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Drawable EQ, waveshaper and band splitting. Use the separate tools to shape frequency balance, distortion curves or multiband routing."
+  },
+  {
+    "id": "socalabs-graphic-eq",
+    "name": "SocaLabs Graphic EQ",
+    "category": "EQ and filters",
+    "description": "Graphic equalizer.",
+    "source": "https://github.com/FigBug/slPlugins",
+    "license": "BSD-3-Clause",
+    "license_url": "https://github.com/FigBug/slPlugins/blob/master/LICENSE.md",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=GraphicEQ.exe",
+        "filename": "GraphicEQ.exe",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "cf39d0c79774c574639e1a05238904c37fd03d5854027a2aed40dd79e86c8415",
+        "size": 8127800,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://socalabs.com/files/get.php?id=GraphicEQ.pkg",
+        "filename": "GraphicEQ.pkg",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "b3c94c50c0ecc0b702127e3101ace156d5b42fb78c414d09009f20c4c06a1d9b",
+        "size": 45914299,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=GraphicEQ.deb",
+        "filename": "GraphicEQ.deb",
+        "version": "2026-10-31 snapshot",
+        "note": "Debian/Ubuntu package; other Linux distributions may need manual extraction. Debian/Ubuntu package; other Linux distributions may need manual extraction.",
+        "sha256": "d67059e355d7b0c179bfbb97d9823831fc1d8cfb20fda43346159ba94dde7e06",
+        "size": 23323226,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://socalabs.com/images/graphiceq.png",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Graphic equalizer. Adjust fixed frequency bands to make broad tonal corrections to individual tracks or buses."
+  },
+  {
+    "id": "distrho-3bandeq",
+    "name": "DISTRHO 3BandEQ",
+    "category": "EQ and filters",
+    "description": "Low, mid and high shelving/peaking EQ.",
+    "source": "https://github.com/DISTRHO/DPF-Plugins",
+    "license": "LGPL-3.0",
+    "license_url": "https://github.com/DISTRHO/DPF-Plugins/blob/main/plugins/3BandEQ/LICENSE",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://github.com/DISTRHO/DPF-Plugins/releases/download/v1.7/DPF-Plugins-v1.7-win64.zip",
+        "filename": "DPF-Plugins-v1.7-win64.zip",
+        "version": "v1.7",
+        "note": "Installs only this selected portable plugin into your Lemon Studio profile and scans it automatically.",
+        "sha256": "fdc609e0936e9c999395b9ddd98a9a72739cb672d8838ab71849469aee50ad98",
+        "size": 74524341,
+        "install": [
+          "DPF-Plugins-v1.7/3BandEQ.vst3"
+        ]
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://github.com/DISTRHO/DPF-Plugins/releases/download/v1.7/DPF-Plugins-v1.7-macos-universal.dmg",
+        "filename": "DPF-Plugins-v1.7-macos-universal.dmg",
+        "version": "v1.7",
+        "note": "",
+        "sha256": "94b996c898a7ba160561113d1c48c4700a6ef65d33f4092ea7289b1af44059e1",
+        "size": 57933584,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://github.com/DISTRHO/DPF-Plugins/releases/download/v1.7/DPF-Plugins-v1.7-linux-x86_64.tar.xz",
+        "filename": "DPF-Plugins-v1.7-linux-x86_64.tar.xz",
+        "version": "v1.7",
+        "note": "",
+        "sha256": "8088e362f9f68fea179abe9f96b83fca07693224ffcf46837c24ff8b59b119cb",
+        "size": 9827340,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://raw.githubusercontent.com/DISTRHO/DPF-Plugins/main/plugins/3BandEQ/Screenshot.png",
+    "note": "Download includes the DPF plugin collection.",
+    "thumbnail_kind": "interface",
+    "info": "Low, mid and high shelving/peaking EQ. A simple three-band workflow for quick warmth, midrange presence and brightness adjustments."
+  },
+  {
+    "id": "zl-compressor",
+    "name": "ZL Compressor",
+    "category": "Dynamics",
+    "description": "Detailed compressor with visual envelope controls.",
+    "source": "https://github.com/ZL-Audio/ZLCompressor",
+    "license": "AGPL-3.0",
+    "license_url": "https://github.com/ZL-Audio/ZLCompressor/blob/main/LICENSE.md",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://github.com/ZL-Audio/ZLCompressor/releases/download/0.6.1/ZL.Compressor-0.6.1-Windows-x86-64.msi",
+        "filename": "ZL.Compressor-0.6.1-Windows-x86-64.msi",
+        "version": "0.6.1",
+        "note": "",
+        "sha256": "4e6e14da03cbd4513d890fac01889982e3cd96b2cdeb73678507a09b0c463f7f",
+        "size": 10944512,
+        "install": []
+      },
+      {
+        "platform": "macos-aarch64",
+        "url": "https://github.com/ZL-Audio/ZLCompressor/releases/download/0.6.1/ZL.Compressor-0.6.1-macOS-arm64.dmg",
+        "filename": "ZL.Compressor-0.6.1-macOS-arm64.dmg",
+        "version": "0.6.1",
+        "note": "",
+        "sha256": "7a38ed5a54aea2300ee430decbd261d5c6539573ff6e7d56071bc49ce3d6df0d",
+        "size": 12527352,
+        "install": []
+      },
+      {
+        "platform": "macos-x86_64",
+        "url": "https://github.com/ZL-Audio/ZLCompressor/releases/download/0.6.1/ZL.Compressor-0.6.1-macOS-x86-64.dmg",
+        "filename": "ZL.Compressor-0.6.1-macOS-x86-64.dmg",
+        "version": "0.6.1",
+        "note": "",
+        "sha256": "f3398bf867c30713c20a3e295a1b204b7dee725c4bd33f9705b0a52ddc6b4e8e",
+        "size": 14112081,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://github.com/ZL-Audio/ZLCompressor/releases/download/0.6.1/ZL.Compressor-0.6.1-Linux-x86-64.zip",
+        "filename": "ZL.Compressor-0.6.1-Linux-x86-64.zip",
+        "version": "0.6.1",
+        "note": "",
+        "sha256": "00d7201fc9643f7b7c49d9791d1e5fc73528835a5dba40a3866fd4a274767ae6",
+        "size": 8943456,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://drive.google.com/uc?export=view&id=1b7aTDklTdt73kORaXwW5fJycM6T9k83U",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Detailed compressor with visual envelope controls. Shape attack and release behavior to control dynamics while preserving or emphasizing transients."
+  },
+  {
+    "id": "socalabs-compressor",
+    "name": "SocaLabs Compressor",
+    "category": "Dynamics",
+    "description": "Soft-knee mono/stereo compression.",
+    "source": "https://github.com/FigBug/slPlugins",
+    "license": "BSD-3-Clause",
+    "license_url": "https://github.com/FigBug/slPlugins/blob/master/LICENSE.md",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=Compressor.exe",
+        "filename": "Compressor.exe",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "9e261d2f9e39848dc307eedf84d02395da2600e77ba45fa6f8dc3fbe2abeb488",
+        "size": 8122296,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://socalabs.com/files/get.php?id=Compressor.pkg",
+        "filename": "Compressor.pkg",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "054a4ed5427c6126a58b1dc3dadcb44a8e3939acc99ab6145ca8fb2d57ab1109",
+        "size": 45832815,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=Compressor.deb",
+        "filename": "Compressor.deb",
+        "version": "2026-10-31 snapshot",
+        "note": "Debian/Ubuntu package; other Linux distributions may need manual extraction. Debian/Ubuntu package; other Linux distributions may need manual extraction.",
+        "sha256": "c30900ef4eee123c4da8ceb6970a5bf2f772d25aaf31d58f2d1e95ec2382508a",
+        "size": 23275944,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://socalabs.com/images/compressor.png",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Soft-knee mono/stereo compression. Reduce level differences on vocals, bass or drums; adjust the amount by listening at matched output levels."
+  },
+  {
+    "id": "socalabs-expander",
+    "name": "SocaLabs Expander",
+    "category": "Dynamics",
+    "description": "Downward dynamics expansion.",
+    "source": "https://github.com/FigBug/slPlugins",
+    "license": "BSD-3-Clause",
+    "license_url": "https://github.com/FigBug/slPlugins/blob/master/LICENSE.md",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=Expander.exe",
+        "filename": "Expander.exe",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "81e711907d6973eaf6b0b06c2b31a17a95c66773515301c5ad6d9d8345b512ae",
+        "size": 8116664,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://socalabs.com/files/get.php?id=Expander.pkg",
+        "filename": "Expander.pkg",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "70e3cd9346f4c5a7b14f85a61bbbc9fc03aacc56eb1bd1146469651b1e9de9bf",
+        "size": 45832975,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=Expander.deb",
+        "filename": "Expander.deb",
+        "version": "2026-10-31 snapshot",
+        "note": "Debian/Ubuntu package; other Linux distributions may need manual extraction. Debian/Ubuntu package; other Linux distributions may need manual extraction.",
+        "sha256": "da336392e0e22adaad8b96c51940397fc55ce7b9d9cf7637c3a461c041403619",
+        "size": 23279230,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://socalabs.com/images/expander.png",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Downward dynamics expansion. Increase the difference between louder and quieter material, useful for reducing low-level background sound."
+  },
+  {
+    "id": "socalabs-gate",
+    "name": "SocaLabs Gate",
+    "category": "Dynamics",
+    "description": "Noise gate for unwanted low-level sound.",
+    "source": "https://github.com/FigBug/slPlugins",
+    "license": "BSD-3-Clause",
+    "license_url": "https://github.com/FigBug/slPlugins/blob/master/LICENSE.md",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=Gate.exe",
+        "filename": "Gate.exe",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "ef9cc20b498dec85f16ae03adcd7bce247f91c18c6a748466e1de13a9e0a68be",
+        "size": 8118224,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://socalabs.com/files/get.php?id=Gate.pkg",
+        "filename": "Gate.pkg",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "37c273e80bea0f59570793c8403dd60f386fce58083e3023d47c317664d4eaa0",
+        "size": 45836614,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=Gate.deb",
+        "filename": "Gate.deb",
+        "version": "2026-10-31 snapshot",
+        "note": "Debian/Ubuntu package; other Linux distributions may need manual extraction. Debian/Ubuntu package; other Linux distributions may need manual extraction.",
+        "sha256": "0b93045ecc5aa3dff85fc16f6fd7324df0d06436aa6a2d03e8e051fa432670be",
+        "size": 23288152,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://socalabs.com/images/gate.png",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Noise gate for unwanted low-level sound. Attenuate signals below a threshold, useful between drum hits or during gaps in a recording."
+  },
+  {
+    "id": "airwindows-pressure5",
+    "name": "Airwindows Pressure5",
+    "category": "Dynamics",
+    "description": "Character compressor with output clipping.",
+    "source": "https://github.com/airwindows/airwindows",
+    "license": "MIT",
+    "license_url": "https://github.com/airwindows/airwindows/blob/master/LICENSE",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://www.airwindows.com/wp-content/uploads/2021/12/Pressure5.zip",
+        "filename": "Pressure5.zip",
+        "version": "original release",
+        "note": "Installs only this selected portable plugin into your Lemon Studio profile and scans it automatically.",
+        "sha256": "e72299ed0d43dd66313010014bb625b9efe06486ab91646dd1504a77e9d66223",
+        "size": 630418,
+        "install": [
+          "Pressure5/Pressure564.dll"
+        ]
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://www.airwindows.com/wp-content/uploads/SignedMacVSTs.dmg",
+        "filename": "SignedMacVSTs.dmg",
+        "version": "2026-10-31 snapshot",
+        "note": "Includes the full Airwindows VST2 collection.",
+        "sha256": "1a95dc2a45bddc9e62dc8875a9fc21b45b152a2a93bfda78b53a9dbfd6d7dc66",
+        "size": 14105789,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://www.airwindows.com/wp-content/uploads/LinuxVSTs.zip",
+        "filename": "LinuxVSTs.zip",
+        "version": "2026-10-31 snapshot",
+        "note": "Includes the full Airwindows VST2 collection.",
+        "sha256": "0f8fe901e4a5756254495afdd93e7b638a62210a75b8751e55ce7cb7a21a8909",
+        "size": 16048217,
+        "install": []
+      }
+    ],
+    "thumbnail": "",
+    "note": "No custom GUI: uses host parameter controls.",
+    "homepage": "https://www.airwindows.com/pressure5/",
+    "thumbnail_kind": "label",
+    "info": "Character compressor with output clipping. Use for density and character on individual tracks; watch output level when driving the clipping stage."
+  },
+  {
+    "id": "oxygen",
+    "name": "oXygen",
+    "category": "Mastering",
+    "description": "Mastering chain with automatic mix analysis.",
+    "source": "https://github.com/Wamphyre/oXygen",
+    "license": "BSD-3-Clause",
+    "license_url": "https://github.com/Wamphyre/oXygen/blob/main/LICENSE",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://github.com/Wamphyre/oXygen/releases/download/v1.0.4/Windows-oXygen.vst3.zip",
+        "filename": "Windows-oXygen.vst3.zip",
+        "version": "v1.0.4",
+        "note": "Installs only this selected portable plugin into your Lemon Studio profile and scans it automatically.",
+        "sha256": "639d4616716b4b7ecfc5ba850a20e1be49d3f43966cf4c8deafa7439d597ab20",
+        "size": 2146398,
+        "install": [
+          "oXygen.vst3"
+        ]
+      },
+      {
+        "platform": "macos-x86_64",
+        "url": "https://github.com/Wamphyre/oXygen/releases/download/v1.0.4/macOS-Intel-oXygen.vst3.zip",
+        "filename": "macOS-Intel-oXygen.vst3.zip",
+        "version": "v1.0.4",
+        "note": "",
+        "sha256": "49b16b5313d6774020fd71f93b6bc0e870dd3f586d49e4ce696fb687f22e534f",
+        "size": 2492979,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://github.com/Wamphyre/oXygen/releases/download/v1.2.1/oXygen-1.2.1-Linux-x86_64.zip",
+        "filename": "oXygen-1.2.1-Linux-x86_64.zip",
+        "version": "v1.2.1",
+        "note": "",
+        "sha256": "68bd6aa2e03b046116b6b46e873341bd2dc453e82d02c5ed024d335c2a1c760b",
+        "size": 3100739,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://raw.githubusercontent.com/Wamphyre/oXygen/main/assets/screenshot.png",
+    "note": "Windows/Intel Mac: 1.0.4. Linux: 1.2.1. No native Apple Silicon download. Analysis-based assistant; not a neural model.",
+    "thumbnail_kind": "interface",
+    "info": "Mastering chain with automatic mix analysis. Analyzes a mix and applies a mastering processing chain. Check the result against your original before committing."
+  },
+  {
+    "id": "master-me",
+    "name": "master_me",
+    "category": "Mastering",
+    "description": "Automatic loudness and dynamics processing.",
+    "source": "https://github.com/trummerschlunk/master_me",
+    "license": "GPL-3.0",
+    "license_url": "https://github.com/trummerschlunk/master_me/blob/master/LICENSE",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://github.com/trummerschlunk/master_me/releases/download/1.3.1/master_me-1.3.1-win64.zip",
+        "filename": "master_me-1.3.1-win64.zip",
+        "version": "1.3.1",
+        "note": "Installs only this selected portable plugin into your Lemon Studio profile and scans it automatically.",
+        "sha256": "0122b72259fd54f99854d038cd7f850f06f6f62d68495f6cc15f57251938fd72",
+        "size": 13178088,
+        "install": [
+          "master_me-1.3.1/master_me.vst3"
+        ]
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://github.com/trummerschlunk/master_me/releases/download/1.3.1/master_me-1.3.1-macos-universal.dmg",
+        "filename": "master_me-1.3.1-macos-universal.dmg",
+        "version": "1.3.1",
+        "note": "",
+        "sha256": "8c092dce8afcb462e573c88fcda184797967fa82ecd839372509d2916da014b5",
+        "size": 12811088,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://github.com/trummerschlunk/master_me/releases/download/1.3.1/master_me-1.3.1-linux-x86_64.tar.xz",
+        "filename": "master_me-1.3.1-linux-x86_64.tar.xz",
+        "version": "1.3.1",
+        "note": "",
+        "sha256": "09f41b4607ea66fd1d2f69c6b2e92ad4a36cd748c9e6da9a39b7e802c143d6a2",
+        "size": 2342208,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://raw.githubusercontent.com/trummerschlunk/master_me/master/img/screenshot-expert.png",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Automatic loudness and dynamics processing. Useful for keeping speech, streaming or other program material at a more consistent output level."
+  },
+  {
+    "id": "socalabs-limiter",
+    "name": "SocaLabs Limiter",
+    "category": "Mastering",
+    "description": "Peak limiting for final level control.",
+    "source": "https://github.com/FigBug/slPlugins",
+    "license": "BSD-3-Clause",
+    "license_url": "https://github.com/FigBug/slPlugins/blob/master/LICENSE.md",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=Limiter.exe",
+        "filename": "Limiter.exe",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "603367d9d639602e5d6e7eb7eaf01ba100e79df7466aeae67212e51792132c4e",
+        "size": 8120728,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://socalabs.com/files/get.php?id=Limiter.pkg",
+        "filename": "Limiter.pkg",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "cfdf7ae8353c0ab202b855bb116283bee5e28cfdf650edb5eead90bc60a4c8c3",
+        "size": 45829459,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=Limiter.deb",
+        "filename": "Limiter.deb",
+        "version": "2026-10-31 snapshot",
+        "note": "Debian/Ubuntu package; other Linux distributions may need manual extraction. Debian/Ubuntu package; other Linux distributions may need manual extraction.",
+        "sha256": "f6c594b3581c8087517733f3fccb41eb82ce396b51b2287620bc3d5698c9e0b3",
+        "size": 23272822,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://socalabs.com/images/limiter.png",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Peak limiting for final level control. Control peaks at the end of a chain; avoid excessive gain if you want to preserve transient punch."
+  },
+  {
+    "id": "airwindows-cliponly2",
+    "name": "Airwindows ClipOnly2",
+    "category": "Mastering",
+    "description": "Softens digital clipping on peaks.",
+    "source": "https://github.com/airwindows/airwindows",
+    "license": "MIT",
+    "license_url": "https://github.com/airwindows/airwindows/blob/master/LICENSE",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://www.airwindows.com/wp-content/uploads/2021/10/ClipOnly2.zip",
+        "filename": "ClipOnly2.zip",
+        "version": "original release",
+        "note": "Installs only this selected portable plugin into your Lemon Studio profile and scans it automatically.",
+        "sha256": "47d51c53a9cec1e9e86add58fb4c4a9f8fc3983bf326c9566ec88346232eec6e",
+        "size": 587383,
+        "install": [
+          "ClipOnly2/ClipOnly264.dll"
+        ]
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://www.airwindows.com/wp-content/uploads/SignedMacVSTs.dmg",
+        "filename": "SignedMacVSTs.dmg",
+        "version": "2026-10-31 snapshot",
+        "note": "Includes the full Airwindows VST2 collection.",
+        "sha256": "1a95dc2a45bddc9e62dc8875a9fc21b45b152a2a93bfda78b53a9dbfd6d7dc66",
+        "size": 14105789,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://www.airwindows.com/wp-content/uploads/LinuxVSTs.zip",
+        "filename": "LinuxVSTs.zip",
+        "version": "2026-10-31 snapshot",
+        "note": "Includes the full Airwindows VST2 collection.",
+        "sha256": "0f8fe901e4a5756254495afdd93e7b638a62210a75b8751e55ce7cb7a21a8909",
+        "size": 16048217,
+        "install": []
+      }
+    ],
+    "thumbnail": "",
+    "note": "No custom GUI: uses host parameter controls.",
+    "homepage": "https://www.airwindows.com/cliponly2/",
+    "thumbnail_kind": "label",
+    "info": "Softens digital clipping on peaks. Use at the end of a processing chain to manage overshooting peaks with a compact control set."
+  },
+  {
+    "id": "airwindows-adclip8",
+    "name": "Airwindows ADClip8",
+    "category": "Mastering",
+    "description": "Loudness-oriented clipping.",
+    "source": "https://github.com/airwindows/airwindows",
+    "license": "MIT",
+    "license_url": "https://github.com/airwindows/airwindows/blob/master/LICENSE",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://www.airwindows.com/wp-content/uploads/2024/02/ADClip8.zip",
+        "filename": "ADClip8.zip",
+        "version": "original release",
+        "note": "Installs only this selected portable plugin into your Lemon Studio profile and scans it automatically.",
+        "sha256": "2c5b4b373a9372373c17b9fae56e7547199dddeca04cd9f1677871d0cda3c905",
+        "size": 517804,
+        "install": [
+          "ADClip8/ADClip864.dll"
+        ]
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://www.airwindows.com/wp-content/uploads/SignedMacVSTs.dmg",
+        "filename": "SignedMacVSTs.dmg",
+        "version": "2026-10-31 snapshot",
+        "note": "Includes the full Airwindows VST2 collection.",
+        "sha256": "1a95dc2a45bddc9e62dc8875a9fc21b45b152a2a93bfda78b53a9dbfd6d7dc66",
+        "size": 14105789,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://www.airwindows.com/wp-content/uploads/LinuxVSTs.zip",
+        "filename": "LinuxVSTs.zip",
+        "version": "2026-10-31 snapshot",
+        "note": "Includes the full Airwindows VST2 collection.",
+        "sha256": "0f8fe901e4a5756254495afdd93e7b638a62210a75b8751e55ce7cb7a21a8909",
+        "size": 16048217,
+        "install": []
+      }
+    ],
+    "thumbnail": "",
+    "note": "No custom GUI: uses host parameter controls.",
+    "homepage": "https://www.airwindows.com/adclip8/",
+    "thumbnail_kind": "label",
+    "info": "Loudness-oriented clipping. Increase apparent loudness by shaping peaks; compare against the unprocessed signal at similar loudness."
+  },
+  {
+    "id": "chow-tape-model",
+    "name": "CHOW Tape Model",
+    "category": "Saturation and distortion",
+    "description": "Physical-model tape coloration.",
+    "source": "https://github.com/jatinchowdhury18/AnalogTapeModel",
+    "license": "GPL-3.0",
+    "license_url": "https://github.com/jatinchowdhury18/AnalogTapeModel/blob/master/LICENSE",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://github.com/jatinchowdhury18/AnalogTapeModel/releases/download/v2.11.4/ChowTapeModel-Win-64bit-2.11.4.exe",
+        "filename": "ChowTapeModel-Win-64bit-2.11.4.exe",
+        "version": "v2.11.4",
+        "note": "",
+        "sha256": "8ba6e91196067244837877d9ca4a8e4a1f5bfad60cf33fa699c8a5b41f1211bf",
+        "size": 10646528,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://github.com/jatinchowdhury18/AnalogTapeModel/releases/download/v2.11.4/ChowTapeModel-Mac-2.11.4.dmg",
+        "filename": "ChowTapeModel-Mac-2.11.4.dmg",
+        "version": "v2.11.4",
+        "note": "",
+        "sha256": "9b37e2b6cb6c0a839ee9c65e1a958834ca647b3edfc4bd144115c483b4d64f82",
+        "size": 28745196,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://github.com/jatinchowdhury18/AnalogTapeModel/releases/download/v2.11.4/ChowTapeModel-Linux-x64-2.11.4.deb",
+        "filename": "ChowTapeModel-Linux-x64-2.11.4.deb",
+        "version": "v2.11.4",
+        "note": "Debian/Ubuntu package; other Linux distributions may need manual extraction. Debian/Ubuntu package; other Linux distributions may need manual extraction.",
+        "sha256": "71aaae1c454ac83ac16b248d4cc99c12bf6d11452a87376fcb6b1e79060e3a5c",
+        "size": 5112948,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://raw.githubusercontent.com/jatinchowdhury18/AnalogTapeModel/master/Plugin/Screenshots/full_gui.png",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Physical-model tape coloration. Use to introduce tape-style saturation and character on a track or bus."
+  },
+  {
+    "id": "byod",
+    "name": "BYOD",
+    "category": "Saturation and distortion",
+    "description": "Build your own distortion and pedal chain.",
+    "source": "https://github.com/Chowdhury-DSP/BYOD",
+    "license": "GPL-3.0",
+    "license_url": "https://github.com/Chowdhury-DSP/BYOD/blob/main/LICENSE",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://github.com/Chowdhury-DSP/BYOD/releases/download/v1.3.0/BYOD-Win-64bit-1.3.0.exe",
+        "filename": "BYOD-Win-64bit-1.3.0.exe",
+        "version": "v1.3.0",
+        "note": "",
+        "sha256": "a53fb65cedf90f7673e21ac2d12f5b0778f003ae7f2e34e6c4301854a738c36c",
+        "size": 26404896,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://github.com/Chowdhury-DSP/BYOD/releases/download/v1.3.0/BYOD-Mac-1.3.0.dmg",
+        "filename": "BYOD-Mac-1.3.0.dmg",
+        "version": "v1.3.0",
+        "note": "",
+        "sha256": "997a0508b00a583d8563eb0e330c7e318fe43e7f4f3b06ba3d389221aeb7254a",
+        "size": 89127908,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://github.com/Chowdhury-DSP/BYOD/releases/download/v1.3.0/BYOD-Linux-x64-1.3.0.deb",
+        "filename": "BYOD-Linux-x64-1.3.0.deb",
+        "version": "v1.3.0",
+        "note": "Debian/Ubuntu package; other Linux distributions may need manual extraction. Debian/Ubuntu package; other Linux distributions may need manual extraction.",
+        "sha256": "c1803ae57b717bab04ef2072c10284bcb7d44fbe352d42645075b0c6875c9aeb",
+        "size": 22194032,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://raw.githubusercontent.com/Chowdhury-DSP/BYOD/main/manual/screenshots/full_gui.png",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Build your own distortion and pedal chain. Connect distortion and supporting effect modules to create customized drive chains for instruments or sound design."
+  },
+  {
+    "id": "chow-centaur",
+    "name": "CHOW Centaur",
+    "category": "Saturation and distortion",
+    "description": "Circuit-modeled overdrive pedal.",
+    "source": "https://github.com/jatinchowdhury18/KlonCentaur",
+    "license": "BSD-3-Clause",
+    "license_url": "https://github.com/jatinchowdhury18/KlonCentaur/blob/master/LICENSE",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://github.com/jatinchowdhury18/KlonCentaur/releases/download/v1.4.0/ChowCentaur-Win-1.4.0.exe",
+        "filename": "ChowCentaur-Win-1.4.0.exe",
+        "version": "v1.4.0",
+        "note": "",
+        "sha256": "3ff707e3e49e7cac0bb0819219eefcc6ed59b281246b43fc0465c0fb1d198048",
+        "size": 9005563,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://github.com/jatinchowdhury18/KlonCentaur/releases/download/v1.4.0/ChowCentaur-Mac-1.4.0.dmg",
+        "filename": "ChowCentaur-Mac-1.4.0.dmg",
+        "version": "v1.4.0",
+        "note": "",
+        "sha256": "8b8c876cc9429d1c9d51d25a08fa3513398370b6b527067cb5d3982ca988bf3e",
+        "size": 12346745,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://github.com/jatinchowdhury18/KlonCentaur/releases/download/v1.4.0/ChowCentaur-Linux-x64-1.4.0.deb",
+        "filename": "ChowCentaur-Linux-x64-1.4.0.deb",
+        "version": "v1.4.0",
+        "note": "Debian/Ubuntu package; other Linux distributions may need manual extraction. Debian/Ubuntu package; other Linux distributions may need manual extraction.",
+        "sha256": "abd0fda32e5b45f0b144ac3d4559009e3b837a9be0b859d99a82c4bba9c52303",
+        "size": 2523664,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://raw.githubusercontent.com/jatinchowdhury18/KlonCentaur/master/Paper/Figures/Plugin.png",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Circuit-modeled overdrive pedal. Adds pedal-style overdrive to guitar or other sources, from mild color to a more pronounced crunch."
+  },
+  {
+    "id": "socalabs-bitcrusher",
+    "name": "SocaLabs BitCrusher",
+    "category": "Saturation and distortion",
+    "description": "Bit-depth and sample-rate reduction.",
+    "source": "https://github.com/FigBug/slPlugins",
+    "license": "BSD-3-Clause",
+    "license_url": "https://github.com/FigBug/slPlugins/blob/master/LICENSE.md",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=BitCrusher.exe",
+        "filename": "BitCrusher.exe",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "e34546c6eba8616ffcead6916bd6eef72b6c946b843d25e8566cbc98c2974034",
+        "size": 8119176,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://socalabs.com/files/get.php?id=BitCrusher.pkg",
+        "filename": "BitCrusher.pkg",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "2d159e3c26e7ce0388d6653512d9a1d333a978b925e9a8074d5bcb4f045e07c4",
+        "size": 45827122,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=BitCrusher.deb",
+        "filename": "BitCrusher.deb",
+        "version": "2026-10-31 snapshot",
+        "note": "Debian/Ubuntu package; other Linux distributions may need manual extraction. Debian/Ubuntu package; other Linux distributions may need manual extraction.",
+        "sha256": "2e810d9e606dd067079186a5d65a1c68926ac1be0c2d3018c02482dea7dc2b93",
+        "size": 23274364,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://socalabs.com/images/bitcrusher.png",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Bit-depth and sample-rate reduction. Use for gritty digital textures, lo-fi drums and deliberately degraded sounds."
+  },
+  {
+    "id": "airwindows-totape8",
+    "name": "Airwindows ToTape8",
+    "category": "Saturation and distortion",
+    "description": "Tape color, bias and gain staging.",
+    "source": "https://github.com/airwindows/airwindows",
+    "license": "MIT",
+    "license_url": "https://github.com/airwindows/airwindows/blob/master/LICENSE",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://www.airwindows.com/wp-content/uploads/2024/09/ToTape8.zip",
+        "filename": "ToTape8.zip",
+        "version": "original release",
+        "note": "Installs only this selected portable plugin into your Lemon Studio profile and scans it automatically.",
+        "sha256": "97f31c2759a526dc732181e80e5d8aff7aed5da8d2514e7c96dfe9d9223f6d4e",
+        "size": 667813,
+        "install": [
+          "ToTape8/ToTape864.dll"
+        ]
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://www.airwindows.com/wp-content/uploads/SignedMacVSTs.dmg",
+        "filename": "SignedMacVSTs.dmg",
+        "version": "2026-10-31 snapshot",
+        "note": "Includes the full Airwindows VST2 collection.",
+        "sha256": "1a95dc2a45bddc9e62dc8875a9fc21b45b152a2a93bfda78b53a9dbfd6d7dc66",
+        "size": 14105789,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://www.airwindows.com/wp-content/uploads/LinuxVSTs.zip",
+        "filename": "LinuxVSTs.zip",
+        "version": "2026-10-31 snapshot",
+        "note": "Includes the full Airwindows VST2 collection.",
+        "sha256": "0f8fe901e4a5756254495afdd93e7b638a62210a75b8751e55ce7cb7a21a8909",
+        "size": 16048217,
+        "install": []
+      }
+    ],
+    "thumbnail": "",
+    "note": "No custom GUI: uses host parameter controls.",
+    "homepage": "https://www.airwindows.com/totape8/",
+    "thumbnail_kind": "label",
+    "info": "Tape color, bias and gain staging. Adds tape-like coloration; experiment with drive and bias while matching the output level for comparison."
+  },
+  {
+    "id": "chow-phaser",
+    "name": "CHOW Phaser",
+    "category": "Modulation",
+    "description": "Analog-inspired mono/stereo phasing.",
+    "source": "https://github.com/jatinchowdhury18/ChowPhaser",
+    "license": "BSD-3-Clause",
+    "license_url": "https://github.com/jatinchowdhury18/ChowPhaser/blob/master/LICENSE",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://github.com/jatinchowdhury18/ChowPhaser/releases/download/v1.1.1/ChowPhaser-Win-1.1.1.exe",
+        "filename": "ChowPhaser-Win-1.1.1.exe",
+        "version": "v1.1.1",
+        "note": "",
+        "sha256": "490f1d970b097ada8d5f14eca95124e10b9d75e1ddf73a4f0b473f9d31f02a01",
+        "size": 8819252,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://github.com/jatinchowdhury18/ChowPhaser/releases/download/v1.1.1/ChowPhaser-Mac-1.1.1.dmg",
+        "filename": "ChowPhaser-Mac-1.1.1.dmg",
+        "version": "v1.1.1",
+        "note": "",
+        "sha256": "ca3ffcacd9265da601e9005df83c3e70ba7bcfae2a94a2e78d68afbb3f728126",
+        "size": 48223350,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://github.com/jatinchowdhury18/ChowPhaser/releases/download/v1.1.1/ChowPhaser-Linux-x64-1.1.1.deb",
+        "filename": "ChowPhaser-Linux-x64-1.1.1.deb",
+        "version": "v1.1.1",
+        "note": "Debian/Ubuntu package; other Linux distributions may need manual extraction. Debian/Ubuntu package; other Linux distributions may need manual extraction.",
+        "sha256": "554ef220e96ea2c355e8ed8aa0c94c8bbcc281b5ce8069a12865a75ef6737889",
+        "size": 11990512,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://raw.githubusercontent.com/jatinchowdhury18/ChowPhaser/master/res/screenshot_stereo.PNG",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Analog-inspired mono/stereo phasing. Sweeping phase cancellations add movement to pads, guitars and other sustained sources."
+  },
+  {
+    "id": "airwindows-chorusensemble",
+    "name": "Airwindows ChorusEnsemble",
+    "category": "Modulation",
+    "description": "Multi-tap ensemble chorus.",
+    "source": "https://github.com/airwindows/airwindows",
+    "license": "MIT",
+    "license_url": "https://github.com/airwindows/airwindows/blob/master/LICENSE",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://www.airwindows.com/wp-content/uploads/2017/09/ChorusEnsemble.zip",
+        "filename": "ChorusEnsemble.zip",
+        "version": "original release",
+        "note": "Installs only this selected portable plugin into your Lemon Studio profile and scans it automatically.",
+        "sha256": "11ed4e43037061046d1240901eb6487056dc9f422c4bf6d19f4128199f39588e",
+        "size": 361312,
+        "install": [
+          "ChorusEnsemble64.dll"
+        ]
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://www.airwindows.com/wp-content/uploads/SignedMacVSTs.dmg",
+        "filename": "SignedMacVSTs.dmg",
+        "version": "2026-10-31 snapshot",
+        "note": "Includes the full Airwindows VST2 collection.",
+        "sha256": "1a95dc2a45bddc9e62dc8875a9fc21b45b152a2a93bfda78b53a9dbfd6d7dc66",
+        "size": 14105789,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://www.airwindows.com/wp-content/uploads/LinuxVSTs.zip",
+        "filename": "LinuxVSTs.zip",
+        "version": "2026-10-31 snapshot",
+        "note": "Includes the full Airwindows VST2 collection.",
+        "sha256": "0f8fe901e4a5756254495afdd93e7b638a62210a75b8751e55ce7cb7a21a8909",
+        "size": 16048217,
+        "install": []
+      }
+    ],
+    "thumbnail": "",
+    "note": "No custom GUI: uses host parameter controls.",
+    "homepage": "https://www.airwindows.com/chorusensemble/",
+    "thumbnail_kind": "label",
+    "info": "Multi-tap ensemble chorus. Adds a layered, detuned ensemble character to synths or other sources that need width and motion."
+  },
+  {
+    "id": "airwindows-vibrato",
+    "name": "Airwindows Vibrato",
+    "category": "Modulation",
+    "description": "Pitch modulation and unusual FM textures.",
+    "source": "https://github.com/airwindows/airwindows",
+    "license": "MIT",
+    "license_url": "https://github.com/airwindows/airwindows/blob/master/LICENSE",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://www.airwindows.com/wp-content/uploads/2019/08/Vibrato.zip",
+        "filename": "Vibrato.zip",
+        "version": "original release",
+        "note": "Installs only this selected portable plugin into your Lemon Studio profile and scans it automatically.",
+        "sha256": "2d082c9ea8faff1c2d628097135accbf8e329f4ff6ea64057967696ad3dbda00",
+        "size": 357552,
+        "install": [
+          "Vibrato64.dll"
+        ]
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://www.airwindows.com/wp-content/uploads/SignedMacVSTs.dmg",
+        "filename": "SignedMacVSTs.dmg",
+        "version": "2026-10-31 snapshot",
+        "note": "Includes the full Airwindows VST2 collection.",
+        "sha256": "1a95dc2a45bddc9e62dc8875a9fc21b45b152a2a93bfda78b53a9dbfd6d7dc66",
+        "size": 14105789,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://www.airwindows.com/wp-content/uploads/LinuxVSTs.zip",
+        "filename": "LinuxVSTs.zip",
+        "version": "2026-10-31 snapshot",
+        "note": "Includes the full Airwindows VST2 collection.",
+        "sha256": "0f8fe901e4a5756254495afdd93e7b638a62210a75b8751e55ce7cb7a21a8909",
+        "size": 16048217,
+        "install": []
+      }
+    ],
+    "thumbnail": "",
+    "note": "No custom GUI: uses host parameter controls.",
+    "homepage": "https://www.airwindows.com/vibrato-vst/",
+    "thumbnail_kind": "label",
+    "info": "Pitch modulation and unusual FM textures. Use for wavering pitch, chorus-like movement or more experimental modulation textures."
+  },
+  {
+    "id": "airwindows-flutter2",
+    "name": "Airwindows Flutter2",
+    "category": "Modulation",
+    "description": "Tape-speed fluctuation and doubling.",
+    "source": "https://github.com/airwindows/airwindows",
+    "license": "MIT",
+    "license_url": "https://github.com/airwindows/airwindows/blob/master/LICENSE",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://www.airwindows.com/wp-content/uploads/2024/07/Flutter2.zip",
+        "filename": "Flutter2.zip",
+        "version": "original release",
+        "note": "Installs only this selected portable plugin into your Lemon Studio profile and scans it automatically.",
+        "sha256": "f93c5aa5d9f651465e051e7714db7d857cf64c6567fb984a256d248d29e48242",
+        "size": 516432,
+        "install": [
+          "Flutter2/Flutter264.dll"
+        ]
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://www.airwindows.com/wp-content/uploads/SignedMacVSTs.dmg",
+        "filename": "SignedMacVSTs.dmg",
+        "version": "2026-10-31 snapshot",
+        "note": "Includes the full Airwindows VST2 collection.",
+        "sha256": "1a95dc2a45bddc9e62dc8875a9fc21b45b152a2a93bfda78b53a9dbfd6d7dc66",
+        "size": 14105789,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://www.airwindows.com/wp-content/uploads/LinuxVSTs.zip",
+        "filename": "LinuxVSTs.zip",
+        "version": "2026-10-31 snapshot",
+        "note": "Includes the full Airwindows VST2 collection.",
+        "sha256": "0f8fe901e4a5756254495afdd93e7b638a62210a75b8751e55ce7cb7a21a8909",
+        "size": 16048217,
+        "install": []
+      }
+    ],
+    "thumbnail": "",
+    "note": "No custom GUI: uses host parameter controls.",
+    "homepage": "https://www.airwindows.com/flutter2/",
+    "thumbnail_kind": "label",
+    "info": "Tape-speed fluctuation and doubling. Simulates irregular tape-speed movement to add instability or a doubled character."
+  },
+  {
+    "id": "distrho-pingpongpan",
+    "name": "DISTRHO PingPongPan",
+    "category": "Modulation",
+    "description": "Automatic left/right panning.",
+    "source": "https://github.com/DISTRHO/DPF-Plugins",
+    "license": "LGPL-3.0",
+    "license_url": "https://github.com/DISTRHO/DPF-Plugins/blob/main/plugins/PingPongPan/LICENSE",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://github.com/DISTRHO/DPF-Plugins/releases/download/v1.7/DPF-Plugins-v1.7-win64.zip",
+        "filename": "DPF-Plugins-v1.7-win64.zip",
+        "version": "v1.7",
+        "note": "Installs only this selected portable plugin into your Lemon Studio profile and scans it automatically.",
+        "sha256": "fdc609e0936e9c999395b9ddd98a9a72739cb672d8838ab71849469aee50ad98",
+        "size": 74524341,
+        "install": [
+          "DPF-Plugins-v1.7/PingPongPan.vst3"
+        ]
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://github.com/DISTRHO/DPF-Plugins/releases/download/v1.7/DPF-Plugins-v1.7-macos-universal.dmg",
+        "filename": "DPF-Plugins-v1.7-macos-universal.dmg",
+        "version": "v1.7",
+        "note": "",
+        "sha256": "94b996c898a7ba160561113d1c48c4700a6ef65d33f4092ea7289b1af44059e1",
+        "size": 57933584,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://github.com/DISTRHO/DPF-Plugins/releases/download/v1.7/DPF-Plugins-v1.7-linux-x86_64.tar.xz",
+        "filename": "DPF-Plugins-v1.7-linux-x86_64.tar.xz",
+        "version": "v1.7",
+        "note": "",
+        "sha256": "8088e362f9f68fea179abe9f96b83fca07693224ffcf46837c24ff8b59b119cb",
+        "size": 9827340,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://raw.githubusercontent.com/DISTRHO/DPF-Plugins/main/plugins/PingPongPan/Screenshot.png",
+    "note": "Download includes the DPF plugin collection.",
+    "thumbnail_kind": "interface",
+    "info": "Automatic left/right panning. Move a sound between the left and right speakers automatically for rhythmic motion."
+  },
+  {
+    "id": "zl-splitter",
+    "name": "ZL Splitter",
+    "category": "Stereo and routing",
+    "description": "Split stereo, frequency and transient components.",
+    "source": "https://github.com/ZL-Audio/ZLSplitter",
+    "license": "AGPL-3.0",
+    "license_url": "https://github.com/ZL-Audio/ZLSplitter/blob/main/LICENSE.md",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://github.com/ZL-Audio/ZLSplitter/releases/download/0.3.0/ZL.Splitter-0.3.0-Windows-x86.msi",
+        "filename": "ZL.Splitter-0.3.0-Windows-x86.msi",
+        "version": "0.3.0",
+        "note": "",
+        "sha256": "4ab477adc74626a6841c947c7bf0dc0598641c4f288161ecc8234acebc3f6a83",
+        "size": 5566464,
+        "install": []
+      },
+      {
+        "platform": "macos-aarch64",
+        "url": "https://github.com/ZL-Audio/ZLSplitter/releases/download/0.3.0/ZL.Splitter-0.3.0-macOS-arm.dmg",
+        "filename": "ZL.Splitter-0.3.0-macOS-arm.dmg",
+        "version": "0.3.0",
+        "note": "",
+        "sha256": "3e971970de57f9dfa206a2e737ff2c9f149fd5d5b035fb121e6e986a0f23ed96",
+        "size": 5201749,
+        "install": []
+      },
+      {
+        "platform": "macos-x86_64",
+        "url": "https://github.com/ZL-Audio/ZLSplitter/releases/download/0.3.0/ZL.Splitter-0.3.0-macOS-x86.dmg",
+        "filename": "ZL.Splitter-0.3.0-macOS-x86.dmg",
+        "version": "0.3.0",
+        "note": "",
+        "sha256": "b90a439b47cc7587f68941677fdc1046c8c243ef8f675b6758b843f909eb4ea6",
+        "size": 9183755,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://github.com/ZL-Audio/ZLSplitter/releases/download/0.3.0/ZL.Splitter-0.3.0-Linux-x86.zip",
+        "filename": "ZL.Splitter-0.3.0-Linux-x86.zip",
+        "version": "0.3.0",
+        "note": "",
+        "sha256": "52e856331ff7248fc9d1b1d348df2eb7827610eeb5406dc62826866cdafdb9a4",
+        "size": 8851204,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://drive.google.com/uc?export=view&id=1agmMFD5BVylbJOr5ZJmP8dof7LkCXlhx",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Split stereo, frequency and transient components. Useful when building separate processing paths for different components of an audio signal."
+  },
+  {
+    "id": "socalabs-crossfeed",
+    "name": "SocaLabs Crossfeed",
+    "category": "Stereo and routing",
+    "description": "Crossfeed for headphone monitoring.",
+    "source": "https://github.com/FigBug/slPlugins",
+    "license": "BSD-3-Clause",
+    "license_url": "https://github.com/FigBug/slPlugins/blob/master/LICENSE.md",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=Crossfeed.exe",
+        "filename": "Crossfeed.exe",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "17a97cd964e2189527edd05ced7d01983633917853e0a629581d29af9efe9b51",
+        "size": 8115808,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://socalabs.com/files/get.php?id=Crossfeed.pkg",
+        "filename": "Crossfeed.pkg",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "8856d960743f84dc40768d6f828bc9dbf40f3ec4d7dbf469e55fa8862a2ef46e",
+        "size": 45809172,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=Crossfeed.deb",
+        "filename": "Crossfeed.deb",
+        "version": "2026-10-31 snapshot",
+        "note": "Debian/Ubuntu package; other Linux distributions may need manual extraction. Debian/Ubuntu package; other Linux distributions may need manual extraction.",
+        "sha256": "d2dea0f7bfaa99a6f6223b7f8e9863731ccb9061184ac5491beb80f7c732d20f",
+        "size": 23271148,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://socalabs.com/images/crossfeed.png",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Crossfeed for headphone monitoring. Blends a little of each stereo channel into the other to make headphone monitoring feel less isolated."
+  },
+  {
+    "id": "socalabs-stereo-enhancer",
+    "name": "SocaLabs Stereo Enhancer",
+    "category": "Stereo and routing",
+    "description": "Stereo-width enhancement.",
+    "source": "https://github.com/FigBug/slPlugins",
+    "license": "BSD-3-Clause",
+    "license_url": "https://github.com/FigBug/slPlugins/blob/master/LICENSE.md",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=StereoEnhancer.exe",
+        "filename": "StereoEnhancer.exe",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "19a7d97745af4e3b9eb1be1e6ea4bcbddf1c5d0361d024f9c7e82adfe71b5d32",
+        "size": 7790256,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://socalabs.com/files/get.php?id=StereoEnhancer.pkg",
+        "filename": "StereoEnhancer.pkg",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "d5d303b49e7f9f501f7668a4c7d9188b27c4e1a748cf7f42ea361d56520652f1",
+        "size": 45958724,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=StereoEnhancer.deb",
+        "filename": "StereoEnhancer.deb",
+        "version": "2026-10-31 snapshot",
+        "note": "Debian/Ubuntu package; other Linux distributions may need manual extraction. Debian/Ubuntu package; other Linux distributions may need manual extraction.",
+        "sha256": "a29452fb9b48fa819d89c77e525eefff6b3f9cfc8b187592cf5e7a643ab4f036",
+        "size": 23229720,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://socalabs.com/images/stereoenhancer.png",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Stereo-width enhancement. Use to widen or narrow the impression of a stereo source, checking the result in mono as well."
+  },
+  {
+    "id": "socalabs-stereo-processor",
+    "name": "SocaLabs Stereo Processor",
+    "category": "Stereo and routing",
+    "description": "Mid/side and stereo processing.",
+    "source": "https://github.com/FigBug/slPlugins",
+    "license": "BSD-3-Clause",
+    "license_url": "https://github.com/FigBug/slPlugins/blob/master/LICENSE.md",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=StereoProcessor.exe",
+        "filename": "StereoProcessor.exe",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "fd1bc0efcf36733b3aa88d8319c9cd24bc852608bc7a0384b7ff0fa28f961db8",
+        "size": 8117792,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://socalabs.com/files/get.php?id=StereoProcessor.pkg",
+        "filename": "StereoProcessor.pkg",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "8d43ef85f3fde84340b05887a372debb274ad8ba8eb4e218264331e772acf812",
+        "size": 45817044,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=StereoProcessor.deb",
+        "filename": "StereoProcessor.deb",
+        "version": "2026-10-31 snapshot",
+        "note": "Debian/Ubuntu package; other Linux distributions may need manual extraction. Debian/Ubuntu package; other Linux distributions may need manual extraction.",
+        "sha256": "d44eff0c9fb008c9ccca9bbfd8528a0d4c52a73e5fd773660fc9c454735a98fb",
+        "size": 23276434,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://socalabs.com/images/stereoprocessor.png",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Mid/side and stereo processing. Adjust center and side information or stereo balance when preparing a track or bus."
+  },
+  {
+    "id": "airwindows-wider",
+    "name": "Airwindows Wider",
+    "category": "Stereo and routing",
+    "description": "Mid/side stereo-space shaping.",
+    "source": "https://github.com/airwindows/airwindows",
+    "license": "MIT",
+    "license_url": "https://github.com/airwindows/airwindows/blob/master/LICENSE",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://www.airwindows.com/wp-content/uploads/2018/05/Wider.zip",
+        "filename": "Wider.zip",
+        "version": "original release",
+        "note": "Installs only this selected portable plugin into your Lemon Studio profile and scans it automatically.",
+        "sha256": "2b2910bb60c052d2c08f3c487462909ff0436830d8ed58cc754416a28208e508",
+        "size": 351968,
+        "install": [
+          "Wider64.dll"
+        ]
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://www.airwindows.com/wp-content/uploads/SignedMacVSTs.dmg",
+        "filename": "SignedMacVSTs.dmg",
+        "version": "2026-10-31 snapshot",
+        "note": "Includes the full Airwindows VST2 collection.",
+        "sha256": "1a95dc2a45bddc9e62dc8875a9fc21b45b152a2a93bfda78b53a9dbfd6d7dc66",
+        "size": 14105789,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://www.airwindows.com/wp-content/uploads/LinuxVSTs.zip",
+        "filename": "LinuxVSTs.zip",
+        "version": "2026-10-31 snapshot",
+        "note": "Includes the full Airwindows VST2 collection.",
+        "sha256": "0f8fe901e4a5756254495afdd93e7b638a62210a75b8751e55ce7cb7a21a8909",
+        "size": 16048217,
+        "install": []
+      }
+    ],
+    "thumbnail": "",
+    "note": "No custom GUI: uses host parameter controls.",
+    "homepage": "https://www.airwindows.com/wider-vst/",
+    "thumbnail_kind": "label",
+    "info": "Mid/side stereo-space shaping. Shape the relationship between center and side content to change the perceived stereo space."
+  },
+  {
+    "id": "socalabs-oscilloscope",
+    "name": "SocaLabs Oscilloscope",
+    "category": "Analysis and meters",
+    "description": "Visualize the audio waveform.",
+    "source": "https://github.com/FigBug/slPlugins",
+    "license": "BSD-3-Clause",
+    "license_url": "https://github.com/FigBug/slPlugins/blob/master/LICENSE.md",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=Oscilloscope.exe",
+        "filename": "Oscilloscope.exe",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "6eafd705a728a5ba2ed4af32dd16e2ff040b3db78e61146f40d947c2b4dbb72b",
+        "size": 8147728,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://socalabs.com/files/get.php?id=Oscilloscope.pkg",
+        "filename": "Oscilloscope.pkg",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "62ad08b2fcdf65b32854ff35c25786fe8d805c6b0f7aa0d3595750eb39e5fe5c",
+        "size": 46057526,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=Oscilloscope.deb",
+        "filename": "Oscilloscope.deb",
+        "version": "2026-10-31 snapshot",
+        "note": "Debian/Ubuntu package; other Linux distributions may need manual extraction. Debian/Ubuntu package; other Linux distributions may need manual extraction.",
+        "sha256": "1577913b8a803ff5f04be7cad11045be6b6de351f4470b405526a24e2deacd14",
+        "size": 23391784,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://socalabs.com/images/oscilloscope.png",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Visualize the audio waveform. Inspect waveform shape and transients visually while audio plays; useful alongside your ears when diagnosing a signal."
+  },
+  {
+    "id": "socalabs-spectrum-analyzer",
+    "name": "SocaLabs Spectrum Analyzer",
+    "category": "Analysis and meters",
+    "description": "Frequency spectrum display.",
+    "source": "https://github.com/FigBug/slPlugins",
+    "license": "BSD-3-Clause",
+    "license_url": "https://github.com/FigBug/slPlugins/blob/master/LICENSE.md",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=SpectrumAnalyzer.exe",
+        "filename": "SpectrumAnalyzer.exe",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "0bc9e51a30d3f8d24e8e6b4bd2e96be7252175904f4825aec4aaddf38c87f0e1",
+        "size": 7350520,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://socalabs.com/files/get.php?id=SpectrumAnalyzer.pkg",
+        "filename": "SpectrumAnalyzer.pkg",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "ccd8deca718503ed2b1be28b416be4787de9992a7750691febe39218751586ef",
+        "size": 35817446,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=SpectrumAnalyzer.deb",
+        "filename": "SpectrumAnalyzer.deb",
+        "version": "2026-10-31 snapshot",
+        "note": "Debian/Ubuntu package; other Linux distributions may need manual extraction. Debian/Ubuntu package; other Linux distributions may need manual extraction.",
+        "sha256": "ce341cd74b03c2b968cf9ebe6d4e75d949d5ffbd1c915ca15fa0f26770713afd",
+        "size": 18327604,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://socalabs.com/images/spectrum.png",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Frequency spectrum display. See where energy sits across the frequency range to investigate resonances or compare tonal balance."
+  },
+  {
+    "id": "socalabs-loudness",
+    "name": "SocaLabs Loudness",
+    "category": "Analysis and meters",
+    "description": "Monitor program loudness.",
+    "source": "https://github.com/FigBug/slPlugins",
+    "license": "BSD-3-Clause",
+    "license_url": "https://github.com/FigBug/slPlugins/blob/master/LICENSE.md",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=Loudness.exe",
+        "filename": "Loudness.exe",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "380e392ca4cbfe8560e17cd2bb7a468ae865195d969082fd527cce74557aa704",
+        "size": 8121928,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://socalabs.com/files/get.php?id=Loudness.pkg",
+        "filename": "Loudness.pkg",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "5e25addbef1d8af6c42ba454806a1383b3e3ced97753de812d9f574cbedac2f3",
+        "size": 45851686,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=Loudness.deb",
+        "filename": "Loudness.deb",
+        "version": "2026-10-31 snapshot",
+        "note": "Debian/Ubuntu package; other Linux distributions may need manual extraction. Debian/Ubuntu package; other Linux distributions may need manual extraction.",
+        "sha256": "ac0b67465154505e512b2167f20aa3f11b8df4cca0ea4fff5bb4ee3f26c25d6f",
+        "size": 23302346,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://socalabs.com/images/loudness.png",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Monitor program loudness. Check changing program level while working on a mix or preparing audio for delivery."
+  },
+  {
+    "id": "socalabs-xyscope",
+    "name": "SocaLabs XYScope",
+    "category": "Analysis and meters",
+    "description": "Visualize the stereo image.",
+    "source": "https://github.com/FigBug/slPlugins",
+    "license": "BSD-3-Clause",
+    "license_url": "https://github.com/FigBug/slPlugins/blob/master/LICENSE.md",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=XYScope.exe",
+        "filename": "XYScope.exe",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "53cfc1fda81abc26a5bc64035eae0e37b97695f3deb5a4f6c3d482d97ad4a327",
+        "size": 8119648,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://socalabs.com/files/get.php?id=XYScope.pkg",
+        "filename": "XYScope.pkg",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "737bbe3156f0a5102761fd43359f8875f7523e54094bf84ef8c5187377f6d77e",
+        "size": 45785391,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=XYScope.deb",
+        "filename": "XYScope.deb",
+        "version": "2026-10-31 snapshot",
+        "note": "Debian/Ubuntu package; other Linux distributions may need manual extraction. Debian/Ubuntu package; other Linux distributions may need manual extraction.",
+        "sha256": "e97cbf9d944d18f0d7f3c99b67caddfbf8e2a275300bde306842619a3f0d490e",
+        "size": 23252482,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://socalabs.com/images/xyscope.png",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Visualize the stereo image. Inspect the relationship between left and right channels to understand width and stereo movement."
+  },
+  {
+    "id": "socalabs-correlation",
+    "name": "SocaLabs Correlation",
+    "category": "Analysis and meters",
+    "description": "Check stereo phase correlation.",
+    "source": "https://github.com/FigBug/slPlugins",
+    "license": "BSD-3-Clause",
+    "license_url": "https://github.com/FigBug/slPlugins/blob/master/LICENSE.md",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=Correlation.exe",
+        "filename": "Correlation.exe",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "dfb755b6abda2d9a6aef6e79e38cc86cb3a38be8202d6602d26fdadde52448d5",
+        "size": 8116336,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://socalabs.com/files/get.php?id=Correlation.pkg",
+        "filename": "Correlation.pkg",
+        "version": "2026-10-31 snapshot",
+        "note": "",
+        "sha256": "99176275400f6f83db03a9b5b8053c96731db5e1af40eb299d510aacd195c04d",
+        "size": 45825577,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://socalabs.com/files/get.php?id=Correlation.deb",
+        "filename": "Correlation.deb",
+        "version": "2026-10-31 snapshot",
+        "note": "Debian/Ubuntu package; other Linux distributions may need manual extraction. Debian/Ubuntu package; other Linux distributions may need manual extraction.",
+        "sha256": "65850eed4d18dfda58393bfe57f53c8378521b78ac14e36104b199e09c051065",
+        "size": 23287788,
+        "install": []
+      }
+    ],
+    "thumbnail": "https://socalabs.com/images/correlation.png",
+    "note": "",
+    "thumbnail_kind": "interface",
+    "info": "Check stereo phase correlation. Watch for phase relationships that may cause cancellation when a stereo mix is summed to mono."
+  },
+  {
+    "id": "nova",
+    "name": "TDR Nova",
+    "category": "EQ and filters",
+    "description": "Dynamic equalizer with four bands and a spectrum display.",
+    "info": "Dynamic equalizer with four bands and a spectrum display. Use it for resonances, vocal sibilance or tonal balance; bands can respond only when a frequency becomes too loud.",
+    "source": "https://www.tokyodawn.net/tdr-nova/",
+    "license": "Freeware",
+    "license_url": "https://www.tokyodawn.net/tdr-nova/",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://www.tokyodawn.net/labs/Nova/2.2.3/TDR%20Nova%20%28installer%29.zip",
+        "filename": "nova-win.zip",
+        "version": "2.2.3",
+        "note": "",
+        "sha256": "b47fd8c3d85499b58a21a1b8f6d8c20a3eff9405f67ee57c52c51bee6b1a935c",
+        "size": 8154033,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://www.tokyodawn.net/labs/Nova/2.2.3/TDR%20Nova.zip",
+        "filename": "nova-mac.zip",
+        "version": "2.2.3",
+        "note": "",
+        "sha256": "85d3b0409260f0211c8fe4fdb0c5ff7e9a2249808a21fe0d21abd1ebc636e12d",
+        "size": 27043108,
+        "install": []
+      }
+    ],
+    "note": "Free standard edition; the paid GE upgrade is optional.",
+    "freeware": true,
+    "thumbnail": "https://www.tokyodawn.net/wp-content/uploads/2018/11/Seite-1-1.png",
+    "thumbnail_kind": "official interface preview"
+  },
+  {
+    "id": "kotelnikov",
+    "name": "TDR Kotelnikov",
+    "category": "Mastering",
+    "description": "Transparent stereo compressor for mix buses and mastering.",
+    "info": "Transparent stereo compressor for mix buses and mastering. Separate peak and average-level release controls help reduce dynamic range while preserving punch. Useful for controlled mix glue without obvious analog coloration.",
+    "source": "https://www.tokyodawn.net/tdr-kotelnikov/",
+    "license": "Freeware",
+    "license_url": "https://www.tokyodawn.net/tdr-kotelnikov/",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://www.tokyodawn.net/labs/Kotelnikov/1.6.7/TDR%20Kotelnikov%20%28installer%29.zip",
+        "filename": "kotelnikov-win.zip",
+        "version": "1.6.7",
+        "note": "",
+        "sha256": "159732b76f82cf948a13f459ea6d31bb64395b2c99c036ec38d1d0794e5b1dcf",
+        "size": 7725634,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://www.tokyodawn.net/labs/Kotelnikov/1.6.7/TDR%20Kotelnikov.zip",
+        "filename": "kotelnikov-mac.zip",
+        "version": "1.6.7",
+        "note": "",
+        "sha256": "59e580a260fb66db6f608b92434c9cf9e426eb83734995b5d4633930783389da",
+        "size": 25033721,
+        "install": []
+      }
+    ],
+    "note": "Free standard edition; GE features are a separate paid upgrade.",
+    "freeware": true,
+    "thumbnail": "https://www.tokyodawn.net/wp-content/uploads/2018/06/KotelnikovMain2.png",
+    "thumbnail_kind": "official interface preview"
+  },
+  {
+    "id": "slickeq",
+    "name": "TDR VOS SlickEQ",
+    "category": "EQ and filters",
+    "description": "Three-band tone-shaping EQ with several analog-inspired curves and output saturation.",
+    "info": "Three-band tone-shaping EQ with several analog-inspired curves and output saturation. Useful for broad musical adjustments to vocals, instruments and mixes. Automatic gain compensation helps compare tonal changes at similar loudness.",
+    "source": "https://www.tokyodawn.net/tdr-vos-slickeq/",
+    "license": "Freeware",
+    "license_url": "https://www.tokyodawn.net/tdr-vos-slickeq/",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://www.tokyodawn.net/labs/SlickEQ/1.3.9/TDR%20VOS%20SlickEQ%20%28installer%29.zip",
+        "filename": "slickeq-win.zip",
+        "version": "1.3.9",
+        "note": "",
+        "sha256": "9af4667ea317fe1b8f9025c69e51b5882a668f85aa9963d248c829be549c32e6",
+        "size": 8240508,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://www.tokyodawn.net/labs/SlickEQ/1.3.9/TDR%20VOS%20SlickEQ.zip",
+        "filename": "slickeq-mac.zip",
+        "version": "1.3.9",
+        "note": "",
+        "sha256": "9146a0e145680965c54296c68996a5982bd0e164b6fbfd767c8b26d32f8e70fa",
+        "size": 23946431,
+        "install": []
+      }
+    ],
+    "note": "Free standard edition; Gentleman's Edition is optional.",
+    "freeware": true,
+    "thumbnail": "https://www.tokyodawn.net/wp-content/uploads/2014/03/TDR-SlickEQ-main-flat.png",
+    "thumbnail_kind": "official interface preview"
+  },
+  {
+    "id": "span",
+    "name": "Voxengo SPAN",
+    "category": "Analysis and meters",
+    "description": "Real-time spectrum analyzer for seeing bass, midrange and treble balance.",
+    "info": "Real-time spectrum analyzer for seeing bass, midrange and treble balance. Includes stereo correlation and level statistics. Use it to compare tracks and investigate resonances; it measures the signal rather than changing its tone.",
+    "source": "https://www.voxengo.com/product/span/",
+    "license": "Freeware",
+    "license_url": "https://www.voxengo.com/product/span/",
+    "downloads": [
+      {
+        "platform": "macos-universal",
+        "url": "https://www.voxengo.com/files/VoxengoSPAN_324_Mac_AU_AAX_VST_setup.dmg",
+        "filename": "VoxengoSPAN_324_Mac_AU_AAX_VST_setup.dmg",
+        "version": "3.24",
+        "note": "",
+        "sha256": "82685deeac6060b72621516c7e524730345f06942ace2e32324cacd55f41c476",
+        "size": 36089508,
+        "install": []
+      },
+      {
+        "platform": "windows-x86_64",
+        "url": "https://www.voxengo.com/files/VoxengoSPAN_324_Win32_64_VST_VST3_AAX_setup.exe",
+        "filename": "VoxengoSPAN_324_Win32_64_VST_VST3_AAX_setup.exe",
+        "version": "3.24",
+        "note": "",
+        "sha256": "dc62221a8f0784165ae0ff1482c6a96f9911b5dc9e6afeada67b3d46f4385ec2",
+        "size": 9278200,
+        "install": []
+      }
+    ],
+    "note": "Free SPAN; SPAN Plus is a different paid product.",
+    "freeware": true,
+    "thumbnail": "https://www.voxengo.com/cdn/img/61/61pnsjb5m.jpg",
+    "thumbnail_kind": "official interface preview"
+  },
+  {
+    "id": "msed",
+    "name": "Voxengo MSED",
+    "category": "Stereo and routing",
+    "description": "Mid/side encoder and decoder with separate center and side level controls.",
+    "info": "Mid/side encoder and decoder with separate center and side level controls. Useful for adjusting stereo width, inspecting mono information or building mid/side processing chains. Includes phase and stereo-image monitoring.",
+    "source": "https://www.voxengo.com/product/msed/",
+    "license": "Freeware",
+    "license_url": "https://www.voxengo.com/product/msed/",
+    "downloads": [
+      {
+        "platform": "macos-universal",
+        "url": "https://www.voxengo.com/files/VoxengoMSED_313_Mac_AU_AAX_VST_setup.dmg",
+        "filename": "VoxengoMSED_313_Mac_AU_AAX_VST_setup.dmg",
+        "version": "3.13",
+        "note": "",
+        "sha256": "4d54b4885226664866fa073545ea4d74a759ed5bfafd87d6309974d19f11648c",
+        "size": 33165574,
+        "install": []
+      },
+      {
+        "platform": "windows-x86_64",
+        "url": "https://www.voxengo.com/files/VoxengoMSED_313_Win32_64_VST_VST3_AAX_setup.exe",
+        "filename": "VoxengoMSED_313_Win32_64_VST_VST3_AAX_setup.exe",
+        "version": "3.13",
+        "note": "",
+        "sha256": "83fabe1380f4767a4b8b5c403464ed711a22d67802da26681b4936aa62bdef0f",
+        "size": 8671728,
+        "install": []
+      }
+    ],
+    "note": "Free; no account or activation.",
+    "freeware": true,
+    "thumbnail": "https://www.voxengo.com/cdn/img/82/828qsm9jy.jpg",
+    "thumbnail_kind": "official interface preview"
+  },
+  {
+    "id": "youlean",
+    "name": "Youlean Loudness Meter 2 Free",
+    "category": "Analysis and meters",
+    "description": "Loudness and true-peak meter for checking mixes before delivery.",
+    "info": "Loudness and true-peak meter for checking mixes before delivery. Watch integrated loudness, loudness range and the history graph while your song plays. The free edition does not expire; advanced export and offline analysis require PRO.",
+    "source": "https://youlean.co/youlean-loudness-meter/",
+    "license": "Freeware",
+    "license_url": "https://youlean.co/youlean-loudness-meter/",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://cdn.youlean.co/wp-content/uploads/2026/09/Youlean-Loudness-Meter-2-V2.5.15-Windows.zip",
+        "filename": "Youlean-Loudness-Meter-2-V2.5.15-Windows.zip",
+        "version": "2.5.15",
+        "note": "",
+        "sha256": "ad8b4eb2b6a8397961f053011ad44b348255c40cec28df4af0afb0b6d474757b",
+        "size": 69627504,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://cdn.youlean.co/wp-content/uploads/2026/09/Youlean-Loudness-Meter-2-V2.5.15-macOS.dmg",
+        "filename": "Youlean-Loudness-Meter-2-V2.5.15-macOS.dmg",
+        "version": "2.5.15",
+        "note": "",
+        "sha256": "0497a988c390e12ac4a7d71fe12aa11847af1787d972d40fc2ae03c25131eeab",
+        "size": 99391961,
+        "install": []
+      }
+    ],
+    "note": "Use the included free edition. PRO-only features are optional and paid.",
+    "freeware": true,
+    "thumbnail": "https://cdn.youlean.co/wp-content/uploads/2019/08/Youlean-Lodness-Meter-2-V2.3.0.png",
+    "thumbnail_kind": "official interface preview"
+  },
+  {
+    "id": "ott",
+    "name": "Xfer OTT",
+    "category": "Dynamics",
+    "description": "Three-band upward and downward compressor for the bright, dense sound used in electronic music.",
+    "info": "Three-band upward and downward compressor for the bright, dense sound used in electronic music. Brings quiet details forward and reins in peaks. Start with low Depth for subtle enhancement or increase it for aggressive sound design.",
+    "source": "https://xferrecords.com/freeware",
+    "license": "Freeware",
+    "license_url": "https://xferrecords.com/freeware",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://xferrecords.com/product_downloads/25/freeware",
+        "filename": "Install_Xfer_OTT_137.exe",
+        "version": "1.37",
+        "note": "",
+        "sha256": "d4e1d3f62a1db904d3ab5c776ddcbb39ac74469e5ca3ed723e3dcef89ebcefeb",
+        "size": 8397928,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://xferrecords.com/product_downloads/24/freeware",
+        "filename": "Install_Xfer_OTT_137.dmg",
+        "version": "1.37",
+        "note": "",
+        "sha256": "fe1d10b79445c44a32f365fcbf2a420a2133ae205c8d75f09ba703c7dd42ec54",
+        "size": 24309336,
+        "install": []
+      }
+    ],
+    "note": "Free; no account or serial required.",
+    "freeware": true,
+    "thumbnail": "https://xferrecords.com/apple-touch-icon.png",
+    "thumbnail_kind": "official developer logo"
+  },
+  {
+    "id": "ivgi",
+    "name": "Klanghelm IVGI",
+    "category": "Saturation and distortion",
+    "description": "Analog-inspired saturation ranging from gentle warmth to audible distortion.",
+    "info": "Analog-inspired saturation ranging from gentle warmth to audible distortion. Drive, asymmetry and response controls shape its character and frequency emphasis. Useful for adding density to a bass, vocal or instrument without a complex effects chain.",
+    "source": "https://klanghelm.com/contents/products/IVGI",
+    "license": "Freeware",
+    "license_url": "https://klanghelm.com/contents/products/IVGI",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://klanghelm.com/free/IVGI2dl.php?id=1",
+        "filename": "ivgi-win.zip",
+        "version": "2.5.0",
+        "note": "",
+        "sha256": "66bb559932a16ec53517016129f86fbd4bd5a074b0342cd36186b3df25f2432f",
+        "size": 4700073,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://klanghelm.com/free/IVGI2dl.php?id=3",
+        "filename": "ivgi-macos-universal.zip",
+        "version": "2.5.0",
+        "note": "",
+        "sha256": "318c6ea9b78f2c7f09d76680147cd04c42bc30748bbb55caa7b3be42e97e326f",
+        "size": 13781869,
+        "install": []
+      }
+    ],
+    "note": "Free; no account or activation.",
+    "freeware": true,
+    "thumbnail": "https://klanghelm.com/assets/img/IVGI/IVGI.jpg",
+    "thumbnail_kind": "official interface preview"
+  },
+  {
+    "id": "mjucjr",
+    "name": "Klanghelm MJUC jr.",
+    "category": "Dynamics",
+    "description": "Simple variable-tube compressor with a colored, rounded response.",
+    "info": "Simple variable-tube compressor with a colored, rounded response. Compression and makeup controls plus selectable time constants make it useful for smoothing vocals, bass and instrument buses. Can add obvious movement when driven harder.",
+    "source": "https://klanghelm.com/contents/products/MJUCjr",
+    "license": "Freeware",
+    "license_url": "https://klanghelm.com/contents/products/MJUCjr",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://klanghelm.com/free/MJUCjrdl.php?id=1",
+        "filename": "mjucjr-win.zip",
+        "version": "1.5.0",
+        "note": "",
+        "sha256": "d4072b6c744e4cd98a2c73174f322097209dbc892a8114e1505539e2b45afab3",
+        "size": 5176224,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://klanghelm.com/free/MJUCjrdl.php?id=3",
+        "filename": "mjucjr-macos-universal.zip",
+        "version": "1.5.0",
+        "note": "",
+        "sha256": "5673581ac610e5a1308539c19d4489c470d3a2eb103ba646ecd958c182cbd5c2",
+        "size": 22829073,
+        "install": []
+      }
+    ],
+    "note": "Free; the full MJUC is a separate paid plugin.",
+    "freeware": true,
+    "thumbnail": "https://klanghelm.com/assets/img/MJUC/MJUCjrbig.jpg",
+    "thumbnail_kind": "official interface preview"
+  },
+  {
+    "id": "dc1a",
+    "name": "Klanghelm DC1A",
+    "category": "Dynamics",
+    "description": "Character compressor with an input/output workflow and alternate modes.",
+    "info": "Character compressor with an input/output workflow and alternate modes. Try gentle leveling on vocals or more pronounced punch and pumping on drums. Deep mode reduces low-frequency pumping; dual-mono processing treats stereo channels separately.",
+    "source": "https://klanghelm.com/contents/products/DC1A",
+    "license": "Freeware",
+    "license_url": "https://klanghelm.com/contents/products/DC1A",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://klanghelm.com/free/DC1A3dl.php?id=1",
+        "filename": "dc1a-win.zip",
+        "version": "3.5.0",
+        "note": "",
+        "sha256": "f2897b986e1470f1c2c291d59e86f7f7dd5b6502ecac55f0ef5076fe89d274ac",
+        "size": 10299440,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://klanghelm.com/free/DC1A3dl.php?id=3",
+        "filename": "dc1a-macos-universal.zip",
+        "version": "3.5.0",
+        "note": "",
+        "sha256": "562e58178091b283a689aeab188bd3a26d8a7896d4445edfe98ad5d96622ca12",
+        "size": 38326157,
+        "install": []
+      }
+    ],
+    "note": "Free; no account or activation.",
+    "freeware": true,
+    "thumbnail": "https://klanghelm.com/assets/img/DC1A/DC1A3.jpg",
+    "thumbnail_kind": "official interface preview"
+  },
+  {
+    "id": "tyrell",
+    "name": "u-he TyrellN6",
+    "category": "Synthesizers",
+    "description": "Virtual analog synth with two oscillators, a sub oscillator, noise and flexible modulation.",
+    "info": "Virtual analog synth with two oscillators, a sub oscillator, noise and flexible modulation. Useful for classic basses, leads and pads. Its compact layout encourages quick sound design, with presets as ready-to-play starting points.",
+    "source": "https://u-he.com/products/tyrelln6/",
+    "license": "Freeware",
+    "license_url": "https://u-he.com/products/tyrelln6/",
+    "downloads": [
+      {
+        "platform": "macos-universal",
+        "url": "https://dl.u-he.com/releases/TyrellN6_300_public_beta_16976_Mac.zip",
+        "filename": "TyrellN6_300_public_beta_16976_Mac.zip",
+        "version": "3.0 public beta 16976",
+        "note": "",
+        "sha256": "582b73c740daf309d6b4a6b64a7fe742b4b592c11f1de8165710226a8172b1ad",
+        "size": 50052935,
+        "install": []
+      },
+      {
+        "platform": "windows-x86_64",
+        "url": "https://dl.u-he.com/releases/TyrellN6_300_public_beta_16976_Win.zip",
+        "filename": "TyrellN6_300_public_beta_16976_Win.zip",
+        "version": "3.0 public beta 16976",
+        "note": "",
+        "sha256": "5a00b934f95da95ce03ff2c982367d727183101df910de1ef78af8500f9a6e5a",
+        "size": 13044426,
+        "install": []
+      }
+    ],
+    "note": "Current official download is a public beta. Free; no serial required.",
+    "freeware": true,
+    "thumbnail": "https://u-he.com/products/tyrelln6/assets/images/uhe-tyrelln6-screenshot-fullui.jpg",
+    "thumbnail_kind": "official interface preview"
+  },
+  {
+    "id": "zebralette3",
+    "name": "u-he Zebralette 3",
+    "category": "Synthesizers",
+    "description": "Spectral synthesizer built around a detailed oscillator and spline-based waveform editing.",
+    "info": "Spectral synthesizer built around a detailed oscillator and spline-based waveform editing. Shape harmonic movement, morphing textures and animated tones with its modulation system. A deep sound-design instrument rather than a sample library.",
+    "source": "https://u-he.com/products/plug-ins/zebralette3/",
+    "license": "Freeware",
+    "license_url": "https://u-he.com/products/plug-ins/zebralette3/",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://dl.u-he.com/releases/zebralette3_300_20399_Win.zip",
+        "filename": "zebralette3_300_20399_Win.zip",
+        "version": "3.0.0 build 20399",
+        "note": "",
+        "sha256": "04a8c72dbf731514b7d32505cc17ef83945ef358f313f74432beb269f79d3642",
+        "size": 15224036,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://dl.u-he.com/releases/zebralette3_300_20399_Mac.zip",
+        "filename": "zebralette3_300_20399_Mac.zip",
+        "version": "3.0.0 build 20399",
+        "note": "",
+        "sha256": "2ff7b8a0c9e29de90d659da0c3b01486918db2c33ba238ce6ba0cc965f4240f7",
+        "size": 56608221,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://dl.u-he.com/releases/zebralette3_300_20399_Linux.tar.xz",
+        "filename": "zebralette3_300_20399_Linux.tar.xz",
+        "version": "3.0.0 build 20399",
+        "note": "",
+        "sha256": "df34d1cce6712702894d3cbdeff1c3ab7465142638d3bcc82c86eb5ee02ec580",
+        "size": 8694308,
+        "install": []
+      }
+    ],
+    "note": "Free standalone instrument; no Zebra purchase required.",
+    "freeware": true,
+    "thumbnail": "https://u-he.com/products/plug-ins/zebralette3/img/screen-1.webp",
+    "thumbnail_kind": "official interface preview"
+  },
+  {
+    "id": "triplecheese",
+    "name": "u-he Triple Cheese",
+    "category": "Synthesizers",
+    "description": "Comb-filter synthesizer with three sound-generating modules.",
+    "info": "Comb-filter synthesizer with three sound-generating modules. Produces plucked, resonant and unusual synthetic textures without a conventional oscillator-and-filter signal path. Useful for adding a different character to pads, keys and experimental parts.",
+    "source": "https://u-he.com/products/triplecheese/",
+    "license": "Freeware",
+    "license_url": "https://u-he.com/products/triplecheese/",
+    "downloads": [
+      {
+        "platform": "macos-universal",
+        "url": "https://dl.u-he.com/releases/TripleCheese_13_12092_Mac.zip",
+        "filename": "TripleCheese_13_12092_Mac.zip",
+        "version": "1.3",
+        "note": "",
+        "sha256": "9542262570317927d9914aa45086ae37eae3c4b96f2f00cfd67cef9513d7b353",
+        "size": 29870856,
+        "install": []
+      },
+      {
+        "platform": "windows-x86_64",
+        "url": "https://dl.u-he.com/releases/TripleCheese_13_12092_Win.zip",
+        "filename": "TripleCheese_13_12092_Win.zip",
+        "version": "1.3",
+        "note": "",
+        "sha256": "49247fe63f35b4a046590f84b4d9021d794a32f3293932c1e62675fa0a291a02",
+        "size": 13581969,
+        "install": []
+      }
+    ],
+    "note": "Free; no account or serial required.",
+    "freeware": true,
+    "thumbnail": "https://u-he.com/products/triplecheese/assets/images/uhe-triplecheese-screenshot-fullui.jpg",
+    "thumbnail_kind": "official interface preview"
+  },
+  {
+    "id": "noisemaker",
+    "name": "TAL-NoiseMaker",
+    "category": "Synthesizers",
+    "description": "Virtual analog synthesizer for basses, leads and pads.",
+    "info": "Virtual analog synthesizer for basses, leads and pads. Combines oscillators and a sub oscillator with resonant filters, envelopes, modulation and built-in chorus, reverb and delay. A practical starting point for learning subtractive sound design.",
+    "source": "https://tal-software.com/products/tal-noisemaker",
+    "license": "Freeware",
+    "license_url": "https://tal-software.com/products/tal-noisemaker",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://tal-software.com/downloads/plugins/install_TAL-NoiseMaker.zip",
+        "filename": "install_TAL-NoiseMaker.zip",
+        "version": "5.0.6",
+        "note": "",
+        "sha256": "1d49eaa631efe9ff4eb22bae48a62da1582bfd7ea0eb9d59fedc95b85d35c7d5",
+        "size": 16969217,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://tal-software.com/downloads/plugins/TAL-NoiseMaker-installer_macos.zip",
+        "filename": "TAL-NoiseMaker-installer_macos.zip",
+        "version": "5.0.6",
+        "note": "",
+        "sha256": "7d756aba0af00d46a14c579bf3317316326b6d50382411c3c7605520c1026dc4",
+        "size": 22524919,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://tal-software.com/downloads/plugins/TAL-NoiseMaker_64_linux.zip",
+        "filename": "TAL-NoiseMaker_64_linux.zip",
+        "version": "5.0.6",
+        "note": "",
+        "sha256": "328565e646f98f14dd931a33fa438a4c9eddc451e759b92d1005f4336fa3fd20",
+        "size": 7144872,
+        "install": []
+      }
+    ],
+    "note": "Free; no account or activation.",
+    "freeware": true,
+    "thumbnail": "https://tal-software.com/images/products/tal-noisemaker-new.jpg",
+    "thumbnail_kind": "official interface preview"
+  },
+  {
+    "id": "chorus",
+    "name": "TAL-Chorus-LX",
+    "category": "Modulation",
+    "description": "Vintage stereo chorus inspired by the Juno-60.",
+    "info": "Vintage stereo chorus inspired by the Juno-60. Adds movement and width to synths, guitars and vocals with a simple control set and dry/wet blend. Useful when a plain sound needs a richer, softly detuned layer.",
+    "source": "https://tal-software.com/products/tal-chorus-lx",
+    "license": "Freeware",
+    "license_url": "https://tal-software.com/products/tal-chorus-lx",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://tal-software.com/downloads/plugins/install_TAL-Chorus-LX.zip",
+        "filename": "install_TAL-Chorus-LX.zip",
+        "version": "1.6.3",
+        "note": "",
+        "sha256": "5ab8f7f1c7a61e312a778b0478f0ab0dcede1ebd49aa67bde184307ae7afdbaa",
+        "size": 8668420,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://tal-software.com/downloads/plugins/TAL-Chorus-LX-installer_macos.zip",
+        "filename": "TAL-Chorus-LX-installer_macos.zip",
+        "version": "1.6.3",
+        "note": "",
+        "sha256": "36c0a0ef3fdaa35c86b48c1adab0d1a66032080d73f7276b9c69a5faa99ef3ca",
+        "size": 11789160,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://tal-software.com/downloads/plugins/TAL-Chorus-LX_64_linux.zip",
+        "filename": "TAL-Chorus-LX_64_linux.zip",
+        "version": "1.6.3",
+        "note": "",
+        "sha256": "176396c83a3f43d3ec0ae0b1483c2ef7b9480952699cc999f393993fba786a0e",
+        "size": 3518839,
+        "install": []
+      }
+    ],
+    "note": "Free; no account or activation.",
+    "freeware": true,
+    "thumbnail": "https://tal-software.com/images/products/tal-chorus-lx_.png",
+    "thumbnail_kind": "official interface preview"
+  },
+  {
+    "id": "reverb4",
+    "name": "TAL-Reverb-4",
+    "category": "Reverb",
+    "description": "Modulated plate-style reverb with a diffuse, spacious character.",
+    "info": "Modulated plate-style reverb with a diffuse, spacious character. Use it for lush vocal tails, synth ambience or atmospheric sends. Tone and size controls help place the effect around the dry sound without a complicated setup.",
+    "source": "https://tal-software.com/products/tal-reverb-4",
+    "license": "Freeware",
+    "license_url": "https://tal-software.com/products/tal-reverb-4",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://tal-software.com/downloads/plugins/install_TAL-Reverb-4.zip",
+        "filename": "install_TAL-Reverb-4.zip",
+        "version": "4.0.4",
+        "note": "",
+        "sha256": "cb01267ebd22fd6484e3d914070809eae1bf59a91c95c9491a9f1f8453c3209f",
+        "size": 12829845,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://tal-software.com/downloads/plugins/TAL-Reverb-4-installer_macos.zip",
+        "filename": "TAL-Reverb-4-installer_macos.zip",
+        "version": "4.0.4",
+        "note": "",
+        "sha256": "4dfad31d763004955c03184c801771fd38e7ef9408232ac12cdfb137b3df9448",
+        "size": 15577999,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://tal-software.com/downloads/plugins/TAL-Reverb-4_64_linux.zip",
+        "filename": "TAL-Reverb-4_64_linux.zip",
+        "version": "4.0.4",
+        "note": "",
+        "sha256": "b08dabd091d75335011c9a8e0c836e77b3af8fc0b8884d4bcd1626fcb5155bba",
+        "size": 5331540,
+        "install": []
+      }
+    ],
+    "note": "Free; no account or activation.",
+    "freeware": true,
+    "thumbnail": "https://tal-software.com/images/products/tal-reverb-402.jpg",
+    "thumbnail_kind": "official interface preview"
+  },
+  {
+    "id": "filter2",
+    "name": "TAL-Filter-2",
+    "category": "EQ and filters",
+    "description": "Tempo-synced modulation effect with editable envelope curves.",
+    "info": "Tempo-synced modulation effect with editable envelope curves. Animate filter cutoff, volume or panorama to create rhythmic movement, gated patterns and pumping effects. Useful for shaping a sustained synth or loop without drawing repeated automation.",
+    "source": "https://tal-software.com/products/tal-filter",
+    "license": "Freeware",
+    "license_url": "https://tal-software.com/products/tal-filter",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://tal-software.com/downloads/plugins/install_TAL-Filter-2.zip",
+        "filename": "install_TAL-Filter-2.zip",
+        "version": "3.1.2",
+        "note": "",
+        "sha256": "b239ceafaa9461f55c1fecdb86ad8fcd4fd4dca2a6957ed42b360d125cc5a671",
+        "size": 15699615,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://tal-software.com/downloads/plugins/TAL-Filter-2-installer_macos.zip",
+        "filename": "TAL-Filter-2-installer_macos.zip",
+        "version": "3.1.2",
+        "note": "",
+        "sha256": "678eeb3c5f01b6eb9448ebfba33051f2840d31eae056dab60946e1e33aff9429",
+        "size": 19651010,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://tal-software.com/downloads/plugins/TAL-Filter-2_64_linux.zip",
+        "filename": "TAL-Filter-2_64_linux.zip",
+        "version": "3.1.2",
+        "note": "",
+        "sha256": "ca6c2f2b6d68dfe160a8a723549e51d2a74505b3cf8c462580bf5001f3847be9",
+        "size": 6583243,
+        "install": []
+      }
+    ],
+    "note": "Free; no account or activation.",
+    "freeware": true,
+    "thumbnail": "https://tal-software.com/images/products/tal-filter-2-new.jpg",
+    "thumbnail_kind": "official interface preview"
+  },
+  {
+    "id": "vocoder",
+    "name": "TAL-Vocoder",
+    "category": "Modulation",
+    "description": "Vintage-style vocoder with an internal synth carrier.",
+    "info": "Vintage-style vocoder with an internal synth carrier. Turns speech or rhythmic input into robotic, harmonically pitched textures. Play notes to shape the carrier while incoming audio supplies articulation; routing matters more than with an ordinary insert effect.",
+    "source": "https://tal-software.com/products/tal-vocoder",
+    "license": "Freeware",
+    "license_url": "https://tal-software.com/products/tal-vocoder",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://tal-software.com/downloads/plugins/install_TAL-Vocoder-2.zip",
+        "filename": "install_TAL-Vocoder-2.zip",
+        "version": "3.0.4",
+        "note": "",
+        "sha256": "27a280f13a9d92dda277d4b66748b9234849e85ef5df72e3c87bab315e3acdd5",
+        "size": 13444769,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://tal-software.com/downloads/plugins/TAL-Vocoder-2-installer_macos.zip",
+        "filename": "TAL-Vocoder-2-installer_macos.zip",
+        "version": "3.0.4",
+        "note": "",
+        "sha256": "27e6959106ed60f92aaa78d757f92eb687ccf0125e459913826093f3ed188d42",
+        "size": 16831054,
+        "install": []
+      },
+      {
+        "platform": "linux-x86_64",
+        "url": "https://tal-software.com/downloads/plugins/TAL-Vocoder-2_64_linux.zip",
+        "filename": "TAL-Vocoder-2_64_linux.zip",
+        "version": "3.0.4",
+        "note": "",
+        "sha256": "bce4a942a37c0c42b87f9bc849e427641a71856dc0696d7eff42266a37a83ec6",
+        "size": 5422566,
+        "install": []
+      }
+    ],
+    "note": "Free; requires audio modulator and carrier/MIDI routing for vocoding.",
+    "freeware": true,
+    "thumbnail": "https://tal-software.com/images/products/vocoder-3.jpg",
+    "thumbnail_kind": "official interface preview"
+  },
+  {
+    "id": "oldskoolverb",
+    "name": "Voxengo OldSkoolVerb",
+    "category": "Reverb",
+    "description": "Algorithmic reverb for rooms, halls and plate-like spaces.",
+    "info": "Algorithmic reverb for rooms, halls and plate-like spaces. Designed especially for smoother material such as vocals, piano and pads. Use it on a send to place several instruments in a shared space.",
+    "source": "https://www.voxengo.com/product/oldskoolverb/",
+    "license": "Freeware",
+    "license_url": "https://www.voxengo.com/product/oldskoolverb/",
+    "downloads": [
+      {
+        "platform": "macos-universal",
+        "url": "https://www.voxengo.com/files/VoxengoOldSkoolVerb_214_Mac_AU_AAX_VST_setup.dmg",
+        "filename": "VoxengoOldSkoolVerb_214_Mac_AU_AAX_VST_setup.dmg",
+        "version": "2.14",
+        "note": "",
+        "sha256": "f6ba1416e31d16d52becf8df7a602d9da22c5c015419fdada0ad8282f4ad2008",
+        "size": 29375793,
+        "install": []
+      },
+      {
+        "platform": "windows-x86_64",
+        "url": "https://www.voxengo.com/files/VoxengoOldSkoolVerb_214_Win32_64_VST_VST3_AAX_setup.exe",
+        "filename": "VoxengoOldSkoolVerb_214_Win32_64_VST_VST3_AAX_setup.exe",
+        "version": "2.14",
+        "note": "",
+        "sha256": "ff65291e30e2c38abc3b8bd89c47469f20905f6b50a7eed217f2c5c433915b30",
+        "size": 7509256,
+        "install": []
+      }
+    ],
+    "note": "Free OldSkoolVerb; the Plus version is a separate paid product.",
+    "freeware": true,
+    "thumbnail": "https://www.voxengo.com/cdn/img/49/49q6atm93.jpg",
+    "thumbnail_kind": "official interface preview"
+  },
+  {
+    "id": "boogex",
+    "name": "Voxengo Boogex",
+    "category": "Saturation and distortion",
+    "description": "Guitar amplifier and cabinet processor with convolution impulse-response support.",
+    "info": "Guitar amplifier and cabinet processor with convolution impulse-response support. Covers clean coloration through stronger distortion, with filtering and ambience controls. Useful for DI guitar tracks or for giving a synth a speaker-like character.",
+    "source": "https://www.voxengo.com/product/boogex/",
+    "license": "Freeware",
+    "license_url": "https://www.voxengo.com/product/boogex/",
+    "downloads": [
+      {
+        "platform": "macos-universal",
+        "url": "https://www.voxengo.com/files/VoxengoBoogex_38_Mac_AU_AAX_VST_setup.dmg",
+        "filename": "VoxengoBoogex_38_Mac_AU_AAX_VST_setup.dmg",
+        "version": "3.8",
+        "note": "",
+        "sha256": "0a2e3d5e5230aae9f05a45d0c6d5494a0e181c4261c84e298016fd327a17072b",
+        "size": 48007700,
+        "install": []
+      },
+      {
+        "platform": "windows-x86_64",
+        "url": "https://www.voxengo.com/files/VoxengoBoogex_38_Win32_64_VST_VST3_AAX_setup.exe",
+        "filename": "VoxengoBoogex_38_Win32_64_VST_VST3_AAX_setup.exe",
+        "version": "3.8",
+        "note": "",
+        "sha256": "44048dbdc39bc7f19206925dbc81ba35e352225620f3adcfdbc588e6bab4003e",
+        "size": 10687176,
+        "install": []
+      }
+    ],
+    "note": "Free; no account or activation.",
+    "freeware": true,
+    "thumbnail": "https://www.voxengo.com/cdn/img/28/28p1jew3g.jpg",
+    "thumbnail_kind": "official interface preview"
+  },
+  {
+    "id": "marvelgeq",
+    "name": "Voxengo Marvel GEQ",
+    "category": "EQ and filters",
+    "description": "Sixteen-band linear-phase graphic equalizer for broad tonal shaping.",
+    "info": "Sixteen-band linear-phase graphic equalizer for broad tonal shaping. Draw a curve across its bands to rebalance a track or bus, with multichannel and mid/side options. Linear-phase processing introduces latency, so it is best suited to mixing.",
+    "source": "https://www.voxengo.com/product/marvelgeq/",
+    "license": "Freeware",
+    "license_url": "https://www.voxengo.com/product/marvelgeq/",
+    "downloads": [
+      {
+        "platform": "macos-universal",
+        "url": "https://www.voxengo.com/files/VoxengoMarvelGEQ_117_Mac_AU_AAX_VST_setup.dmg",
+        "filename": "VoxengoMarvelGEQ_117_Mac_AU_AAX_VST_setup.dmg",
+        "version": "1.17",
+        "note": "",
+        "sha256": "10088c75129877881886ac9cf44b6a0bc869273b2762ad5a6e56d2071f12aad2",
+        "size": 30469110,
+        "install": []
+      },
+      {
+        "platform": "windows-x86_64",
+        "url": "https://www.voxengo.com/files/VoxengoMarvelGEQ_117_Win32_64_VST_VST3_AAX_setup.exe",
+        "filename": "VoxengoMarvelGEQ_117_Win32_64_VST_VST3_AAX_setup.exe",
+        "version": "1.17",
+        "note": "",
+        "sha256": "32502403cf6b0da776402e718c5605c4b1f0d0eeccad815de17eb8b7c8c9b8e7",
+        "size": 7615288,
+        "install": []
+      }
+    ],
+    "note": "Free; no account or activation.",
+    "freeware": true,
+    "thumbnail": "https://www.voxengo.com/cdn/img/58/58uzyyykx.jpg",
+    "thumbnail_kind": "official interface preview"
+  },
+  {
+    "id": "tubeamp",
+    "name": "Voxengo Tube Amp",
+    "category": "Saturation and distortion",
+    "description": "Tube-style overdrive ranging from gentle warmth to stronger distortion.",
+    "info": "Tube-style overdrive ranging from gentle warmth to stronger distortion. Use drive, filtering and output controls to thicken a track or soften its character. Useful on instruments and for parallel color alongside the clean signal.",
+    "source": "https://www.voxengo.com/product/tubeamp/",
+    "license": "Freeware",
+    "license_url": "https://www.voxengo.com/product/tubeamp/",
+    "downloads": [
+      {
+        "platform": "macos-universal",
+        "url": "https://www.voxengo.com/files/VoxengoTubeAmp_216_Mac_AU_AAX_VST_setup.dmg",
+        "filename": "VoxengoTubeAmp_216_Mac_AU_AAX_VST_setup.dmg",
+        "version": "2.16",
+        "note": "",
+        "sha256": "e538d8885b6d7adde82a8adf70cf1baa32d4ca1a911f2136208acda7896b5c79",
+        "size": 33376554,
+        "install": []
+      },
+      {
+        "platform": "windows-x86_64",
+        "url": "https://www.voxengo.com/files/VoxengoTubeAmp_216_Win32_64_VST_VST3_AAX_setup.exe",
+        "filename": "VoxengoTubeAmp_216_Win32_64_VST_VST3_AAX_setup.exe",
+        "version": "2.16",
+        "note": "",
+        "sha256": "123e3478ef333d6dee789d5293d2b3f51e198de4f7e60c470ef4eed22cb1e5c7",
+        "size": 8561888,
+        "install": []
+      }
+    ],
+    "note": "Free; no account or activation.",
+    "freeware": true,
+    "thumbnail": "https://www.voxengo.com/cdn/img/44/44ehotp6d.jpg",
+    "thumbnail_kind": "official interface preview"
+  },
+  {
+    "id": "podolski",
+    "name": "u-he Podolski",
+    "category": "Synthesizers",
+    "description": "Lightweight virtual analog synthesizer with a flexible oscillator, multimode filter and arpeggiator/sequencer.",
+    "info": "Lightweight virtual analog synthesizer with a flexible oscillator, multimode filter and arpeggiator/sequencer. Useful for quick basses, leads and rhythmic patterns. Built-in effects and presets help sketch ideas without a large instrument library.",
+    "source": "https://u-he.com/products/podolski/",
+    "license": "Freeware",
+    "license_url": "https://u-he.com/products/podolski/",
+    "downloads": [
+      {
+        "platform": "macos-universal",
+        "url": "https://dl.u-he.com/releases/Podolski_123_12092_Mac.zip",
+        "filename": "Podolski_123_12092_Mac.zip",
+        "version": "1.2.3",
+        "note": "",
+        "sha256": "b3477dbd7306d733303bb3656798e8dbff2876cebc5057dd25bf05ae7162baa4",
+        "size": 53040979,
+        "install": []
+      },
+      {
+        "platform": "windows-x86_64",
+        "url": "https://dl.u-he.com/releases/Podolski_123_12092_Win.zip",
+        "filename": "Podolski_123_12092_Win.zip",
+        "version": "1.2.3",
+        "note": "",
+        "sha256": "d0ef1c3ee15a4377c4664114af08bd4cf1a7d2b7cbe504c8d5f4ff1df784c83a",
+        "size": 36535299,
+        "install": []
+      }
+    ],
+    "note": "Free; no account or serial required.",
+    "freeware": true,
+    "thumbnail": "https://u-he.com/products/podolski/assets/images/uhe-podolski-screenshot-fullui.jpg",
+    "thumbnail_kind": "official interface preview"
+  },
+  {
+    "id": "protoverb",
+    "name": "u-he Protoverb",
+    "category": "Reverb",
+    "description": "Experimental room reverb built around dense resonances.",
+    "info": "Experimental room reverb built around dense resonances. Randomized settings can create natural spaces or unusual textures, making it useful for ambience and exploratory sound design. Save settings you like before trying a new random configuration.",
+    "source": "https://u-he.com/products/protoverb/",
+    "license": "Freeware",
+    "license_url": "https://u-he.com/products/protoverb/",
+    "downloads": [
+      {
+        "platform": "macos-universal",
+        "url": "https://dl.u-he.com/releases/Protoverb_101_12092_Mac.zip",
+        "filename": "Protoverb_101_12092_Mac.zip",
+        "version": "1.0.1",
+        "note": "",
+        "sha256": "18d15e06620c14c41923bc59c0c61d7f4614afdd6174c399f5835c766c527eaf",
+        "size": 25625800,
+        "install": []
+      },
+      {
+        "platform": "windows-x86_64",
+        "url": "https://dl.u-he.com/releases/Protoverb_101_12092_Win.zip",
+        "filename": "Protoverb_101_12092_Win.zip",
+        "version": "1.0.1",
+        "note": "",
+        "sha256": "74068b721e993251c040820fa3eaf4cdb567e882f996a461253f902924a94794",
+        "size": 10634011,
+        "install": []
+      }
+    ],
+    "note": "Free; no account or serial required.",
+    "freeware": true,
+    "thumbnail": "https://u-he.com/products/protoverb/assets/images/uhe-protoverb-screenshot-fullui.jpg",
+    "thumbnail_kind": "official interface preview"
+  },
+  {
+    "id": "dimension",
+    "name": "Xfer Dimension Expander",
+    "category": "Stereo and routing",
+    "description": "Stereo widening and short-delay effect inspired by dimension-style processing.",
+    "info": "Stereo widening and short-delay effect inspired by dimension-style processing. Adds a wider, layered impression to synths, vocals and other sources with only a few controls. Compare in mono when using strong settings on important parts.",
+    "source": "https://xferrecords.com/freeware",
+    "license": "Freeware",
+    "license_url": "https://xferrecords.com/freeware",
+    "downloads": [
+      {
+        "platform": "windows-x86_64",
+        "url": "https://xferrecords.com/product_downloads/33/freeware",
+        "filename": "Install_Xfer_DimensionExpander_124.exe",
+        "version": "1.24",
+        "note": "",
+        "sha256": "b1054ce9b5407559be13b19e40ae6f2b1da77184e36f1ff228c8aacbd6e4c38c",
+        "size": 4297640,
+        "install": []
+      },
+      {
+        "platform": "macos-universal",
+        "url": "https://xferrecords.com/product_downloads/32/freeware",
+        "filename": "Install_Xfer_DimensionExpander_124.dmg",
+        "version": "1.24",
+        "note": "",
+        "sha256": "4e95a9a088c79aeaf44205f5c9cce748441940135b111891cccddf2d5cf8e7e4",
+        "size": 13047628,
+        "install": []
+      }
+    ],
+    "note": "Free; no account or serial required.",
+    "freeware": true,
+    "thumbnail": "",
+    "thumbnail_kind": "original identification icon"
+  }
+]

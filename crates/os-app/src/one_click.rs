@@ -148,14 +148,14 @@ impl App {
         }
         let (x, y) = self.mouse;
         let (x, y) = self.top_hit(x, y).map_or((x, y), |h| (h.rect.x, h.rect.bottom() + 2.0));
-        self.state.playlist.popup = Some(Popup { x, y, items: items(&self.state), sub: None, scroll: [0; 2] });
+        self.state.playlist.popup = Some(Popup { x, y, items: items(&self.state), sub: None, scroll: [0; 2], cascade: Vec::new() });
         self.invalidate();
     }
 
     /// Into the audio editor: the inputs, at the cursor (as FL prompts for one).
     pub(crate) fn one_click_editor_prompt(&mut self) {
         let (x, y) = self.mouse;
-        self.state.playlist.popup = Some(Popup { x, y, items: inputs(true), sub: None, scroll: [0; 2] });
+        self.state.playlist.popup = Some(Popup { x, y, items: inputs(true), sub: None, scroll: [0; 2], cascade: Vec::new() });
         self.invalidate();
     }
 

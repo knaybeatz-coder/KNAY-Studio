@@ -1,0 +1,43 @@
+LEMON STUDIO - LOCAL AUDIO UPDATE
+
+ASIO setup
+Select AudioBox ASIO in Settings > Audio, choose your sample rate, and use
+Show ASIO panel to set the buffer in Universal Control. Lemon no longer
+provides a competing ASIO buffer menu. Old saved ASIO buffer overrides are
+ignored. Other audio backends retain their buffer controls.
+
+The Audio page shows the active buffer in frames/milliseconds and the
+input/output latency reported by the driver when available. Driver latency
+does not include all software/plugin/monitoring delay. Driver resets and
+buffer-size-change requests reopen the stream through the existing recovery
+path; actual interface behavior still needs your listening test.
+
+Underruns
+The visible counter updates during use. Reset underruns clears the visible
+count while preserving lifetime diagnostics. It counts empty output queues,
+hosted-plugin processing misses and driver-reported overloads. It is not a
+measurement of every possible hardware glitch, and multiple reports can
+refer to the same audible incident.
+
+Monitoring fix
+Input arrives in device-sized chunks; the engine renders whole musical
+ticks. Partial input is now retained until a full render block is available,
+instead of consuming it and repeatedly filling the missing part with zeros.
+This introduces a short startup buffering delay, bounded by the engine tick
+and callback sizes. It keeps the existing backlog limits and transition fades.
+Disk recording has its own queue, independent of monitor playback.
+
+Verification
+161 automated checks passed across engine rendering, transport, monitoring,
+recording, formats, settings and counters. The continuity test covers 48
+combinations: 44.1/48/96 kHz; 96 PPQ at 140 BPM and 24 PPQ at 90 BPM;
+64/128/192/256/384/512/1024/2048-frame callbacks. Hardware-dependent and
+interactive checks were not run. Two outdated test fixtures were corrected.
+
+Synthetic tests use generated signals only, with no microphone or hardware
+recording. User listening checks remain necessary: try 64, 128 and 256 in
+Universal Control; check stopped monitoring, playback and a recorded take;
+confirm the displayed buffer follows the panel and the counter can reset.
+
+Private Master Assistant remains installed locally and excluded from public
+updates. This audio update has not been published.

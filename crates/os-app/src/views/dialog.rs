@@ -49,6 +49,9 @@ pub fn paint(ui: &mut Ui, s: &State) {
         ui.c.fill_rect(full, Color::rgb(0).with_alpha(80));
         ui.hit(full, Action::Swallow, "");
         match &m.body {
+            Body::Ai => ai_box(ui,s,m),
+            Body::RoutePicker(f) => route_picker_box(ui,s,m,f),
+            Body::Headphones(f) => headphones_box(ui,s,m,f),
             Body::Msg(msg) => msg_box(ui, s, m, msg),
             Body::File(f) => file_box(ui, s, m, f),
             Body::Shortcuts(f) => shortcuts_box(ui, s, m, f),
@@ -123,7 +126,8 @@ fn msg_box(ui: &mut Ui, s: &State, m: &Modal, msg: &Msg) {
     // and Project data size warning (2026-10-16)").
     let remember_w = if msg.remember.is_some() { super::remember_width(ui) + 24.0 } else { 0.0 };
     let w = (text_w + TEXT_X + TEXT_R).max(buttons_w + 24.0 + remember_w).max(MIN_W).ceil();
-    let body_h = (27.0 + lines.len() as f32 * LINE).max(91.0);
+    let choices = if let crate::dialog::Then::StemChoose(_,mask)=msg.then {Some(mask)} else {None};
+    let body_h = (27.0 + lines.len() as f32 * LINE).max(91.0) + if choices.is_some() {150.0} else {0.0};
     let r = place(s, m, w, 28.0 + body_h + 63.0);
     frame(ui, r, &msg.title);
     let body = Rect::new(r.x + 5.0, r.y + 28.0, r.w - 10.0, body_h);
@@ -140,6 +144,18 @@ fn msg_box(ui: &mut Ui, s: &State, m: &Modal, msg: &Msg) {
             x += ui.c.text(font, x, y, col, run);
         }
     }
+    if let Some(mask)=choices {
+        for (n,label) in ["Vocals", "Drums", "Bass", "Instruments", "All stems"].iter().enumerate() {
+            let y=body.bottom()-145.0+n as f32*28.0;
+            let b=Rect::new(r.x+TEXT_X,y+4.0,15.0,15.0);
+            let on=if n==4 {mask==15} else {mask & (1<<n)!=0};
+            let hov=hit(ui,Rect::new(b.x-4.0,y,240.0,24.0),DHit::StemToggle(n),"Choose stems (1-4; A for all)");
+            ui.c.fill_rrect(b,2.0,t.s(0x141516));
+            ui.c.stroke_rrect(b,2.0,1.0,if hov {t.glyph_dim} else {t.text_dim});
+            if on {kit::tick(ui.c,b,t.glyph);}
+            ui.c.text(font,b.x+24.0,y+2.0,t.text,label);
+        }
+    }
     let by = body.bottom() + 20.0;
     if let Some((_, ticked)) = msg.remember {
         super::remember_check(ui, r.x + 14.0, by + BTN_H / 2.0, ticked, Action::Dlg(DHit::Remember));
@@ -149,8 +165,9 @@ fn msg_box(ui: &mut Ui, s: &State, m: &Modal, msg: &Msg) {
         let b = Rect::new(bx, by, bw, BTN_H);
         let act = Action::Dlg(DHit::Button(i));
         let down = ui.down(b, &act);
-        let hov = ui.hit(b, act, msg.label(i));
-        button(ui, b, msg.label(i), i == msg.focus, hov, down, true);
+        let enabled=!(choices==Some(0) && msg.buttons[i]==crate::dialog::Answer::Ok);
+        let hov = enabled && ui.hit(b, act, msg.label(i));
+        button(ui, b, msg.label(i), i == msg.focus, hov, down, enabled);
         bx += bw + 6.0;
     }
 }
@@ -643,7 +660,7 @@ fn places(ui: &mut Ui, f: &FileDlg, r: Rect) {
 fn file_icon(name: &str) -> Icon {
     let ext = std::path::Path::new(name).extension().map(|e| e.to_string_lossy().to_ascii_lowercase()).unwrap_or_default();
     match ext.as_str() {
-        "flp" => Icon::FileProject,
+        "lmn" | "flp" => Icon::FileProject,
         "wav" | "mp3" | "flac" | "ogg" | "aif" | "aiff" => Icon::FileAudio,
         "zip" => Icon::FileZip,
         "txt" | "flstheme" => Icon::FileText,
@@ -762,4 +779,103 @@ fn filter_list(ui: &mut Ui, f: &FileDlg, c: Rect, dlg: Rect) {
         let col = if i == f.filter { if lemon(ui) { t.brand_sel(brand::MAIN) } else { t.glyph } } else { t.text };
         ui.c.text_clip(font, row.x + 10.0, (row.cy() - lh / 2.0).round(), row.w - 16.0, col, &flt.label());
     }
+}
+
+
+fn headphones_box(ui:&mut Ui,s:&State,m:&Modal,f:&crate::headphones::Form){
+ let r=place(s,m,620f32.min(s.screen.0),505f32.min(s.screen.1));
+ frame(ui,r,"Headphone correction");
+ let ink=ui.t.text;let dim=ui.t.text_dim;
+ ui.c.text_clip(Font::new(13).bold(),r.x+18.,r.y+40.,r.w-36.,ink,"Choose your headphones");
+ ui.c.text_clip(Font::new(11),r.x+18.,r.y+62.,r.w-36.,dim,"Monitor only — never applied to exports, stems or bounced tracks.");
+ let search=Rect::new(r.x+18.,r.y+86.,r.w-36.,29.);
+ field(ui,search,&f.search,true,DHit::HeadphoneSearch,"Search model, brand, impedance or variant. Enter loads the highlighted profile.");
+ if f.search.text.is_empty(){ui.c.text_clip(Font::new(12),search.x+8.,search.y+7.,search.w-16.,dim,"Search 6,033 headphone models...");}
+ let row_h=((r.h-245.)/10.).clamp(15.,26.);
+ let list=Rect::new(r.x+18.,r.y+126.,r.w-36.,row_h*10.);
+ ui.c.fill_rrect(list,5.,ui.t.s(0x151c20));
+ let cat=crate::headphones::catalog();
+ for (n,&i) in f.results.iter().enumerate().skip(f.scroll).take(10){
+  let row=Rect::new(list.x+3.,list.y+(n-f.scroll) as f32*row_h,list.w-6.,row_h);
+  let (name,path)=cat[i];let source=path.split('/').next().unwrap_or("AutoEq").replace("%20"," ");
+  let hover=ui.hit(row,Action::Dlg(DHit::Headphone(i)),format!("{name} | Measurement: {source} | Click to download and enable. Match your exact headphone variant."));
+  if hover || n==f.selected {ui.c.fill_rrect(row,3.,if hover{ui.t.button_hi}else{ui.t.s(0x263b40)});}
+  ui.c.text_clip(Font::new(12),row.x+8.,row.y+5.,row.w-145.,if s.headphones.name==name{ui.t.accent}else{ink},name);
+  ui.c.text_clip(Font::new(10),row.right()-128.,row.y+6.,120.,dim,&source);
+ }
+ if f.results.is_empty(){ui.c.text_clip(Font::new(12),list.x+12.,list.y+18.,list.w-24.,dim,"No measured profile found. Try the brand or model number.");}
+ let y=list.bottom()+8.;
+ ui.c.text_clip(Font::new(10),r.x+18.,y+6.,r.w-180.,dim,&format!("{} matches | Scroll or use arrow keys",f.results.len()));
+ for (next,x,label) in [(false,r.right()-148.,"Previous"),(true,r.right()-80.,"Next")]{let b=Rect::new(x,y,62.,23.);let hover=hit(ui,b,DHit::HeadphonePage(next),"Browse headphone profiles");ui.c.fill_rrect(b,4.,if hover{ui.t.button_hi}else{ui.t.s(0x303b40)});ui.c.text_center(Font::new(10),b,ink,label);}
+ let on=s.headphones.on;let b=Rect::new(r.x+18.,y+37.,76.,26.);
+ let hover=hit(ui,b,DHit::HeadphoneToggle,"Enable / bypass the selected headphone correction");
+ ui.c.fill_rrect(b,4.,if on{ui.t.s(0x416c52)}else if hover{ui.t.button_hi}else{ui.t.s(0x303b40)});ui.c.text_center(Font::new(11).bold(),b,ink,if on{"ON"}else{"OFF"});
+ ui.c.text_clip(Font::new(12),r.x+106.,y+42.,r.w-124.,ink,if s.headphones.name.is_empty(){"No headphones selected"}else{&s.headphones.name});
+ let status=if s.headphones.status.is_empty(){"Profiles download once, then work offline. AutoEq / measured-model correction."}else{&s.headphones.status};
+ let sr=Rect::new(r.x+18.,y+69.,r.w-36.,20.);ui.hit(sr,Action::Swallow,status.to_string());
+ ui.c.text_clip(Font::new(10),sr.x,sr.y,sr.w,dim,status);
+ ui.c.text_clip(Font::new(10),r.x+18.,r.bottom()-20.,r.w-98.,dim,"AutoEq targets neutral listening balance; fit and individual headphones vary.");
+ let cr=Rect::new(r.right()-78.,r.bottom()-24.,60.,18.);hit(ui,cr,DHit::HeadphoneCredits,"AutoEq source and license");ui.c.text_center(Font::new(10),cr,ui.t.accent,"Credits");
+}
+
+
+fn route_picker_box(ui:&mut Ui,s:&State,m:&Modal,f:&crate::route_picker::Form){
+ use crate::route_picker::{COLS,ROWS};
+ let r=place(s,m,840f32.min(s.screen.0-12.),462f32.min(s.screen.1-12.));
+ frame(ui,r,"Send to mixer track");
+ ui.c.text_clip(Font::new(12).bold(),r.x+14.,r.y+36.,r.w-28.,ui.t.text,&format!("Choose a destination for {}",f.channel));
+ ui.c.text_clip(Font::new(10),r.x+14.,r.y+55.,r.w-28.,ui.t.text_dim,"Shared sample clips use the same routing. Use Make Unique first for independent routing.");
+ field(ui,Rect::new(r.x+14.,r.y+75.,r.w-28.,26.),&f.search,true,DHit::RouteSearch,"Filter by track name or number");
+ if f.search.text.is_empty(){ui.c.text_clip(Font::new(11),r.x+23.,r.y+81.,r.w-46.,ui.t.text_dim,"Find a track by name or number...");}
+ let grid=Rect::new(r.x+14.,r.y+110.,r.w-28.,r.h-151.);
+ let (cw,ch)=(grid.w/COLS as f32,grid.h/ROWS as f32);
+ for (pos,&i) in f.shown.iter().skip(f.first).take(COLS*ROWS).enumerate(){
+  let t=&f.tracks[i];let cell=Rect::new(grid.x+(pos%COLS) as f32*cw+2.,grid.y+(pos/COLS) as f32*ch+2.,cw-4.,ch-4.);
+  let current=t.index==f.current;let color=t.color.map(super::rgb).unwrap_or(ui.t.accent);
+  let hover=ui.hit(cell,Action::Dlg(DHit::RoutePick(t.index)),format!("{} — {}{} | Click to route",t.index,t.name,if current{" (current)"}else{""}));
+  ui.c.fill_rrect(cell,4.,if hover{ui.t.button_hi}else{ui.t.s(0x252d30)});
+  ui.c.stroke_rrect(cell,4.,1.,if current||hover{ui.t.accent}else{ui.t.s(0x3b464b)});
+  ui.c.text_center(Font::new(11).bold(),Rect::new(cell.x,cell.y+1.,cell.w,14.),if current{ui.t.accent}else{ui.t.text},&t.index.to_string());
+  let strip=Rect::new(cell.cx()-11.,cell.y+18.,22.,(ch-50.).clamp(12.,28.));
+  ui.c.fill_rrect(strip,2.,ui.t.s(0x101719));ui.c.fill_rect(Rect::new(strip.x,strip.y,strip.w,2.),color);
+  ui.c.line(strip.cx(),strip.y+5.,strip.cx(),strip.bottom()-3.,1.,ui.t.s(0x718087));
+  let y=strip.bottom()-4.-t.level.clamp(0.,1.) as f32*(strip.h-10.);
+  ui.c.fill_rrect(Rect::new(strip.cx()-5.,y-2.,10.,4.),1.,color);
+  let font=Font::new(10);let mut lines=vec![String::new()];
+  for word in t.name.split_whitespace(){let last=lines.last().unwrap();let next=if last.is_empty(){word.into()}else{format!("{last} {word}")};if !last.is_empty()&&ui.c.text_width(font,&next)>cell.w-6.&&lines.len()<2{lines.push(word.into());}else{*lines.last_mut().unwrap()=next;}}
+  for (n,line) in lines.iter().take(2).enumerate(){ui.c.text_clip(font,cell.x+3.,strip.bottom()+4.+n as f32*11.,cell.w-6.,ui.t.text,line);}
+ }
+ if f.shown.is_empty(){ui.c.text_clip(Font::new(12),grid.x+10.,grid.y+20.,grid.w-20.,ui.t.text_dim,"No tracks match. Try another name or number.");}
+ let footer=Rect::new(r.x+14.,r.bottom()-30.,r.w-28.,22.);
+ ui.c.text_clip(Font::new(10),footer.x,footer.y+5.,footer.w-156.,ui.t.text_dim,&format!("{} tracks | Current: {} | Scroll to browse",f.shown.len(),f.current));
+ for (next,x,label) in [(false,r.right()-153.,"Previous"),(true,r.right()-82.,"Next")]{let b=Rect::new(x,footer.y,66.,22.);let hover=hit(ui,b,DHit::RoutePage(next),"Browse mixer tracks");ui.c.fill_rrect(b,3.,if hover{ui.t.button_hi}else{ui.t.s(0x303b40)});ui.c.text_center(Font::new(10),b,ui.t.text,label);}
+}
+
+
+fn ai_box(ui:&mut Ui,s:&State,m:&Modal){
+ let r=place(s,m,600f32.min(s.screen.0-12.),410f32.min(s.screen.1-12.));frame(ui,r,"AI control");
+ let a=&s.ai;let ink=ui.t.text;let dim=ui.t.text_dim;
+ ui.c.text_clip(Font::new(19).bold(),r.x+22.,r.y+43.,r.w-44.,ink,"Your studio. Your assistant.");
+ ui.c.text_clip(Font::new(12),r.x+22.,r.y+74.,r.w-44.,dim,"Connect a compatible AI assistant to read and edit your project.");
+ ui.c.text_clip(Font::new(11),r.x+22.,r.y+94.,r.w-44.,dim,"Off by default. No model downloads or background AI processing.");
+ let button=|ui:&mut Ui,b:Rect,h:DHit,label:&str,lit:bool|{let hover=hit(ui,b,h,"");ui.c.fill_rrect(b,5.,if lit{ui.t.s(0x486c45)}else if hover{ui.t.button_hi}else{ui.t.s(0x303b40)});ui.c.text_center(Font::new(12).bold(),b,ui.t.text,label);};
+ button(ui,Rect::new(r.x+22.,r.y+126.,155.,32.),DHit::AiEnable,if a.enabled{"Turn AI control OFF"}else{"Enable AI control"},a.enabled);
+ ui.c.text_clip(Font::new(12),r.x+193.,r.y+135.,r.w-215.,if a.enabled{ui.t.accent}else{dim},if !a.enabled{"Disconnected"}else if a.client.is_empty(){"Waiting for assistant"}else{&a.client});
+ if !a.pending.is_empty(){
+  ui.c.fill_rrect(Rect::new(r.x+20.,r.y+174.,r.w-40.,121.),6.,ui.t.s(0x283c42));
+  ui.c.text_clip(Font::new(13).bold(),r.x+32.,r.y+186.,r.w-64.,ink,&format!("{} wants to connect",a.pending));
+  ui.c.text_clip(Font::new(11),r.x+32.,r.y+207.,r.w-64.,dim,"Allow this assistant to read and change the open project?");
+  let check=Rect::new(r.x+32.,r.y+229.,240.,20.);hit(ui,check,DHit::AiRemember,"Remember this assistant and its private local connection key");ui.c.text_clip(Font::new(11),check.x,check.y,check.w,ink,if a.remember{"[x] Remember this assistant"}else{"[ ] Remember this assistant"});
+  button(ui,Rect::new(r.right()-220.,r.y+251.,90.,29.),DHit::AiApprove(false),"Decline",false);
+  button(ui,Rect::new(r.right()-120.,r.y+251.,88.,29.),DHit::AiApprove(true),"Allow",true);
+ }else{
+  button(ui,Rect::new(r.x+22.,r.y+181.,210.,31.),DHit::AiSetup,"Save setup on Desktop",false);
+  button(ui,Rect::new(r.x+244.,r.y+181.,170.,31.),DHit::AiForget,"Forget assistant",false);
+  ui.c.text_clip(Font::new(11),r.x+22.,r.y+231.,r.w-44.,dim,"1. Enable AI.  2. Import the setup into your assistant.  3. Approve it here.");
+  ui.c.text_clip(Font::new(11),r.x+22.,r.y+252.,r.w-44.,dim,"Your chosen assistant may send project data to its AI provider.");
+  ui.c.text_clip(Font::new(11),r.x+22.,r.y+273.,r.w-44.,dim,"Turning this off immediately revokes access. Audio keeps running.");
+ }
+ let status=Rect::new(r.x+22.,r.y+313.,r.w-44.,45.);ui.hit(status,Action::Swallow,a.status.clone());
+ let mut y=status.y;let mut line=String::new();for word in a.status.split_whitespace(){let next=if line.is_empty(){word.into()}else{format!("{line} {word}")};if ui.c.text_width(Font::new(11),&next)>status.w&&!line.is_empty(){ui.c.text_clip(Font::new(11),status.x,y,status.w,ink,&line);y+=16.;line=word.into();if y>status.bottom(){break;}}else{line=next;}}if y<=status.bottom(){ui.c.text_clip(Font::new(11),status.x,y,status.w,ink,&line);}
+ ui.c.text_clip(Font::new(10),r.x+22.,r.bottom()-26.,r.w-44.,dim,&format!("Local connection only  |  {} commands this session  |  MCP compatible",a.calls));
 }

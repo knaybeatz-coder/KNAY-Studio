@@ -56,6 +56,9 @@ fn accel(label: &str) -> char {
 pub enum Then {
     /// Nothing (an information box).
     Nothing,
+    StemDownload(usize, u8),
+    StemChoose(usize, u8),
+    StemCancel,
     /// The save-changes question before `Next`: Yes saves first, No goes on, Cancel stays.
     Discard(Next),
     /// Where to save the project (Save as, or Save of a project without a file), then `Next` once it is saved.
@@ -203,6 +206,9 @@ pub fn spans(parts: &[&str]) -> Vec<(String, bool)> {
 }
 
 pub enum Body {
+    Ai,
+    Headphones(crate::headphones::Form),
+    RoutePicker(crate::route_picker::Form),
     Msg(Msg),
     File(Box<FileDlg>),
     /// General ▸ Input ▸ Manage shortcuts (`crate::shortcuts`).
@@ -231,6 +237,19 @@ impl Modal {
 /// The parts of a dialog that take clicks.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DHit {
+    AiEnable,
+    AiApprove(bool),
+    AiRemember,
+    AiForget,
+    AiSetup,
+    Headphone(usize),
+    HeadphoneToggle,
+    HeadphonePage(bool),
+    HeadphoneSearch,
+    HeadphoneCredits,
+    RoutePick(u16),
+    RouteSearch,
+    RoutePage(bool),
     /// The dialog itself (clicks on nothing in particular), its caption (drag), the caption's ×.
     Body,
     Caption,
@@ -239,6 +258,7 @@ pub enum DHit {
     Button(usize),
     /// A message box's Remember my choice check.
     Remember,
+    StemToggle(usize),
     /// File dialog: Back, Up, New folder, the path and name fields, a place, a row, a column header, the list's empty
     /// part, its scroll bar, the type combo and its entries, the main button and Cancel.
     Back,
@@ -476,6 +496,7 @@ impl App {
             }
             Body::Shortcuts(f) => return self.shortcuts_closed(&f, reply == Reply::Button(Answer::Ok)),
             Body::Project(f) => return self.form_closed(f, reply),
+            Body::Headphones(_) | Body::RoutePicker(_) | Body::Ai => return,
             Body::TimeSig(f) => {
                 // Its value list goes with it.
                 self.state.playlist.popup = None;
@@ -502,14 +523,14 @@ impl App {
             Body::File(_) => Reply::File(None),
             Body::Shortcuts(_) => Reply::Button(Answer::Cancel),
             Body::TimeSig(_) => Reply::Button(Answer::Cancel),
-            Body::Project(_) => Reply::Button(Answer::Cancel),
+            Body::Project(_) | Body::Headphones(_) | Body::RoutePicker(_) | Body::Ai => Reply::Button(Answer::Cancel),
         })
     }
 
     fn top_file(&mut self) -> Option<&mut FileDlg> {
         match &mut self.state.dialogs.last_mut()?.body {
             Body::File(f) => Some(f),
-            Body::Msg(_) | Body::Shortcuts(_) | Body::TimeSig(_) | Body::Project(_) => None,
+            Body::Msg(_) | Body::Shortcuts(_) | Body::TimeSig(_) | Body::Project(_) | Body::Headphones(_) | Body::RoutePicker(_) | Body::Ai => None,
         }
     }
 
@@ -548,12 +569,31 @@ impl App {
             }
         }
         match h {
+            DHit::AiEnable=>crate::ai_control::enable(self),
+            DHit::AiApprove(yes)=>crate::ai_control::approve(self,yes),
+            DHit::AiRemember=>self.state.ai.remember=!self.state.ai.remember,
+            DHit::AiForget=>crate::ai_control::forget(self),
+            DHit::AiSetup=>crate::ai_control::setup(self),
+            DHit::RoutePick(t)=>{
+                let row=if let Body::RoutePicker(f)=&m.body {Some(f.row)} else {None};
+                if let Some(row)=row {self.answer(Reply::Button(Answer::Ok));self.route_sample_to(row,t);}
+            }
+            DHit::RouteSearch=>{if let Body::RoutePicker(f)=&mut m.body {f.search.select_all();}}
+            DHit::RoutePage(next)=>{if let Body::RoutePicker(f)=&mut m.body {f.scroll(if next {4}else{-4});}}
+            DHit::HeadphoneCredits => self.tell(Kind::Info,"AutoEq credits",spans(&[include_str!("../assets/headphones/AutoEq-LICENSE.txt")])),
+            DHit::Headphone(i) => crate::headphones::select(self,i),
+            DHit::HeadphoneToggle => crate::headphones::toggle(self),
+            DHit::HeadphoneSearch => {if let Body::Headphones(f)=&mut m.body {f.search.select_all();}},
+            DHit::HeadphonePage(next) => {if let Body::Headphones(f)=&mut m.body {f.scroll(if next {10}else{-10});}},
             DHit::Body | DHit::List if !matches!(m.body, Body::File(_)) => {}
             DHit::Caption => self.drag = Some(Drag::Dialog { dx: x - r.x, dy: y - r.y }),
             DHit::Close | DHit::Cancel => {
                 if let Some(reply) = self.escape_reply() {
                     self.answer(reply);
                 }
+            }
+            DHit::StemToggle(n) => {
+                if let Body::Msg(msg)=&mut m.body { if let Then::StemChoose(_,selected)=&mut msg.then { crate::stem_separation::toggle(selected,n); } }
             }
             DHit::Remember => {
                 if let Body::Msg(Msg { remember: Some((_, ticked)), .. }) = &mut m.body {
@@ -562,8 +602,8 @@ impl App {
             }
             DHit::Button(i) => {
                 let a = match &m.body {
-                    Body::Msg(msg) => msg.buttons.get(i).copied(),
-                    Body::File(_) | Body::Shortcuts(_) | Body::TimeSig(_) | Body::Project(_) => None,
+                    Body::Msg(msg) => msg.buttons.get(i).copied().filter(|a| !(*a==Answer::Ok && matches!(msg.then,Then::StemChoose(_,0)))),
+                    Body::File(_) | Body::Shortcuts(_) | Body::TimeSig(_) | Body::Project(_) | Body::Headphones(_) | Body::RoutePicker(_) | Body::Ai => None,
                 };
                 if let Some(a) = a {
                     self.answer(Reply::Button(a));
@@ -670,7 +710,30 @@ impl App {
         let shift = self.shift;
         let Some(m) = self.state.dialogs.last_mut() else { return };
         match &mut m.body {
+            Body::Ai=>{if matches!(key,Key::Named(NamedKey::Escape)){self.answer(Reply::Button(Answer::Cancel));}}
+            Body::RoutePicker(f)=>{
+                if matches!(key,Key::Named(NamedKey::Escape)){self.answer(Reply::Button(Answer::Cancel));}
+                else if f.search.key(key,ctrl,alt){f.filter();}
+            }
+            Body::Headphones(f) => {
+                match key {
+                    Key::Named(NamedKey::Escape)=>self.answer(Reply::Button(Answer::Cancel)),
+                    Key::Named(NamedKey::Enter)=>{let i=f.results.get(f.selected).copied();if let Some(i)=i {crate::headphones::select(self,i);}},
+                    Key::Named(NamedKey::ArrowUp | NamedKey::ArrowDown | NamedKey::PageUp | NamedKey::PageDown)=>{
+                        let d=match key {Key::Named(NamedKey::ArrowUp)=>-1,Key::Named(NamedKey::ArrowDown)=>1,Key::Named(NamedKey::PageUp)=>-10,_=>10};
+                        f.selected=f.selected.saturating_add_signed(d).min(f.results.len().saturating_sub(1));
+                        if f.selected<f.scroll {f.scroll=f.selected;} else if f.selected>=f.scroll+10 {f.scroll=f.selected-9;}
+                    },
+                    _=>{if f.search.key(key,ctrl,alt) {f.filter();}}
+                }
+            }
             Body::Msg(msg) => {
+                if let Then::StemChoose(_,selected)=&mut msg.then {
+                    if let Key::Character(c)=key { if !ctrl && !alt {
+                        let n=match c.to_ascii_lowercase().as_str() {"1"=>Some(0),"2"=>Some(1),"3"=>Some(2),"4"=>Some(3),"a"=>Some(4),_=>None};
+                        if let Some(n)=n {crate::stem_separation::toggle(selected,n);return;}
+                    }}
+                }
                 let n = msg.buttons.len().max(1);
                 let press = match key {
                     Key::Named(NamedKey::Tab) => {
@@ -693,7 +756,7 @@ impl App {
                     }
                     _ => None,
                 };
-                if let Some(a) = press {
+                if let Some(a) = press.filter(|a| !(*a==Answer::Ok && matches!(msg.then,Then::StemChoose(_,0)))) {
                     self.answer(Reply::Button(a));
                 }
             }
@@ -728,6 +791,10 @@ impl App {
 
     /// The wheel over a dialog: scrolls the file list.
     pub(crate) fn dialog_wheel(&mut self, dy: f32) {
+        if let Some(Modal{body:Body::RoutePicker(f),..})=self.state.dialogs.last_mut(){f.scroll((-dy).round() as isize);self.invalidate();return;}
+
+        if let Some(Modal{body:Body::Headphones(f),..})=self.state.dialogs.last_mut(){f.scroll((-dy*3.).round() as isize);self.invalidate();return;}
+
         if let Some(f) = self.top_file() {
             f.scroll -= dy * 3.0 * ROW_H;
             f.clamp_scroll();
@@ -767,7 +834,7 @@ impl App {
     pub fn top_message(&self) -> Option<(String, String)> {
         match &self.state.dialogs.last()?.body {
             Body::Msg(m) => Some((m.title.clone(), m.plain())),
-            Body::File(_) | Body::Shortcuts(_) | Body::TimeSig(_) | Body::Project(_) => None,
+            Body::File(_) | Body::Shortcuts(_) | Body::TimeSig(_) | Body::Project(_) | Body::Headphones(_) | Body::RoutePicker(_) | Body::Ai => None,
         }
     }
 }

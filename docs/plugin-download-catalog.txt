@@ -1,0 +1,1181 @@
+LEMON STUDIO - PLUGIN DOWNLOADS
+Catalog checked 31 October / 1 November 2026
+
+75 free plugins: the original 50 open-source entries plus 25 freeware additions.
+All ten original categories retain at least five entries. Every new entry has a
+direct official Windows download: no account, checkout or download manager.
+This is a curated selection, not a claimed worldwide popularity ranking: makers
+publish incomparable usage figures. Established projects were prioritized, then
+specialist tools were selected for category coverage, clear source licenses and
+free official binary downloads without an account or subscription.
+
+Use the download-arrow icon in Lemon Studio's browser. Expand a category or
+search by plugin name/type. Click a row to see its preview, version, size, source
+and license; click its download arrow or the action button to download.
+Hover over a plugin for a short information card explaining its purpose, useful
+applications and any free-edition limitations. Nothing downloads on hover.
+
+WINDOWS: 18 portable entries install into this Lemon Studio profile and start a
+plugin scan automatically. The other 57 open the maker's installer or archive. Finish its
+installation, then click Scan Plugins. No silent installer/elevation is used.
+MAC/LINUX: compatible official installers or archives open after downloading.
+Install the VST3, CLAP or VST2 plugin, then Scan Plugins. For a manually extracted
+archive, add its extracted plugin folder in Settings > Plugins if needed.
+Linux .deb installers are for Debian/Ubuntu; other distributions need a suitable
+package handler or manual extraction. Universal/architecture-specific Mac builds
+are selected explicitly. oXygen has no native Apple Silicon download in this set.
+
+Packages stay in the active profile's Plugin Downloads folder. The Downloads
+button opens it. Source and License open the author's pages. Downloads are on
+demand; browsing needs no network connection. The catalog does not change your
+sample folders, favorites, personal plugin organization or startup template.
+
+The original 127 unique official download URLs and all 56 new official packages
+were retrieved and SHA-256 hashed (183 total). The
+catalog pins those exact bytes, so replaced/tampered downloads cannot launch.
+If a maker replaces an unversioned file, a catalog update is needed; Source
+provides the maker's current options. Partial downloads are never installed.
+Tests exercised the application's real downloader (without opening installers),
+all 18 Windows portable packages in scratch folders, repeat installation,
+checksum/size/cancel rejection, category/search/click/scroll/layout behavior.
+No musical quality, installer GUI, Mac runtime or Linux runtime certification is
+implied. Visual and hands-on audio review remains with the user.
+
+oXygen: Windows/Intel Mac 1.0.4, Linux 1.2.1, reflecting the author's available
+binaries. Its assistant uses signal analysis, not a shipped neural inference
+model. Newer screenshot/interface appearance can differ from the older binaries.
+
+RESEARCH SOURCES AND SELECTION
+Author repositories, license files, release assets and official product pages
+are linked below and in the embedded catalog.json. GitHub popularity examples
+at review: Surge 4088 stars; Dexed 3611; Cardinal 3242; Dragonfly 1161; ZL EQ 1047;
+Airwindows 1266. These are project-level interest indicators, not per-plugin
+usage rankings. Multiple bundle entries are genuinely separate plugins. Windows
+portable extraction installs only the selected plugin; Mac/Linux bundle downloads
+can include additional plugins and are labeled in the interface.
+
+Broader discovery: https://github.com/webprofusion/OpenAudio
+https://github.com/spnw/free-music-plugins
+https://chowdsp.com/products.html
+https://socalabs.com/
+https://www.airwindows.com/audio-units/
+Only author evidence was used for inclusion/license/download decisions. Freeware
+with no verified open-source license, source-only experiments, and packages with
+no suitable free Windows binary were excluded. HayesPlugins was reviewed but
+not included because no clear release package/license was verified.
+
+Thumbnail credits: 39 small interface previews from the makers' official sites
+or repositories, Dexed's official logo, and ten original labeled Airwindows
+icons (these plugins use host controls, not a custom GUI). Original image URLs
+and source/license attribution are retained below and in catalog.json. These
+are previews and attribution, not claims of endorsement. Source-license labels
+refer to the author's project; bundled dependency licenses also remain applicable.
+
+
+SYNTHESIZERS
+------------
+01. Surge XT - Hybrid synth with wavetable, FM and MPE.
+    Source license: GPL-3.0
+    Source: https://github.com/surge-synthesizer/surge
+    License: https://github.com/surge-synthesizer/surge/blob/master/LICENSE
+    Preview: https://surge-synthesizer.github.io/images/hero_dark.png
+    windows-x86_64: 1.3.4; 174.9 MB; download and open
+      https://github.com/surge-synthesizer/releases-xt/releases/download/1.3.4/surge-xt-win64-1.3.4-setup.exe
+      SHA256 6e221e05f29254508142b9e0ed76a85f22fa1b512501bebde571951e7eefecca
+    macos-universal: 1.3.4; 397.4 MB; download and open
+      https://github.com/surge-synthesizer/releases-xt/releases/download/1.3.4/surge-xt-macOS-1.3.4.dmg
+      SHA256 b56e8d51a8dc2382ae668c9ff4e96bae38dbd452af4e584d5a5ef50ab2d09b07
+    linux-x86_64: 1.3.4; 213.0 MB; download and open
+      https://github.com/surge-synthesizer/releases-xt/releases/download/1.3.4/surge-xt-linux-x64-1.3.4.deb
+      SHA256 a6e55064487f624147d515b9ae5fc79a568b69746675b2083abde628ca7bb151
+02. Dexed - DX7-style FM synthesis and patch editing.
+    Source license: GPL-3.0
+    Source: https://github.com/asb2m10/dexed
+    License: https://github.com/asb2m10/dexed/blob/master/LICENSE
+    Preview: https://raw.githubusercontent.com/asb2m10/dexed/master/assets/ui/dexed-logo.png
+    windows-x86_64: v1.1.0; 13.2 MB; download and open
+      https://github.com/asb2m10/dexed/releases/download/v1.1.0/Dexed-1.1.0-win.exe
+      SHA256 a5ebac7578f45ccf691cd5887b0af0c7206bdc763e85d479795c2c1866f54d5f
+    macos-universal: v1.1.0; 21.8 MB; download and open
+      https://github.com/asb2m10/dexed/releases/download/v1.1.0/Dexed-1.1.0-macOS.dmg
+      SHA256 f95b5d4a8985af444094fd3d76c5f4c86795f56169b9b9a1f4d620bb54c300ce
+    linux-x86_64: v1.1.0; 11.6 MB; download and open
+      https://github.com/asb2m10/dexed/releases/download/v1.1.0/Dexed-1.1.0-lnx.zip
+      SHA256 3a1a01511e3428f432cc91c7bf5267d72bfcb68aded4f084d4f9d002dcc42da6
+03. Cardinal - Self-contained modular synth and effects rack.
+    Source license: GPL-3.0
+    Source: https://github.com/DISTRHO/Cardinal
+    License: https://github.com/DISTRHO/Cardinal/blob/main/LICENSE
+    Preview: https://raw.githubusercontent.com/DISTRHO/Cardinal/main/docs/Screenshot_Basic-Patching.png
+    windows-x86_64: 26.02; 351.8 MB; download and open
+      https://github.com/DISTRHO/Cardinal/releases/download/26.02/Cardinal-win64-26.02-installer.exe
+      SHA256 16f21250fe656fc766f6c1df79c45244bbdf55ffa90ff0c3c3ace9af70cf3e24
+    macos-universal: 26.02; 928.9 MB; download and open
+      https://github.com/DISTRHO/Cardinal/releases/download/26.02/Cardinal-macOS-universal-26.02.pkg
+      SHA256 5f62f020aab3987aea4bf7bfde4caf09b4c41ab555f485c0e7ebf46944bdb415
+    linux-x86_64: 26.02; 1062.3 MB; download and open
+      https://github.com/DISTRHO/Cardinal/releases/download/26.02/Cardinal-linux-x86_64-26.02.tar.gz
+      SHA256 657df0beeec04184de7359cbd3e173a36eeab78077e1e26da81405632f98ec25
+04. Odin 2 - Subtractive synth with flexible oscillators.
+    Source license: GPL-3.0
+    Source: https://github.com/TheWaveWarden/odin2
+    License: https://github.com/TheWaveWarden/odin2/blob/master/LICENSE
+    Preview: https://raw.githubusercontent.com/TheWaveWarden/odin2/master/screenshot.png
+    windows-x86_64: 2.4.0; 39.1 MB; download and open
+      https://www.dropbox.com/scl/fi/ry724e80orl3sb2kam8h7/Odin2.4.0WinInstaller.exe?rlkey=eek7d00l6rbu9fzgpm93wgzdx&st=1sohdfiw&dl=1
+      SHA256 bc478890d3ffe875bb46e716947a7700c16fa3c01dc96e404eb53ba837bf6ed9
+    macos-universal: 2.4.0; 126.2 MB; download and open
+      https://www.dropbox.com/scl/fi/qonadn6d5t3azpjne5a4l/Odin2.4.0MacInstaller.pkg?rlkey=z8soys4s579w6c4cpjp1iq61r&st=lybmxi7y&dl=1
+      SHA256 5b248a9d57e9f2ab00afa7e2860753ff5add2041a183d817484b888bff9aa8e5
+    linux-x86_64: 2.4.1; 59.0 MB; download and open
+      https://www.dropbox.com/scl/fi/np6so66d4f92s59lt3l7p/Odin2-synth_2.4-1.deb?rlkey=e9zf5ed44emhez98h0q7jnkhu&st=jhttoejy&dl=1
+      SHA256 dd3c20fbf78c863fb8d7c70ceb746c52800f498022d95a2ef19abcf62c7a6c57
+05. OctaSine - Four-operator stereo FM synth.
+    Source license: AGPL-3.0
+    Source: https://github.com/greatest-ape/OctaSine
+    License: https://github.com/greatest-ape/OctaSine/blob/master/LICENSE
+    Preview: https://raw.githubusercontent.com/greatest-ape/OctaSine/master/images/screenshot-dark.png
+    windows-x86_64: 0.9.1; 4.4 MB; automatic portable install
+      https://github.com/greatest-ape/OctaSine/releases/download/v0.9.1/OctaSine-v0.9.1-Windows.zip
+      SHA256 7ac928ddfe8f54a26c4264b95d3f1c4ccd047db106694bf5c722748662cb2d5f
+    macos-universal: 0.9.1; 9.8 MB; download and open
+      https://github.com/greatest-ape/OctaSine/releases/download/v0.9.1/OctaSine-v0.9.1-macOS.zip
+      SHA256 449f99fdb00febc8f716ccebbc74767ff73e268f3f7b27717478d1dfa1fea468
+    linux-x86_64: 0.9.1; 5.5 MB; download and open
+      https://github.com/greatest-ape/OctaSine/releases/download/v0.9.1/OctaSine-v0.9.1-Ubuntu-20_04.zip
+      SHA256 cfa2a955bffdb3537bf782b70c175f3ae2071aded2832b464b6b30e5161de173
+
+REVERB
+------
+06. Dragonfly Hall - Hall ambience with detailed tone controls.
+    Source license: GPL-3.0
+    Source: https://github.com/michaelwillis/dragonfly-reverb
+    License: https://github.com/michaelwillis/dragonfly-reverb/blob/master/LICENSE
+    Note: Download includes all four Dragonfly reverbs.
+    Preview: https://michaelwillis.github.io/dragonfly-reverb/images/dragonfly-hall-reverb/interface.png
+    windows-x86_64: 3.2.10; 21.4 MB; automatic portable install
+      https://github.com/michaelwillis/dragonfly-reverb/releases/download/3.2.10/dragonfly-reverb-3.2.10-win64.zip
+      SHA256 ca5f35f9dcd9a33f06490d3c92f04061a1a798cb81257d5ca5851bdda0824c66
+    macos-universal: 3.2.10; 23.8 MB; download and open
+      https://github.com/michaelwillis/dragonfly-reverb/releases/download/3.2.10/dragonfly-reverb-3.2.10-macos-universal.dmg
+      SHA256 e0b854b92a4e51ce5851320fb1a9f91ab1a4309f997de070e175b3e5cab4adaf
+    linux-x86_64: 3.2.10; 2.2 MB; download and open
+      https://github.com/michaelwillis/dragonfly-reverb/releases/download/3.2.10/dragonfly-reverb-3.2.10-linux-x86_64.tar.xz
+      SHA256 59f1593120de82e31dd194e2ab1536af14fec2b3ec6ec45abf6d9c8ac02ef430
+07. Dragonfly Room - Room ambience with detailed tone controls.
+    Source license: GPL-3.0
+    Source: https://github.com/michaelwillis/dragonfly-reverb
+    License: https://github.com/michaelwillis/dragonfly-reverb/blob/master/LICENSE
+    Note: Download includes all four Dragonfly reverbs.
+    Preview: https://michaelwillis.github.io/dragonfly-reverb/images/dragonfly-room-reverb/interface.png
+    windows-x86_64: 3.2.10; 21.4 MB; automatic portable install
+      https://github.com/michaelwillis/dragonfly-reverb/releases/download/3.2.10/dragonfly-reverb-3.2.10-win64.zip
+      SHA256 ca5f35f9dcd9a33f06490d3c92f04061a1a798cb81257d5ca5851bdda0824c66
+    macos-universal: 3.2.10; 23.8 MB; download and open
+      https://github.com/michaelwillis/dragonfly-reverb/releases/download/3.2.10/dragonfly-reverb-3.2.10-macos-universal.dmg
+      SHA256 e0b854b92a4e51ce5851320fb1a9f91ab1a4309f997de070e175b3e5cab4adaf
+    linux-x86_64: 3.2.10; 2.2 MB; download and open
+      https://github.com/michaelwillis/dragonfly-reverb/releases/download/3.2.10/dragonfly-reverb-3.2.10-linux-x86_64.tar.xz
+      SHA256 59f1593120de82e31dd194e2ab1536af14fec2b3ec6ec45abf6d9c8ac02ef430
+08. Dragonfly Plate - Plate ambience with detailed tone controls.
+    Source license: GPL-3.0
+    Source: https://github.com/michaelwillis/dragonfly-reverb
+    License: https://github.com/michaelwillis/dragonfly-reverb/blob/master/LICENSE
+    Note: Download includes all four Dragonfly reverbs.
+    Preview: https://michaelwillis.github.io/dragonfly-reverb/images/dragonfly-plate-reverb/interface.png
+    windows-x86_64: 3.2.10; 21.4 MB; automatic portable install
+      https://github.com/michaelwillis/dragonfly-reverb/releases/download/3.2.10/dragonfly-reverb-3.2.10-win64.zip
+      SHA256 ca5f35f9dcd9a33f06490d3c92f04061a1a798cb81257d5ca5851bdda0824c66
+    macos-universal: 3.2.10; 23.8 MB; download and open
+      https://github.com/michaelwillis/dragonfly-reverb/releases/download/3.2.10/dragonfly-reverb-3.2.10-macos-universal.dmg
+      SHA256 e0b854b92a4e51ce5851320fb1a9f91ab1a4309f997de070e175b3e5cab4adaf
+    linux-x86_64: 3.2.10; 2.2 MB; download and open
+      https://github.com/michaelwillis/dragonfly-reverb/releases/download/3.2.10/dragonfly-reverb-3.2.10-linux-x86_64.tar.xz
+      SHA256 59f1593120de82e31dd194e2ab1536af14fec2b3ec6ec45abf6d9c8ac02ef430
+09. SocaLabs Mverb 2020 - Plate reverb based on MVerb.
+    Source license: GPL-3.0
+    Source: https://github.com/FigBug/mverb
+    License: https://github.com/FigBug/mverb/blob/master/LICENSE
+    Preview: https://socalabs.com/images/mverb.png
+    windows-x86_64: 2026-10-31 snapshot; 6.2 MB; download and open
+      https://socalabs.com/files/get.php?id=Mverb2020.exe
+      SHA256 179f6252cc7e0a8b63d10d0405eaaf98b4a3f6799919e3a85862a1864f3cd0d2
+    macos-universal: 2026-10-31 snapshot; 28.6 MB; download and open
+      https://socalabs.com/files/get.php?id=Mverb2020.pkg
+      SHA256 b6e0154a2d78f8225ec0e245338428a69d83dd15cdc0fe9192385cac38050680
+    linux-x86_64: 2026-10-31 snapshot; 20.7 MB; download and open
+      https://socalabs.com/files/get.php?id=Mverb2020.deb
+      SHA256 d0af0419bb157d1d10d4dc872e260204e2ba86a12ba16dd54ac35032f706eeab
+10. SocaLabs Simple Verb - Straightforward room and ambience reverb.
+    Source license: BSD-3-Clause
+    Source: https://github.com/FigBug/slPlugins
+    License: https://github.com/FigBug/slPlugins/blob/master/LICENSE.md
+    Preview: https://socalabs.com/images/simpleverb.png
+    windows-x86_64: 2026-10-31 snapshot; 7.7 MB; download and open
+      https://socalabs.com/files/get.php?id=SimpleVerb.exe
+      SHA256 2bbfc2f798fe2c8f79b759677e081b458e7858c204b7112b82191df58f107531
+    macos-universal: 2026-10-31 snapshot; 43.7 MB; download and open
+      https://socalabs.com/files/get.php?id=SimpleVerb.pkg
+      SHA256 1258f97d1c37b475b299e4d1b8c95140720c99d44fb1708f95e2b30781b092e1
+    linux-x86_64: 2026-10-31 snapshot; 22.2 MB; download and open
+      https://socalabs.com/files/get.php?id=SimpleVerb.deb
+      SHA256 bc1a28d046dae3b3f80247711dce73bdd2279150e0f48d1ca0434039b7407cf2
+
+DELAY
+-----
+11. CHOW Matrix - Build branching networks of modulated echoes.
+    Source license: BSD-3-Clause
+    Source: https://github.com/Chowdhury-DSP/ChowMatrix
+    License: https://github.com/Chowdhury-DSP/ChowMatrix/blob/main/LICENSE
+    Preview: https://raw.githubusercontent.com/Chowdhury-DSP/ChowMatrix/main/manual/screenshots/full_gui.png
+    windows-x86_64: v1.3.0; 7.6 MB; download and open
+      https://github.com/Chowdhury-DSP/ChowMatrix/releases/download/v1.3.0/ChowMatrix-Win-1.3.0.exe
+      SHA256 b1e2451ae66362bf82112e77fccc48a1233780b6cbfb58fe1a588b17a77456c5
+    macos-universal: v1.3.0; 16.3 MB; download and open
+      https://github.com/Chowdhury-DSP/ChowMatrix/releases/download/v1.3.0/ChowMatrix-Mac-1.3.0.dmg
+      SHA256 11705e4cfb023525e8b6830fb29feb046eac05688428a12a8fdad48dc9a9fdcf
+    linux-x86_64: v1.3.0; 2.9 MB; download and open
+      https://github.com/Chowdhury-DSP/ChowMatrix/releases/download/v1.3.0/ChowMatrix-Linux-x64-1.3.0.deb
+      SHA256 332749bba2fcfefeb68c105b9f55fd71aa7a8bfb524f592cbb68cc6c0581a767
+12. SocaLabs Delay - Simple feedback echo.
+    Source license: BSD-3-Clause
+    Source: https://github.com/FigBug/slPlugins
+    License: https://github.com/FigBug/slPlugins/blob/master/LICENSE.md
+    Preview: https://socalabs.com/images/delay.png
+    windows-x86_64: 2026-10-31 snapshot; 7.7 MB; download and open
+      https://socalabs.com/files/get.php?id=Delay.exe
+      SHA256 081d084f0df476f7d10586750d4206090817174bb3a62380bc50131091ace9ea
+    macos-universal: 2026-10-31 snapshot; 43.7 MB; download and open
+      https://socalabs.com/files/get.php?id=Delay.pkg
+      SHA256 5640823685c9c70976560ca1bf290305bbfa28f73516908e580bb4271f966f7d
+    linux-x86_64: 2026-10-31 snapshot; 22.2 MB; download and open
+      https://socalabs.com/files/get.php?id=Delay.deb
+      SHA256 033b70b95dd3658caf1ce01dfdaff7af54428ab2834705c5925f3cdfd9d0bbca
+13. SocaLabs Sample Delay - Sample-accurate timing alignment; not a feedback echo.
+    Source license: BSD-3-Clause
+    Source: https://github.com/FigBug/slPlugins
+    License: https://github.com/FigBug/slPlugins/blob/master/LICENSE.md
+    Preview: https://socalabs.com/images/sampledelay.png
+    windows-x86_64: 2026-10-31 snapshot; 7.7 MB; download and open
+      https://socalabs.com/files/get.php?id=SampleDelay.exe
+      SHA256 f2dc3c738ba885555792238f289d5c20dd60ab5bd7cb44ae50265d8c73e77351
+    macos-universal: 2026-10-31 snapshot; 43.7 MB; download and open
+      https://socalabs.com/files/get.php?id=SampleDelay.pkg
+      SHA256 d5b2f30bb853449774bfa59a8cfb06c4f179bdf23eea59931db5c1f9c32d1417
+    linux-x86_64: 2026-10-31 snapshot; 22.2 MB; download and open
+      https://socalabs.com/files/get.php?id=SampleDelay.deb
+      SHA256 623c993d1af5b1ef47710e1063ec3f194ac6abc660e34930f3185a0f76175ccf
+14. Airwindows TapeDelay2 - Tape-style echo.
+    Source license: MIT
+    Source: https://github.com/airwindows/airwindows
+    License: https://github.com/airwindows/airwindows/blob/master/LICENSE
+    Note: No custom GUI: uses host parameter controls.
+    windows-x86_64: original release; 0.6 MB; automatic portable install
+      https://www.airwindows.com/wp-content/uploads/2021/08/TapeDelay2.zip
+      SHA256 4fccf86d3c4ef42a6b83225099fb252dfa9fac55cb60a7bbda955bb31a184989
+    macos-universal: 2026-10-31 snapshot; 13.5 MB; download and open
+      https://www.airwindows.com/wp-content/uploads/SignedMacVSTs.dmg
+      SHA256 1a95dc2a45bddc9e62dc8875a9fc21b45b152a2a93bfda78b53a9dbfd6d7dc66
+    linux-x86_64: 2026-10-31 snapshot; 15.3 MB; download and open
+      https://www.airwindows.com/wp-content/uploads/LinuxVSTs.zip
+      SHA256 0f8fe901e4a5756254495afdd93e7b638a62210a75b8751e55ce7cb7a21a8909
+15. Airwindows PurestEcho - Four-tap echo without feedback.
+    Source license: MIT
+    Source: https://github.com/airwindows/airwindows
+    License: https://github.com/airwindows/airwindows/blob/master/LICENSE
+    Note: No custom GUI: uses host parameter controls.
+    windows-x86_64: original release; 0.3 MB; automatic portable install
+      https://www.airwindows.com/wp-content/uploads/2017/06/PurestEcho.zip
+      SHA256 1e30373810fc23f99c9c52848749035b77935c145881c312952504fb754d5c25
+    macos-universal: 2026-10-31 snapshot; 13.5 MB; download and open
+      https://www.airwindows.com/wp-content/uploads/SignedMacVSTs.dmg
+      SHA256 1a95dc2a45bddc9e62dc8875a9fc21b45b152a2a93bfda78b53a9dbfd6d7dc66
+    linux-x86_64: 2026-10-31 snapshot; 15.3 MB; download and open
+      https://www.airwindows.com/wp-content/uploads/LinuxVSTs.zip
+      SHA256 0f8fe901e4a5756254495afdd93e7b638a62210a75b8751e55ce7cb7a21a8909
+
+EQ AND FILTERS
+--------------
+16. ZL Equalizer 2 - Parametric dynamic EQ with spectrum display.
+    Source license: AGPL-3.0
+    Source: https://github.com/ZL-Audio/ZLEqualizer
+    License: https://github.com/ZL-Audio/ZLEqualizer/blob/main/LICENSE.md
+    Preview: https://drive.google.com/uc?export=view&id=1xnUGRs3NvWL-2MZ2i8rg0g0bUnG6MSO2
+    windows-x86_64: 1.4.1; 9.5 MB; download and open
+      https://github.com/ZL-Audio/ZLEqualizer/releases/download/1.4.1/ZL.Equalizer.2-1.4.1-Windows-x86-64.msi
+      SHA256 4410231ca0f739bc73646006701ae6b64d553910b8abc969575e562dc1cf79b7
+    macos-aarch64: 1.4.1; 10.7 MB; download and open
+      https://github.com/ZL-Audio/ZLEqualizer/releases/download/1.4.1/ZL.Equalizer.2-1.4.1-macOS-arm64.dmg
+      SHA256 770167ead54bccdbac5ad3a2f6bc844013808247fa633c434f39140fef085c2d
+    macos-x86_64: 1.4.1; 12.0 MB; download and open
+      https://github.com/ZL-Audio/ZLEqualizer/releases/download/1.4.1/ZL.Equalizer.2-1.4.1-macOS-x86-64.dmg
+      SHA256 2d7a44ec73f8a30bfcce022e14efb74ef5adf8bdc1bf7165b4289400453ce5b3
+    linux-x86_64: 1.4.1; 10.3 MB; download and open
+      https://github.com/ZL-Audio/ZLEqualizer/releases/download/1.4.1/ZL.Equalizer.2-1.4.1-Linux-x86-64.zip
+      SHA256 ba253ef4e608e5d6f72b2c341a7bc0d9c48b79e051806c2367d481814a4dc896
+17. ZL Spectrum Equalizer - Dynamic spectrum-based tonal control.
+    Source license: AGPL-3.0
+    Source: https://github.com/ZL-Audio/ZLSpectrumEqualizer
+    License: https://github.com/ZL-Audio/ZLSpectrumEqualizer/blob/main/LICENSE.md
+    Preview: https://drive.google.com/uc?export=view&id=1P3VNweMNSP9esDAmQqbVtesbs-d5cs9Q
+    windows-x86_64: 0.1.1; 5.5 MB; download and open
+      https://github.com/ZL-Audio/ZLSpectrumEqualizer/releases/download/0.1.1/ZL.Spectrum.Equalizer-0.1.1-Windows-x86-64.msi
+      SHA256 658d6ad75f0b52bf0fc8238b2c4a4485b332003ab2692be8dd57a445ac1c6947
+    macos-aarch64: 0.1.1; 5.4 MB; download and open
+      https://github.com/ZL-Audio/ZLSpectrumEqualizer/releases/download/0.1.1/ZL.Spectrum.Equalizer-0.1.1-macOS-arm64.dmg
+      SHA256 1c98b6daacadd2b1d17ce41878e588cb176b01d739619b6f80cdf143c22aaf7d
+    macos-x86_64: 0.1.1; 6.1 MB; download and open
+      https://github.com/ZL-Audio/ZLSpectrumEqualizer/releases/download/0.1.1/ZL.Spectrum.Equalizer-0.1.1-macOS-x86-64.dmg
+      SHA256 15287c827b850fabf73026facb06c5d02d830068f57026fc106562bc4573a3ce
+    linux-x86_64: 0.1.1; 5.7 MB; download and open
+      https://github.com/ZL-Audio/ZLSpectrumEqualizer/releases/download/0.1.1/ZL.Spectrum.Equalizer-0.1.1-Linux-x86-64.zip
+      SHA256 886f2959b77902591c9d77463e39a10ed4ad8efed024ff9baed956233e3e31b5
+18. CHOW MultiTool - Drawable EQ, waveshaper and band splitting.
+    Source license: GPL-3.0
+    Source: https://github.com/Chowdhury-DSP/ChowMultiTool
+    License: https://github.com/Chowdhury-DSP/ChowMultiTool/blob/main/LICENSE
+    Preview: https://raw.githubusercontent.com/Chowdhury-DSP/ChowMultiTool/main/images/drawn_eq.png
+    windows-x86_64: v1.1.0; 7.1 MB; download and open
+      https://github.com/Chowdhury-DSP/ChowMultiTool/releases/download/v1.1.0/ChowMultiTool-Win-64bit-1.1.0.exe
+      SHA256 0ed347e15d244f2a115e0ecbfc219dbca1dd666ec371292d6a8c56f6deaaffbb
+    macos-universal: v1.1.0; 29.2 MB; download and open
+      https://github.com/Chowdhury-DSP/ChowMultiTool/releases/download/v1.1.0/ChowMultiTool-Mac-1.1.0.dmg
+      SHA256 d56bd047d8d833306890ebc05102f1d4da31045d1986982caf571c98cdf3f747
+    linux-x86_64: v1.1.0; 10.6 MB; download and open
+      https://github.com/Chowdhury-DSP/ChowMultiTool/releases/download/v1.1.0/ChowMultiTool-Linux-x64-1.1.0.deb
+      SHA256 69b6718b08a1072d1f27817dace1e07a689a2b8ce7cee9bc9530b107e2343803
+19. SocaLabs Graphic EQ - Graphic equalizer.
+    Source license: BSD-3-Clause
+    Source: https://github.com/FigBug/slPlugins
+    License: https://github.com/FigBug/slPlugins/blob/master/LICENSE.md
+    Preview: https://socalabs.com/images/graphiceq.png
+    windows-x86_64: 2026-10-31 snapshot; 7.8 MB; download and open
+      https://socalabs.com/files/get.php?id=GraphicEQ.exe
+      SHA256 cf39d0c79774c574639e1a05238904c37fd03d5854027a2aed40dd79e86c8415
+    macos-universal: 2026-10-31 snapshot; 43.8 MB; download and open
+      https://socalabs.com/files/get.php?id=GraphicEQ.pkg
+      SHA256 b3c94c50c0ecc0b702127e3101ace156d5b42fb78c414d09009f20c4c06a1d9b
+    linux-x86_64: 2026-10-31 snapshot; 22.2 MB; download and open
+      https://socalabs.com/files/get.php?id=GraphicEQ.deb
+      SHA256 d67059e355d7b0c179bfbb97d9823831fc1d8cfb20fda43346159ba94dde7e06
+20. DISTRHO 3BandEQ - Low, mid and high shelving/peaking EQ.
+    Source license: LGPL-3.0
+    Source: https://github.com/DISTRHO/DPF-Plugins
+    License: https://github.com/DISTRHO/DPF-Plugins/blob/main/plugins/3BandEQ/LICENSE
+    Note: Download includes the DPF plugin collection.
+    Preview: https://raw.githubusercontent.com/DISTRHO/DPF-Plugins/main/plugins/3BandEQ/Screenshot.png
+    windows-x86_64: v1.7; 71.1 MB; automatic portable install
+      https://github.com/DISTRHO/DPF-Plugins/releases/download/v1.7/DPF-Plugins-v1.7-win64.zip
+      SHA256 fdc609e0936e9c999395b9ddd98a9a72739cb672d8838ab71849469aee50ad98
+    macos-universal: v1.7; 55.2 MB; download and open
+      https://github.com/DISTRHO/DPF-Plugins/releases/download/v1.7/DPF-Plugins-v1.7-macos-universal.dmg
+      SHA256 94b996c898a7ba160561113d1c48c4700a6ef65d33f4092ea7289b1af44059e1
+    linux-x86_64: v1.7; 9.4 MB; download and open
+      https://github.com/DISTRHO/DPF-Plugins/releases/download/v1.7/DPF-Plugins-v1.7-linux-x86_64.tar.xz
+      SHA256 8088e362f9f68fea179abe9f96b83fca07693224ffcf46837c24ff8b59b119cb
+
+DYNAMICS
+--------
+21. ZL Compressor - Detailed compressor with visual envelope controls.
+    Source license: AGPL-3.0
+    Source: https://github.com/ZL-Audio/ZLCompressor
+    License: https://github.com/ZL-Audio/ZLCompressor/blob/main/LICENSE.md
+    Preview: https://drive.google.com/uc?export=view&id=1b7aTDklTdt73kORaXwW5fJycM6T9k83U
+    windows-x86_64: 0.6.1; 10.4 MB; download and open
+      https://github.com/ZL-Audio/ZLCompressor/releases/download/0.6.1/ZL.Compressor-0.6.1-Windows-x86-64.msi
+      SHA256 4e6e14da03cbd4513d890fac01889982e3cd96b2cdeb73678507a09b0c463f7f
+    macos-aarch64: 0.6.1; 11.9 MB; download and open
+      https://github.com/ZL-Audio/ZLCompressor/releases/download/0.6.1/ZL.Compressor-0.6.1-macOS-arm64.dmg
+      SHA256 7a38ed5a54aea2300ee430decbd261d5c6539573ff6e7d56071bc49ce3d6df0d
+    macos-x86_64: 0.6.1; 13.5 MB; download and open
+      https://github.com/ZL-Audio/ZLCompressor/releases/download/0.6.1/ZL.Compressor-0.6.1-macOS-x86-64.dmg
+      SHA256 f3398bf867c30713c20a3e295a1b204b7dee725c4bd33f9705b0a52ddc6b4e8e
+    linux-x86_64: 0.6.1; 8.5 MB; download and open
+      https://github.com/ZL-Audio/ZLCompressor/releases/download/0.6.1/ZL.Compressor-0.6.1-Linux-x86-64.zip
+      SHA256 00d7201fc9643f7b7c49d9791d1e5fc73528835a5dba40a3866fd4a274767ae6
+22. SocaLabs Compressor - Soft-knee mono/stereo compression.
+    Source license: BSD-3-Clause
+    Source: https://github.com/FigBug/slPlugins
+    License: https://github.com/FigBug/slPlugins/blob/master/LICENSE.md
+    Preview: https://socalabs.com/images/compressor.png
+    windows-x86_64: 2026-10-31 snapshot; 7.7 MB; download and open
+      https://socalabs.com/files/get.php?id=Compressor.exe
+      SHA256 9e261d2f9e39848dc307eedf84d02395da2600e77ba45fa6f8dc3fbe2abeb488
+    macos-universal: 2026-10-31 snapshot; 43.7 MB; download and open
+      https://socalabs.com/files/get.php?id=Compressor.pkg
+      SHA256 054a4ed5427c6126a58b1dc3dadcb44a8e3939acc99ab6145ca8fb2d57ab1109
+    linux-x86_64: 2026-10-31 snapshot; 22.2 MB; download and open
+      https://socalabs.com/files/get.php?id=Compressor.deb
+      SHA256 c30900ef4eee123c4da8ceb6970a5bf2f772d25aaf31d58f2d1e95ec2382508a
+23. SocaLabs Expander - Downward dynamics expansion.
+    Source license: BSD-3-Clause
+    Source: https://github.com/FigBug/slPlugins
+    License: https://github.com/FigBug/slPlugins/blob/master/LICENSE.md
+    Preview: https://socalabs.com/images/expander.png
+    windows-x86_64: 2026-10-31 snapshot; 7.7 MB; download and open
+      https://socalabs.com/files/get.php?id=Expander.exe
+      SHA256 81e711907d6973eaf6b0b06c2b31a17a95c66773515301c5ad6d9d8345b512ae
+    macos-universal: 2026-10-31 snapshot; 43.7 MB; download and open
+      https://socalabs.com/files/get.php?id=Expander.pkg
+      SHA256 70e3cd9346f4c5a7b14f85a61bbbc9fc03aacc56eb1bd1146469651b1e9de9bf
+    linux-x86_64: 2026-10-31 snapshot; 22.2 MB; download and open
+      https://socalabs.com/files/get.php?id=Expander.deb
+      SHA256 da336392e0e22adaad8b96c51940397fc55ce7b9d9cf7637c3a461c041403619
+24. SocaLabs Gate - Noise gate for unwanted low-level sound.
+    Source license: BSD-3-Clause
+    Source: https://github.com/FigBug/slPlugins
+    License: https://github.com/FigBug/slPlugins/blob/master/LICENSE.md
+    Preview: https://socalabs.com/images/gate.png
+    windows-x86_64: 2026-10-31 snapshot; 7.7 MB; download and open
+      https://socalabs.com/files/get.php?id=Gate.exe
+      SHA256 ef9cc20b498dec85f16ae03adcd7bce247f91c18c6a748466e1de13a9e0a68be
+    macos-universal: 2026-10-31 snapshot; 43.7 MB; download and open
+      https://socalabs.com/files/get.php?id=Gate.pkg
+      SHA256 37c273e80bea0f59570793c8403dd60f386fce58083e3023d47c317664d4eaa0
+    linux-x86_64: 2026-10-31 snapshot; 22.2 MB; download and open
+      https://socalabs.com/files/get.php?id=Gate.deb
+      SHA256 0b93045ecc5aa3dff85fc16f6fd7324df0d06436aa6a2d03e8e051fa432670be
+25. Airwindows Pressure5 - Character compressor with output clipping.
+    Source license: MIT
+    Source: https://github.com/airwindows/airwindows
+    License: https://github.com/airwindows/airwindows/blob/master/LICENSE
+    Note: No custom GUI: uses host parameter controls.
+    windows-x86_64: original release; 0.6 MB; automatic portable install
+      https://www.airwindows.com/wp-content/uploads/2021/12/Pressure5.zip
+      SHA256 e72299ed0d43dd66313010014bb625b9efe06486ab91646dd1504a77e9d66223
+    macos-universal: 2026-10-31 snapshot; 13.5 MB; download and open
+      https://www.airwindows.com/wp-content/uploads/SignedMacVSTs.dmg
+      SHA256 1a95dc2a45bddc9e62dc8875a9fc21b45b152a2a93bfda78b53a9dbfd6d7dc66
+    linux-x86_64: 2026-10-31 snapshot; 15.3 MB; download and open
+      https://www.airwindows.com/wp-content/uploads/LinuxVSTs.zip
+      SHA256 0f8fe901e4a5756254495afdd93e7b638a62210a75b8751e55ce7cb7a21a8909
+
+MASTERING
+---------
+26. oXygen - Mastering chain with automatic mix analysis.
+    Source license: BSD-3-Clause
+    Source: https://github.com/Wamphyre/oXygen
+    License: https://github.com/Wamphyre/oXygen/blob/main/LICENSE
+    Note: Windows/Intel Mac: 1.0.4. Linux: 1.2.1. No native Apple Silicon download. Analysis-based assistant; not a neural model.
+    Preview: https://raw.githubusercontent.com/Wamphyre/oXygen/main/assets/screenshot.png
+    windows-x86_64: v1.0.4; 2.0 MB; automatic portable install
+      https://github.com/Wamphyre/oXygen/releases/download/v1.0.4/Windows-oXygen.vst3.zip
+      SHA256 639d4616716b4b7ecfc5ba850a20e1be49d3f43966cf4c8deafa7439d597ab20
+    macos-x86_64: v1.0.4; 2.4 MB; download and open
+      https://github.com/Wamphyre/oXygen/releases/download/v1.0.4/macOS-Intel-oXygen.vst3.zip
+      SHA256 49b16b5313d6774020fd71f93b6bc0e870dd3f586d49e4ce696fb687f22e534f
+    linux-x86_64: v1.2.1; 3.0 MB; download and open
+      https://github.com/Wamphyre/oXygen/releases/download/v1.2.1/oXygen-1.2.1-Linux-x86_64.zip
+      SHA256 68bd6aa2e03b046116b6b46e873341bd2dc453e82d02c5ed024d335c2a1c760b
+27. master_me - Automatic loudness and dynamics processing.
+    Source license: GPL-3.0
+    Source: https://github.com/trummerschlunk/master_me
+    License: https://github.com/trummerschlunk/master_me/blob/master/LICENSE
+    Preview: https://raw.githubusercontent.com/trummerschlunk/master_me/master/img/screenshot-expert.png
+    windows-x86_64: 1.3.1; 12.6 MB; automatic portable install
+      https://github.com/trummerschlunk/master_me/releases/download/1.3.1/master_me-1.3.1-win64.zip
+      SHA256 0122b72259fd54f99854d038cd7f850f06f6f62d68495f6cc15f57251938fd72
+    macos-universal: 1.3.1; 12.2 MB; download and open
+      https://github.com/trummerschlunk/master_me/releases/download/1.3.1/master_me-1.3.1-macos-universal.dmg
+      SHA256 8c092dce8afcb462e573c88fcda184797967fa82ecd839372509d2916da014b5
+    linux-x86_64: 1.3.1; 2.2 MB; download and open
+      https://github.com/trummerschlunk/master_me/releases/download/1.3.1/master_me-1.3.1-linux-x86_64.tar.xz
+      SHA256 09f41b4607ea66fd1d2f69c6b2e92ad4a36cd748c9e6da9a39b7e802c143d6a2
+28. SocaLabs Limiter - Peak limiting for final level control.
+    Source license: BSD-3-Clause
+    Source: https://github.com/FigBug/slPlugins
+    License: https://github.com/FigBug/slPlugins/blob/master/LICENSE.md
+    Preview: https://socalabs.com/images/limiter.png
+    windows-x86_64: 2026-10-31 snapshot; 7.7 MB; download and open
+      https://socalabs.com/files/get.php?id=Limiter.exe
+      SHA256 603367d9d639602e5d6e7eb7eaf01ba100e79df7466aeae67212e51792132c4e
+    macos-universal: 2026-10-31 snapshot; 43.7 MB; download and open
+      https://socalabs.com/files/get.php?id=Limiter.pkg
+      SHA256 cfdf7ae8353c0ab202b855bb116283bee5e28cfdf650edb5eead90bc60a4c8c3
+    linux-x86_64: 2026-10-31 snapshot; 22.2 MB; download and open
+      https://socalabs.com/files/get.php?id=Limiter.deb
+      SHA256 f6c594b3581c8087517733f3fccb41eb82ce396b51b2287620bc3d5698c9e0b3
+29. Airwindows ClipOnly2 - Softens digital clipping on peaks.
+    Source license: MIT
+    Source: https://github.com/airwindows/airwindows
+    License: https://github.com/airwindows/airwindows/blob/master/LICENSE
+    Note: No custom GUI: uses host parameter controls.
+    windows-x86_64: original release; 0.6 MB; automatic portable install
+      https://www.airwindows.com/wp-content/uploads/2021/10/ClipOnly2.zip
+      SHA256 47d51c53a9cec1e9e86add58fb4c4a9f8fc3983bf326c9566ec88346232eec6e
+    macos-universal: 2026-10-31 snapshot; 13.5 MB; download and open
+      https://www.airwindows.com/wp-content/uploads/SignedMacVSTs.dmg
+      SHA256 1a95dc2a45bddc9e62dc8875a9fc21b45b152a2a93bfda78b53a9dbfd6d7dc66
+    linux-x86_64: 2026-10-31 snapshot; 15.3 MB; download and open
+      https://www.airwindows.com/wp-content/uploads/LinuxVSTs.zip
+      SHA256 0f8fe901e4a5756254495afdd93e7b638a62210a75b8751e55ce7cb7a21a8909
+30. Airwindows ADClip8 - Loudness-oriented clipping.
+    Source license: MIT
+    Source: https://github.com/airwindows/airwindows
+    License: https://github.com/airwindows/airwindows/blob/master/LICENSE
+    Note: No custom GUI: uses host parameter controls.
+    windows-x86_64: original release; 0.5 MB; automatic portable install
+      https://www.airwindows.com/wp-content/uploads/2024/02/ADClip8.zip
+      SHA256 2c5b4b373a9372373c17b9fae56e7547199dddeca04cd9f1677871d0cda3c905
+    macos-universal: 2026-10-31 snapshot; 13.5 MB; download and open
+      https://www.airwindows.com/wp-content/uploads/SignedMacVSTs.dmg
+      SHA256 1a95dc2a45bddc9e62dc8875a9fc21b45b152a2a93bfda78b53a9dbfd6d7dc66
+    linux-x86_64: 2026-10-31 snapshot; 15.3 MB; download and open
+      https://www.airwindows.com/wp-content/uploads/LinuxVSTs.zip
+      SHA256 0f8fe901e4a5756254495afdd93e7b638a62210a75b8751e55ce7cb7a21a8909
+
+SATURATION AND DISTORTION
+-------------------------
+31. CHOW Tape Model - Physical-model tape coloration.
+    Source license: GPL-3.0
+    Source: https://github.com/jatinchowdhury18/AnalogTapeModel
+    License: https://github.com/jatinchowdhury18/AnalogTapeModel/blob/master/LICENSE
+    Preview: https://raw.githubusercontent.com/jatinchowdhury18/AnalogTapeModel/master/Plugin/Screenshots/full_gui.png
+    windows-x86_64: v2.11.4; 10.2 MB; download and open
+      https://github.com/jatinchowdhury18/AnalogTapeModel/releases/download/v2.11.4/ChowTapeModel-Win-64bit-2.11.4.exe
+      SHA256 8ba6e91196067244837877d9ca4a8e4a1f5bfad60cf33fa699c8a5b41f1211bf
+    macos-universal: v2.11.4; 27.4 MB; download and open
+      https://github.com/jatinchowdhury18/AnalogTapeModel/releases/download/v2.11.4/ChowTapeModel-Mac-2.11.4.dmg
+      SHA256 9b37e2b6cb6c0a839ee9c65e1a958834ca647b3edfc4bd144115c483b4d64f82
+    linux-x86_64: v2.11.4; 4.9 MB; download and open
+      https://github.com/jatinchowdhury18/AnalogTapeModel/releases/download/v2.11.4/ChowTapeModel-Linux-x64-2.11.4.deb
+      SHA256 71aaae1c454ac83ac16b248d4cc99c12bf6d11452a87376fcb6b1e79060e3a5c
+32. BYOD - Build your own distortion and pedal chain.
+    Source license: GPL-3.0
+    Source: https://github.com/Chowdhury-DSP/BYOD
+    License: https://github.com/Chowdhury-DSP/BYOD/blob/main/LICENSE
+    Preview: https://raw.githubusercontent.com/Chowdhury-DSP/BYOD/main/manual/screenshots/full_gui.png
+    windows-x86_64: v1.3.0; 25.2 MB; download and open
+      https://github.com/Chowdhury-DSP/BYOD/releases/download/v1.3.0/BYOD-Win-64bit-1.3.0.exe
+      SHA256 a53fb65cedf90f7673e21ac2d12f5b0778f003ae7f2e34e6c4301854a738c36c
+    macos-universal: v1.3.0; 85.0 MB; download and open
+      https://github.com/Chowdhury-DSP/BYOD/releases/download/v1.3.0/BYOD-Mac-1.3.0.dmg
+      SHA256 997a0508b00a583d8563eb0e330c7e318fe43e7f4f3b06ba3d389221aeb7254a
+    linux-x86_64: v1.3.0; 21.2 MB; download and open
+      https://github.com/Chowdhury-DSP/BYOD/releases/download/v1.3.0/BYOD-Linux-x64-1.3.0.deb
+      SHA256 c1803ae57b717bab04ef2072c10284bcb7d44fbe352d42645075b0c6875c9aeb
+33. CHOW Centaur - Circuit-modeled overdrive pedal.
+    Source license: BSD-3-Clause
+    Source: https://github.com/jatinchowdhury18/KlonCentaur
+    License: https://github.com/jatinchowdhury18/KlonCentaur/blob/master/LICENSE
+    Preview: https://raw.githubusercontent.com/jatinchowdhury18/KlonCentaur/master/Paper/Figures/Plugin.png
+    windows-x86_64: v1.4.0; 8.6 MB; download and open
+      https://github.com/jatinchowdhury18/KlonCentaur/releases/download/v1.4.0/ChowCentaur-Win-1.4.0.exe
+      SHA256 3ff707e3e49e7cac0bb0819219eefcc6ed59b281246b43fc0465c0fb1d198048
+    macos-universal: v1.4.0; 11.8 MB; download and open
+      https://github.com/jatinchowdhury18/KlonCentaur/releases/download/v1.4.0/ChowCentaur-Mac-1.4.0.dmg
+      SHA256 8b8c876cc9429d1c9d51d25a08fa3513398370b6b527067cb5d3982ca988bf3e
+    linux-x86_64: v1.4.0; 2.4 MB; download and open
+      https://github.com/jatinchowdhury18/KlonCentaur/releases/download/v1.4.0/ChowCentaur-Linux-x64-1.4.0.deb
+      SHA256 abd0fda32e5b45f0b144ac3d4559009e3b837a9be0b859d99a82c4bba9c52303
+34. SocaLabs BitCrusher - Bit-depth and sample-rate reduction.
+    Source license: BSD-3-Clause
+    Source: https://github.com/FigBug/slPlugins
+    License: https://github.com/FigBug/slPlugins/blob/master/LICENSE.md
+    Preview: https://socalabs.com/images/bitcrusher.png
+    windows-x86_64: 2026-10-31 snapshot; 7.7 MB; download and open
+      https://socalabs.com/files/get.php?id=BitCrusher.exe
+      SHA256 e34546c6eba8616ffcead6916bd6eef72b6c946b843d25e8566cbc98c2974034
+    macos-universal: 2026-10-31 snapshot; 43.7 MB; download and open
+      https://socalabs.com/files/get.php?id=BitCrusher.pkg
+      SHA256 2d159e3c26e7ce0388d6653512d9a1d333a978b925e9a8074d5bcb4f045e07c4
+    linux-x86_64: 2026-10-31 snapshot; 22.2 MB; download and open
+      https://socalabs.com/files/get.php?id=BitCrusher.deb
+      SHA256 2e810d9e606dd067079186a5d65a1c68926ac1be0c2d3018c02482dea7dc2b93
+35. Airwindows ToTape8 - Tape color, bias and gain staging.
+    Source license: MIT
+    Source: https://github.com/airwindows/airwindows
+    License: https://github.com/airwindows/airwindows/blob/master/LICENSE
+    Note: No custom GUI: uses host parameter controls.
+    windows-x86_64: original release; 0.6 MB; automatic portable install
+      https://www.airwindows.com/wp-content/uploads/2024/09/ToTape8.zip
+      SHA256 97f31c2759a526dc732181e80e5d8aff7aed5da8d2514e7c96dfe9d9223f6d4e
+    macos-universal: 2026-10-31 snapshot; 13.5 MB; download and open
+      https://www.airwindows.com/wp-content/uploads/SignedMacVSTs.dmg
+      SHA256 1a95dc2a45bddc9e62dc8875a9fc21b45b152a2a93bfda78b53a9dbfd6d7dc66
+    linux-x86_64: 2026-10-31 snapshot; 15.3 MB; download and open
+      https://www.airwindows.com/wp-content/uploads/LinuxVSTs.zip
+      SHA256 0f8fe901e4a5756254495afdd93e7b638a62210a75b8751e55ce7cb7a21a8909
+
+MODULATION
+----------
+36. CHOW Phaser - Analog-inspired mono/stereo phasing.
+    Source license: BSD-3-Clause
+    Source: https://github.com/jatinchowdhury18/ChowPhaser
+    License: https://github.com/jatinchowdhury18/ChowPhaser/blob/master/LICENSE
+    Preview: https://raw.githubusercontent.com/jatinchowdhury18/ChowPhaser/master/res/screenshot_stereo.PNG
+    windows-x86_64: v1.1.1; 8.4 MB; download and open
+      https://github.com/jatinchowdhury18/ChowPhaser/releases/download/v1.1.1/ChowPhaser-Win-1.1.1.exe
+      SHA256 490f1d970b097ada8d5f14eca95124e10b9d75e1ddf73a4f0b473f9d31f02a01
+    macos-universal: v1.1.1; 46.0 MB; download and open
+      https://github.com/jatinchowdhury18/ChowPhaser/releases/download/v1.1.1/ChowPhaser-Mac-1.1.1.dmg
+      SHA256 ca3ffcacd9265da601e9005df83c3e70ba7bcfae2a94a2e78d68afbb3f728126
+    linux-x86_64: v1.1.1; 11.4 MB; download and open
+      https://github.com/jatinchowdhury18/ChowPhaser/releases/download/v1.1.1/ChowPhaser-Linux-x64-1.1.1.deb
+      SHA256 554ef220e96ea2c355e8ed8aa0c94c8bbcc281b5ce8069a12865a75ef6737889
+37. Airwindows ChorusEnsemble - Multi-tap ensemble chorus.
+    Source license: MIT
+    Source: https://github.com/airwindows/airwindows
+    License: https://github.com/airwindows/airwindows/blob/master/LICENSE
+    Note: No custom GUI: uses host parameter controls.
+    windows-x86_64: original release; 0.3 MB; automatic portable install
+      https://www.airwindows.com/wp-content/uploads/2017/09/ChorusEnsemble.zip
+      SHA256 11ed4e43037061046d1240901eb6487056dc9f422c4bf6d19f4128199f39588e
+    macos-universal: 2026-10-31 snapshot; 13.5 MB; download and open
+      https://www.airwindows.com/wp-content/uploads/SignedMacVSTs.dmg
+      SHA256 1a95dc2a45bddc9e62dc8875a9fc21b45b152a2a93bfda78b53a9dbfd6d7dc66
+    linux-x86_64: 2026-10-31 snapshot; 15.3 MB; download and open
+      https://www.airwindows.com/wp-content/uploads/LinuxVSTs.zip
+      SHA256 0f8fe901e4a5756254495afdd93e7b638a62210a75b8751e55ce7cb7a21a8909
+38. Airwindows Vibrato - Pitch modulation and unusual FM textures.
+    Source license: MIT
+    Source: https://github.com/airwindows/airwindows
+    License: https://github.com/airwindows/airwindows/blob/master/LICENSE
+    Note: No custom GUI: uses host parameter controls.
+    windows-x86_64: original release; 0.3 MB; automatic portable install
+      https://www.airwindows.com/wp-content/uploads/2019/08/Vibrato.zip
+      SHA256 2d082c9ea8faff1c2d628097135accbf8e329f4ff6ea64057967696ad3dbda00
+    macos-universal: 2026-10-31 snapshot; 13.5 MB; download and open
+      https://www.airwindows.com/wp-content/uploads/SignedMacVSTs.dmg
+      SHA256 1a95dc2a45bddc9e62dc8875a9fc21b45b152a2a93bfda78b53a9dbfd6d7dc66
+    linux-x86_64: 2026-10-31 snapshot; 15.3 MB; download and open
+      https://www.airwindows.com/wp-content/uploads/LinuxVSTs.zip
+      SHA256 0f8fe901e4a5756254495afdd93e7b638a62210a75b8751e55ce7cb7a21a8909
+39. Airwindows Flutter2 - Tape-speed fluctuation and doubling.
+    Source license: MIT
+    Source: https://github.com/airwindows/airwindows
+    License: https://github.com/airwindows/airwindows/blob/master/LICENSE
+    Note: No custom GUI: uses host parameter controls.
+    windows-x86_64: original release; 0.5 MB; automatic portable install
+      https://www.airwindows.com/wp-content/uploads/2024/07/Flutter2.zip
+      SHA256 f93c5aa5d9f651465e051e7714db7d857cf64c6567fb984a256d248d29e48242
+    macos-universal: 2026-10-31 snapshot; 13.5 MB; download and open
+      https://www.airwindows.com/wp-content/uploads/SignedMacVSTs.dmg
+      SHA256 1a95dc2a45bddc9e62dc8875a9fc21b45b152a2a93bfda78b53a9dbfd6d7dc66
+    linux-x86_64: 2026-10-31 snapshot; 15.3 MB; download and open
+      https://www.airwindows.com/wp-content/uploads/LinuxVSTs.zip
+      SHA256 0f8fe901e4a5756254495afdd93e7b638a62210a75b8751e55ce7cb7a21a8909
+40. DISTRHO PingPongPan - Automatic left/right panning.
+    Source license: LGPL-3.0
+    Source: https://github.com/DISTRHO/DPF-Plugins
+    License: https://github.com/DISTRHO/DPF-Plugins/blob/main/plugins/PingPongPan/LICENSE
+    Note: Download includes the DPF plugin collection.
+    Preview: https://raw.githubusercontent.com/DISTRHO/DPF-Plugins/main/plugins/PingPongPan/Screenshot.png
+    windows-x86_64: v1.7; 71.1 MB; automatic portable install
+      https://github.com/DISTRHO/DPF-Plugins/releases/download/v1.7/DPF-Plugins-v1.7-win64.zip
+      SHA256 fdc609e0936e9c999395b9ddd98a9a72739cb672d8838ab71849469aee50ad98
+    macos-universal: v1.7; 55.2 MB; download and open
+      https://github.com/DISTRHO/DPF-Plugins/releases/download/v1.7/DPF-Plugins-v1.7-macos-universal.dmg
+      SHA256 94b996c898a7ba160561113d1c48c4700a6ef65d33f4092ea7289b1af44059e1
+    linux-x86_64: v1.7; 9.4 MB; download and open
+      https://github.com/DISTRHO/DPF-Plugins/releases/download/v1.7/DPF-Plugins-v1.7-linux-x86_64.tar.xz
+      SHA256 8088e362f9f68fea179abe9f96b83fca07693224ffcf46837c24ff8b59b119cb
+
+STEREO AND ROUTING
+------------------
+41. ZL Splitter - Split stereo, frequency and transient components.
+    Source license: AGPL-3.0
+    Source: https://github.com/ZL-Audio/ZLSplitter
+    License: https://github.com/ZL-Audio/ZLSplitter/blob/main/LICENSE.md
+    Preview: https://drive.google.com/uc?export=view&id=1agmMFD5BVylbJOr5ZJmP8dof7LkCXlhx
+    windows-x86_64: 0.3.0; 5.3 MB; download and open
+      https://github.com/ZL-Audio/ZLSplitter/releases/download/0.3.0/ZL.Splitter-0.3.0-Windows-x86.msi
+      SHA256 4ab477adc74626a6841c947c7bf0dc0598641c4f288161ecc8234acebc3f6a83
+    macos-aarch64: 0.3.0; 5.0 MB; download and open
+      https://github.com/ZL-Audio/ZLSplitter/releases/download/0.3.0/ZL.Splitter-0.3.0-macOS-arm.dmg
+      SHA256 3e971970de57f9dfa206a2e737ff2c9f149fd5d5b035fb121e6e986a0f23ed96
+    macos-x86_64: 0.3.0; 8.8 MB; download and open
+      https://github.com/ZL-Audio/ZLSplitter/releases/download/0.3.0/ZL.Splitter-0.3.0-macOS-x86.dmg
+      SHA256 b90a439b47cc7587f68941677fdc1046c8c243ef8f675b6758b843f909eb4ea6
+    linux-x86_64: 0.3.0; 8.4 MB; download and open
+      https://github.com/ZL-Audio/ZLSplitter/releases/download/0.3.0/ZL.Splitter-0.3.0-Linux-x86.zip
+      SHA256 52e856331ff7248fc9d1b1d348df2eb7827610eeb5406dc62826866cdafdb9a4
+42. SocaLabs Crossfeed - Crossfeed for headphone monitoring.
+    Source license: BSD-3-Clause
+    Source: https://github.com/FigBug/slPlugins
+    License: https://github.com/FigBug/slPlugins/blob/master/LICENSE.md
+    Preview: https://socalabs.com/images/crossfeed.png
+    windows-x86_64: 2026-10-31 snapshot; 7.7 MB; download and open
+      https://socalabs.com/files/get.php?id=Crossfeed.exe
+      SHA256 17a97cd964e2189527edd05ced7d01983633917853e0a629581d29af9efe9b51
+    macos-universal: 2026-10-31 snapshot; 43.7 MB; download and open
+      https://socalabs.com/files/get.php?id=Crossfeed.pkg
+      SHA256 8856d960743f84dc40768d6f828bc9dbf40f3ec4d7dbf469e55fa8862a2ef46e
+    linux-x86_64: 2026-10-31 snapshot; 22.2 MB; download and open
+      https://socalabs.com/files/get.php?id=Crossfeed.deb
+      SHA256 d2dea0f7bfaa99a6f6223b7f8e9863731ccb9061184ac5491beb80f7c732d20f
+43. SocaLabs Stereo Enhancer - Stereo-width enhancement.
+    Source license: BSD-3-Clause
+    Source: https://github.com/FigBug/slPlugins
+    License: https://github.com/FigBug/slPlugins/blob/master/LICENSE.md
+    Preview: https://socalabs.com/images/stereoenhancer.png
+    windows-x86_64: 2026-10-31 snapshot; 7.4 MB; download and open
+      https://socalabs.com/files/get.php?id=StereoEnhancer.exe
+      SHA256 19a7d97745af4e3b9eb1be1e6ea4bcbddf1c5d0361d024f9c7e82adfe71b5d32
+    macos-universal: 2026-10-31 snapshot; 43.8 MB; download and open
+      https://socalabs.com/files/get.php?id=StereoEnhancer.pkg
+      SHA256 d5d303b49e7f9f501f7668a4c7d9188b27c4e1a748cf7f42ea361d56520652f1
+    linux-x86_64: 2026-10-31 snapshot; 22.2 MB; download and open
+      https://socalabs.com/files/get.php?id=StereoEnhancer.deb
+      SHA256 a29452fb9b48fa819d89c77e525eefff6b3f9cfc8b187592cf5e7a643ab4f036
+44. SocaLabs Stereo Processor - Mid/side and stereo processing.
+    Source license: BSD-3-Clause
+    Source: https://github.com/FigBug/slPlugins
+    License: https://github.com/FigBug/slPlugins/blob/master/LICENSE.md
+    Preview: https://socalabs.com/images/stereoprocessor.png
+    windows-x86_64: 2026-10-31 snapshot; 7.7 MB; download and open
+      https://socalabs.com/files/get.php?id=StereoProcessor.exe
+      SHA256 fd1bc0efcf36733b3aa88d8319c9cd24bc852608bc7a0384b7ff0fa28f961db8
+    macos-universal: 2026-10-31 snapshot; 43.7 MB; download and open
+      https://socalabs.com/files/get.php?id=StereoProcessor.pkg
+      SHA256 8d43ef85f3fde84340b05887a372debb274ad8ba8eb4e218264331e772acf812
+    linux-x86_64: 2026-10-31 snapshot; 22.2 MB; download and open
+      https://socalabs.com/files/get.php?id=StereoProcessor.deb
+      SHA256 d44eff0c9fb008c9ccca9bbfd8528a0d4c52a73e5fd773660fc9c454735a98fb
+45. Airwindows Wider - Mid/side stereo-space shaping.
+    Source license: MIT
+    Source: https://github.com/airwindows/airwindows
+    License: https://github.com/airwindows/airwindows/blob/master/LICENSE
+    Note: No custom GUI: uses host parameter controls.
+    windows-x86_64: original release; 0.3 MB; automatic portable install
+      https://www.airwindows.com/wp-content/uploads/2018/05/Wider.zip
+      SHA256 2b2910bb60c052d2c08f3c487462909ff0436830d8ed58cc754416a28208e508
+    macos-universal: 2026-10-31 snapshot; 13.5 MB; download and open
+      https://www.airwindows.com/wp-content/uploads/SignedMacVSTs.dmg
+      SHA256 1a95dc2a45bddc9e62dc8875a9fc21b45b152a2a93bfda78b53a9dbfd6d7dc66
+    linux-x86_64: 2026-10-31 snapshot; 15.3 MB; download and open
+      https://www.airwindows.com/wp-content/uploads/LinuxVSTs.zip
+      SHA256 0f8fe901e4a5756254495afdd93e7b638a62210a75b8751e55ce7cb7a21a8909
+
+ANALYSIS AND METERS
+-------------------
+46. SocaLabs Oscilloscope - Visualize the audio waveform.
+    Source license: BSD-3-Clause
+    Source: https://github.com/FigBug/slPlugins
+    License: https://github.com/FigBug/slPlugins/blob/master/LICENSE.md
+    Preview: https://socalabs.com/images/oscilloscope.png
+    windows-x86_64: 2026-10-31 snapshot; 7.8 MB; download and open
+      https://socalabs.com/files/get.php?id=Oscilloscope.exe
+      SHA256 6eafd705a728a5ba2ed4af32dd16e2ff040b3db78e61146f40d947c2b4dbb72b
+    macos-universal: 2026-10-31 snapshot; 43.9 MB; download and open
+      https://socalabs.com/files/get.php?id=Oscilloscope.pkg
+      SHA256 62ad08b2fcdf65b32854ff35c25786fe8d805c6b0f7aa0d3595750eb39e5fe5c
+    linux-x86_64: 2026-10-31 snapshot; 22.3 MB; download and open
+      https://socalabs.com/files/get.php?id=Oscilloscope.deb
+      SHA256 1577913b8a803ff5f04be7cad11045be6b6de351f4470b405526a24e2deacd14
+47. SocaLabs Spectrum Analyzer - Frequency spectrum display.
+    Source license: BSD-3-Clause
+    Source: https://github.com/FigBug/slPlugins
+    License: https://github.com/FigBug/slPlugins/blob/master/LICENSE.md
+    Preview: https://socalabs.com/images/spectrum.png
+    windows-x86_64: 2026-10-31 snapshot; 7.0 MB; download and open
+      https://socalabs.com/files/get.php?id=SpectrumAnalyzer.exe
+      SHA256 0bc9e51a30d3f8d24e8e6b4bd2e96be7252175904f4825aec4aaddf38c87f0e1
+    macos-universal: 2026-10-31 snapshot; 34.2 MB; download and open
+      https://socalabs.com/files/get.php?id=SpectrumAnalyzer.pkg
+      SHA256 ccd8deca718503ed2b1be28b416be4787de9992a7750691febe39218751586ef
+    linux-x86_64: 2026-10-31 snapshot; 17.5 MB; download and open
+      https://socalabs.com/files/get.php?id=SpectrumAnalyzer.deb
+      SHA256 ce341cd74b03c2b968cf9ebe6d4e75d949d5ffbd1c915ca15fa0f26770713afd
+48. SocaLabs Loudness - Monitor program loudness.
+    Source license: BSD-3-Clause
+    Source: https://github.com/FigBug/slPlugins
+    License: https://github.com/FigBug/slPlugins/blob/master/LICENSE.md
+    Preview: https://socalabs.com/images/loudness.png
+    windows-x86_64: 2026-10-31 snapshot; 7.7 MB; download and open
+      https://socalabs.com/files/get.php?id=Loudness.exe
+      SHA256 380e392ca4cbfe8560e17cd2bb7a468ae865195d969082fd527cce74557aa704
+    macos-universal: 2026-10-31 snapshot; 43.7 MB; download and open
+      https://socalabs.com/files/get.php?id=Loudness.pkg
+      SHA256 5e25addbef1d8af6c42ba454806a1383b3e3ced97753de812d9f574cbedac2f3
+    linux-x86_64: 2026-10-31 snapshot; 22.2 MB; download and open
+      https://socalabs.com/files/get.php?id=Loudness.deb
+      SHA256 ac0b67465154505e512b2167f20aa3f11b8df4cca0ea4fff5bb4ee3f26c25d6f
+49. SocaLabs XYScope - Visualize the stereo image.
+    Source license: BSD-3-Clause
+    Source: https://github.com/FigBug/slPlugins
+    License: https://github.com/FigBug/slPlugins/blob/master/LICENSE.md
+    Preview: https://socalabs.com/images/xyscope.png
+    windows-x86_64: 2026-10-31 snapshot; 7.7 MB; download and open
+      https://socalabs.com/files/get.php?id=XYScope.exe
+      SHA256 53cfc1fda81abc26a5bc64035eae0e37b97695f3deb5a4f6c3d482d97ad4a327
+    macos-universal: 2026-10-31 snapshot; 43.7 MB; download and open
+      https://socalabs.com/files/get.php?id=XYScope.pkg
+      SHA256 737bbe3156f0a5102761fd43359f8875f7523e54094bf84ef8c5187377f6d77e
+    linux-x86_64: 2026-10-31 snapshot; 22.2 MB; download and open
+      https://socalabs.com/files/get.php?id=XYScope.deb
+      SHA256 e97cbf9d944d18f0d7f3c99b67caddfbf8e2a275300bde306842619a3f0d490e
+50. SocaLabs Correlation - Check stereo phase correlation.
+    Source license: BSD-3-Clause
+    Source: https://github.com/FigBug/slPlugins
+    License: https://github.com/FigBug/slPlugins/blob/master/LICENSE.md
+    Preview: https://socalabs.com/images/correlation.png
+    windows-x86_64: 2026-10-31 snapshot; 7.7 MB; download and open
+      https://socalabs.com/files/get.php?id=Correlation.exe
+      SHA256 dfb755b6abda2d9a6aef6e79e38cc86cb3a38be8202d6602d26fdadde52448d5
+    macos-universal: 2026-10-31 snapshot; 43.7 MB; download and open
+      https://socalabs.com/files/get.php?id=Correlation.pkg
+      SHA256 99176275400f6f83db03a9b5b8053c96731db5e1af40eb299d510aacd195c04d
+    linux-x86_64: 2026-10-31 snapshot; 22.2 MB; download and open
+      https://socalabs.com/files/get.php?id=Correlation.deb
+      SHA256 65850eed4d18dfda58393bfe57f53c8378521b78ac14e36104b199e09c051065
+
+MAINTAINER NOTES
+The embedded catalog is crates/os-app/assets/plugin-catalog/catalog.json.
+Review source license, official release, architecture and package type before
+changing an entry. Pin the new size and SHA-256, inspect portable archive roots
+and PE architecture, and keep thumbnail provenance. Never infer asset names from
+version strings or silently fall back to unverified/source archives. Recheck
+category counts and download/portable tests when changing packages. No binary
+plugin payloads are included in Lemon Studio's repository or application.
+
+
+FREEWARE EXPANSION - 1 November 2026
+
+Selection: established, frequently recommended freeware, with the user's strict
+direct-download requirement taking priority. No trials, temporary giveaways or
+account-only offers. These 25 entries are individual plugins, not bundle padding.
+Current releases were checked against their makers. TyrellN6 is explicitly labeled
+as the maker's current public beta. TDR and Youlean free editions remain usable
+without buying their optional upgrades. Platforms without a verified native
+package show no compatible download instead of receiving another OS's installer.
+
+Discovery and popularity cross-checks (not download mirrors):
+https://www.kvraudio.com/plugins/best-free-plugins/vst3-plugins
+https://www.lewitt-audio.com/blog/best-free-mixing-and-mastering-plugins
+https://soundschooled.co.uk/blog/best-free-vst-plugins
+https://borncreativeaudio.com/blog/best-free-plugins-for-music-production
+https://wavy808.com/best-free-vst-plugins-for-making-beats-in-2026/
+Voxengo also publishes per-product download totals on its own pages:
+https://www.voxengo.com/downloads/
+
+Candidates excluded for account/manager flows or lack of a verified direct
+package: Baby Audio freebies, Softube Saturation Knob, iZotope Vinyl, Melda
+MFreeFXBundle, Kilohearts Essentials and Decent Sampler.
+Valhalla candidates were omitted because an official direct Windows package could
+not be verified through the download workflow in this session. No third-party
+mirrors or unverified links were substituted.
+
+New images: 23 official product/interface previews, the official Xfer logo for
+OTT, and an original labeled Dimension Expander identification icon. Small
+previews identify the software; artwork remains the respective maker's property.
+
+New package sources and exact integrity records:
+
+TDR Nova | EQ and filters | Freeware
+Dynamic equalizer with four bands and a spectrum display. Use it for resonances, vocal sibilance or tonal balance; bands can respond only when a frequency becomes too loud.
+Free standard edition; the paid GE upgrade is optional.
+Official product/features/free status: https://www.tokyodawn.net/tdr-nova/
+Preview: https://www.tokyodawn.net/wp-content/uploads/2018/11/Seite-1-1.png
+windows-x86_64 | 2.2.3 | 8154033 bytes
+https://www.tokyodawn.net/labs/Nova/2.2.3/TDR%20Nova%20%28installer%29.zip
+SHA-256: b47fd8c3d85499b58a21a1b8f6d8c20a3eff9405f67ee57c52c51bee6b1a935c
+macos-universal | 2.2.3 | 27043108 bytes
+https://www.tokyodawn.net/labs/Nova/2.2.3/TDR%20Nova.zip
+SHA-256: 85d3b0409260f0211c8fe4fdb0c5ff7e9a2249808a21fe0d21abd1ebc636e12d
+
+TDR Kotelnikov | Mastering | Freeware
+Transparent stereo compressor for mix buses and mastering. Separate peak and average-level release controls help reduce dynamic range while preserving punch. Useful for controlled mix glue without obvious analog coloration.
+Free standard edition; GE features are a separate paid upgrade.
+Official product/features/free status: https://www.tokyodawn.net/tdr-kotelnikov/
+Preview: https://www.tokyodawn.net/wp-content/uploads/2018/06/KotelnikovMain2.png
+windows-x86_64 | 1.6.7 | 7725634 bytes
+https://www.tokyodawn.net/labs/Kotelnikov/1.6.7/TDR%20Kotelnikov%20%28installer%29.zip
+SHA-256: 159732b76f82cf948a13f459ea6d31bb64395b2c99c036ec38d1d0794e5b1dcf
+macos-universal | 1.6.7 | 25033721 bytes
+https://www.tokyodawn.net/labs/Kotelnikov/1.6.7/TDR%20Kotelnikov.zip
+SHA-256: 59e580a260fb66db6f608b92434c9cf9e426eb83734995b5d4633930783389da
+
+TDR VOS SlickEQ | EQ and filters | Freeware
+Three-band tone-shaping EQ with several analog-inspired curves and output saturation. Useful for broad musical adjustments to vocals, instruments and mixes. Automatic gain compensation helps compare tonal changes at similar loudness.
+Free standard edition; Gentleman's Edition is optional.
+Official product/features/free status: https://www.tokyodawn.net/tdr-vos-slickeq/
+Preview: https://www.tokyodawn.net/wp-content/uploads/2014/03/TDR-SlickEQ-main-flat.png
+windows-x86_64 | 1.3.9 | 8240508 bytes
+https://www.tokyodawn.net/labs/SlickEQ/1.3.9/TDR%20VOS%20SlickEQ%20%28installer%29.zip
+SHA-256: 9af4667ea317fe1b8f9025c69e51b5882a668f85aa9963d248c829be549c32e6
+macos-universal | 1.3.9 | 23946431 bytes
+https://www.tokyodawn.net/labs/SlickEQ/1.3.9/TDR%20VOS%20SlickEQ.zip
+SHA-256: 9146a0e145680965c54296c68996a5982bd0e164b6fbfd767c8b26d32f8e70fa
+
+Voxengo SPAN | Analysis and meters | Freeware
+Real-time spectrum analyzer for seeing bass, midrange and treble balance. Includes stereo correlation and level statistics. Use it to compare tracks and investigate resonances; it measures the signal rather than changing its tone.
+Free SPAN; SPAN Plus is a different paid product.
+Official product/features/free status: https://www.voxengo.com/product/span/
+Preview: https://www.voxengo.com/cdn/img/61/61pnsjb5m.jpg
+macos-universal | 3.24 | 36089508 bytes
+https://www.voxengo.com/files/VoxengoSPAN_324_Mac_AU_AAX_VST_setup.dmg
+SHA-256: 82685deeac6060b72621516c7e524730345f06942ace2e32324cacd55f41c476
+windows-x86_64 | 3.24 | 9278200 bytes
+https://www.voxengo.com/files/VoxengoSPAN_324_Win32_64_VST_VST3_AAX_setup.exe
+SHA-256: dc62221a8f0784165ae0ff1482c6a96f9911b5dc9e6afeada67b3d46f4385ec2
+
+Voxengo MSED | Stereo and routing | Freeware
+Mid/side encoder and decoder with separate center and side level controls. Useful for adjusting stereo width, inspecting mono information or building mid/side processing chains. Includes phase and stereo-image monitoring.
+Free; no account or activation.
+Official product/features/free status: https://www.voxengo.com/product/msed/
+Preview: https://www.voxengo.com/cdn/img/82/828qsm9jy.jpg
+macos-universal | 3.13 | 33165574 bytes
+https://www.voxengo.com/files/VoxengoMSED_313_Mac_AU_AAX_VST_setup.dmg
+SHA-256: 4d54b4885226664866fa073545ea4d74a759ed5bfafd87d6309974d19f11648c
+windows-x86_64 | 3.13 | 8671728 bytes
+https://www.voxengo.com/files/VoxengoMSED_313_Win32_64_VST_VST3_AAX_setup.exe
+SHA-256: 83fabe1380f4767a4b8b5c403464ed711a22d67802da26681b4936aa62bdef0f
+
+Youlean Loudness Meter 2 Free | Analysis and meters | Freeware
+Loudness and true-peak meter for checking mixes before delivery. Watch integrated loudness, loudness range and the history graph while your song plays. The free edition does not expire; advanced export and offline analysis require PRO.
+Use the included free edition. PRO-only features are optional and paid.
+Official product/features/free status: https://youlean.co/youlean-loudness-meter/
+Preview: https://cdn.youlean.co/wp-content/uploads/2019/08/Youlean-Lodness-Meter-2-V2.3.0.png
+windows-x86_64 | 2.5.15 | 69627504 bytes
+https://cdn.youlean.co/wp-content/uploads/2026/09/Youlean-Loudness-Meter-2-V2.5.15-Windows.zip
+SHA-256: ad8b4eb2b6a8397961f053011ad44b348255c40cec28df4af0afb0b6d474757b
+macos-universal | 2.5.15 | 99391961 bytes
+https://cdn.youlean.co/wp-content/uploads/2026/09/Youlean-Loudness-Meter-2-V2.5.15-macOS.dmg
+SHA-256: 0497a988c390e12ac4a7d71fe12aa11847af1787d972d40fc2ae03c25131eeab
+
+Xfer OTT | Dynamics | Freeware
+Three-band upward and downward compressor for the bright, dense sound used in electronic music. Brings quiet details forward and reins in peaks. Start with low Depth for subtle enhancement or increase it for aggressive sound design.
+Free; no account or serial required.
+Official product/features/free status: https://xferrecords.com/freeware
+Preview: https://xferrecords.com/apple-touch-icon.png
+windows-x86_64 | 1.37 | 8397928 bytes
+https://xferrecords.com/product_downloads/25/freeware
+SHA-256: d4e1d3f62a1db904d3ab5c776ddcbb39ac74469e5ca3ed723e3dcef89ebcefeb
+macos-universal | 1.37 | 24309336 bytes
+https://xferrecords.com/product_downloads/24/freeware
+SHA-256: fe1d10b79445c44a32f365fcbf2a420a2133ae205c8d75f09ba703c7dd42ec54
+
+Klanghelm IVGI | Saturation and distortion | Freeware
+Analog-inspired saturation ranging from gentle warmth to audible distortion. Drive, asymmetry and response controls shape its character and frequency emphasis. Useful for adding density to a bass, vocal or instrument without a complex effects chain.
+Free; no account or activation.
+Official product/features/free status: https://klanghelm.com/contents/products/IVGI
+Preview: https://klanghelm.com/assets/img/IVGI/IVGI.jpg
+windows-x86_64 | 2.5.0 | 4700073 bytes
+https://klanghelm.com/free/IVGI2dl.php?id=1
+SHA-256: 66bb559932a16ec53517016129f86fbd4bd5a074b0342cd36186b3df25f2432f
+macos-universal | 2.5.0 | 13781869 bytes
+https://klanghelm.com/free/IVGI2dl.php?id=3
+SHA-256: 318c6ea9b78f2c7f09d76680147cd04c42bc30748bbb55caa7b3be42e97e326f
+
+Klanghelm MJUC jr. | Dynamics | Freeware
+Simple variable-tube compressor with a colored, rounded response. Compression and makeup controls plus selectable time constants make it useful for smoothing vocals, bass and instrument buses. Can add obvious movement when driven harder.
+Free; the full MJUC is a separate paid plugin.
+Official product/features/free status: https://klanghelm.com/contents/products/MJUCjr
+Preview: https://klanghelm.com/assets/img/MJUC/MJUCjrbig.jpg
+windows-x86_64 | 1.5.0 | 5176224 bytes
+https://klanghelm.com/free/MJUCjrdl.php?id=1
+SHA-256: d4072b6c744e4cd98a2c73174f322097209dbc892a8114e1505539e2b45afab3
+macos-universal | 1.5.0 | 22829073 bytes
+https://klanghelm.com/free/MJUCjrdl.php?id=3
+SHA-256: 5673581ac610e5a1308539c19d4489c470d3a2eb103ba646ecd958c182cbd5c2
+
+Klanghelm DC1A | Dynamics | Freeware
+Character compressor with an input/output workflow and alternate modes. Try gentle leveling on vocals or more pronounced punch and pumping on drums. Deep mode reduces low-frequency pumping; dual-mono processing treats stereo channels separately.
+Free; no account or activation.
+Official product/features/free status: https://klanghelm.com/contents/products/DC1A
+Preview: https://klanghelm.com/assets/img/DC1A/DC1A3.jpg
+windows-x86_64 | 3.5.0 | 10299440 bytes
+https://klanghelm.com/free/DC1A3dl.php?id=1
+SHA-256: f2897b986e1470f1c2c291d59e86f7f7dd5b6502ecac55f0ef5076fe89d274ac
+macos-universal | 3.5.0 | 38326157 bytes
+https://klanghelm.com/free/DC1A3dl.php?id=3
+SHA-256: 562e58178091b283a689aeab188bd3a26d8a7896d4445edfe98ad5d96622ca12
+
+u-he TyrellN6 | Synthesizers | Freeware
+Virtual analog synth with two oscillators, a sub oscillator, noise and flexible modulation. Useful for classic basses, leads and pads. Its compact layout encourages quick sound design, with presets as ready-to-play starting points.
+Current official download is a public beta. Free; no serial required.
+Official product/features/free status: https://u-he.com/products/tyrelln6/
+Preview: https://u-he.com/products/tyrelln6/assets/images/uhe-tyrelln6-screenshot-fullui.jpg
+macos-universal | 3.0 public beta 16976 | 50052935 bytes
+https://dl.u-he.com/releases/TyrellN6_300_public_beta_16976_Mac.zip
+SHA-256: 582b73c740daf309d6b4a6b64a7fe742b4b592c11f1de8165710226a8172b1ad
+windows-x86_64 | 3.0 public beta 16976 | 13044426 bytes
+https://dl.u-he.com/releases/TyrellN6_300_public_beta_16976_Win.zip
+SHA-256: 5a00b934f95da95ce03ff2c982367d727183101df910de1ef78af8500f9a6e5a
+
+u-he Zebralette 3 | Synthesizers | Freeware
+Spectral synthesizer built around a detailed oscillator and spline-based waveform editing. Shape harmonic movement, morphing textures and animated tones with its modulation system. A deep sound-design instrument rather than a sample library.
+Free standalone instrument; no Zebra purchase required.
+Official product/features/free status: https://u-he.com/products/plug-ins/zebralette3/
+Preview: https://u-he.com/products/plug-ins/zebralette3/img/screen-1.webp
+windows-x86_64 | 3.0.0 build 20399 | 15224036 bytes
+https://dl.u-he.com/releases/zebralette3_300_20399_Win.zip
+SHA-256: 04a8c72dbf731514b7d32505cc17ef83945ef358f313f74432beb269f79d3642
+macos-universal | 3.0.0 build 20399 | 56608221 bytes
+https://dl.u-he.com/releases/zebralette3_300_20399_Mac.zip
+SHA-256: 2ff7b8a0c9e29de90d659da0c3b01486918db2c33ba238ce6ba0cc965f4240f7
+linux-x86_64 | 3.0.0 build 20399 | 8694308 bytes
+https://dl.u-he.com/releases/zebralette3_300_20399_Linux.tar.xz
+SHA-256: df34d1cce6712702894d3cbdeff1c3ab7465142638d3bcc82c86eb5ee02ec580
+
+u-he Triple Cheese | Synthesizers | Freeware
+Comb-filter synthesizer with three sound-generating modules. Produces plucked, resonant and unusual synthetic textures without a conventional oscillator-and-filter signal path. Useful for adding a different character to pads, keys and experimental parts.
+Free; no account or serial required.
+Official product/features/free status: https://u-he.com/products/triplecheese/
+Preview: https://u-he.com/products/triplecheese/assets/images/uhe-triplecheese-screenshot-fullui.jpg
+macos-universal | 1.3 | 29870856 bytes
+https://dl.u-he.com/releases/TripleCheese_13_12092_Mac.zip
+SHA-256: 9542262570317927d9914aa45086ae37eae3c4b96f2f00cfd67cef9513d7b353
+windows-x86_64 | 1.3 | 13581969 bytes
+https://dl.u-he.com/releases/TripleCheese_13_12092_Win.zip
+SHA-256: 49247fe63f35b4a046590f84b4d9021d794a32f3293932c1e62675fa0a291a02
+
+TAL-NoiseMaker | Synthesizers | Freeware
+Virtual analog synthesizer for basses, leads and pads. Combines oscillators and a sub oscillator with resonant filters, envelopes, modulation and built-in chorus, reverb and delay. A practical starting point for learning subtractive sound design.
+Free; no account or activation.
+Official product/features/free status: https://tal-software.com/products/tal-noisemaker
+Preview: https://tal-software.com/images/products/tal-noisemaker-new.jpg
+windows-x86_64 | 5.0.6 | 16969217 bytes
+https://tal-software.com/downloads/plugins/install_TAL-NoiseMaker.zip
+SHA-256: 1d49eaa631efe9ff4eb22bae48a62da1582bfd7ea0eb9d59fedc95b85d35c7d5
+macos-universal | 5.0.6 | 22524919 bytes
+https://tal-software.com/downloads/plugins/TAL-NoiseMaker-installer_macos.zip
+SHA-256: 7d756aba0af00d46a14c579bf3317316326b6d50382411c3c7605520c1026dc4
+linux-x86_64 | 5.0.6 | 7144872 bytes
+https://tal-software.com/downloads/plugins/TAL-NoiseMaker_64_linux.zip
+SHA-256: 328565e646f98f14dd931a33fa438a4c9eddc451e759b92d1005f4336fa3fd20
+
+TAL-Chorus-LX | Modulation | Freeware
+Vintage stereo chorus inspired by the Juno-60. Adds movement and width to synths, guitars and vocals with a simple control set and dry/wet blend. Useful when a plain sound needs a richer, softly detuned layer.
+Free; no account or activation.
+Official product/features/free status: https://tal-software.com/products/tal-chorus-lx
+Preview: https://tal-software.com/images/products/tal-chorus-lx_.png
+windows-x86_64 | 1.6.3 | 8668420 bytes
+https://tal-software.com/downloads/plugins/install_TAL-Chorus-LX.zip
+SHA-256: 5ab8f7f1c7a61e312a778b0478f0ab0dcede1ebd49aa67bde184307ae7afdbaa
+macos-universal | 1.6.3 | 11789160 bytes
+https://tal-software.com/downloads/plugins/TAL-Chorus-LX-installer_macos.zip
+SHA-256: 36c0a0ef3fdaa35c86b48c1adab0d1a66032080d73f7276b9c69a5faa99ef3ca
+linux-x86_64 | 1.6.3 | 3518839 bytes
+https://tal-software.com/downloads/plugins/TAL-Chorus-LX_64_linux.zip
+SHA-256: 176396c83a3f43d3ec0ae0b1483c2ef7b9480952699cc999f393993fba786a0e
+
+TAL-Reverb-4 | Reverb | Freeware
+Modulated plate-style reverb with a diffuse, spacious character. Use it for lush vocal tails, synth ambience or atmospheric sends. Tone and size controls help place the effect around the dry sound without a complicated setup.
+Free; no account or activation.
+Official product/features/free status: https://tal-software.com/products/tal-reverb-4
+Preview: https://tal-software.com/images/products/tal-reverb-402.jpg
+windows-x86_64 | 4.0.4 | 12829845 bytes
+https://tal-software.com/downloads/plugins/install_TAL-Reverb-4.zip
+SHA-256: cb01267ebd22fd6484e3d914070809eae1bf59a91c95c9491a9f1f8453c3209f
+macos-universal | 4.0.4 | 15577999 bytes
+https://tal-software.com/downloads/plugins/TAL-Reverb-4-installer_macos.zip
+SHA-256: 4dfad31d763004955c03184c801771fd38e7ef9408232ac12cdfb137b3df9448
+linux-x86_64 | 4.0.4 | 5331540 bytes
+https://tal-software.com/downloads/plugins/TAL-Reverb-4_64_linux.zip
+SHA-256: b08dabd091d75335011c9a8e0c836e77b3af8fc0b8884d4bcd1626fcb5155bba
+
+TAL-Filter-2 | EQ and filters | Freeware
+Tempo-synced modulation effect with editable envelope curves. Animate filter cutoff, volume or panorama to create rhythmic movement, gated patterns and pumping effects. Useful for shaping a sustained synth or loop without drawing repeated automation.
+Free; no account or activation.
+Official product/features/free status: https://tal-software.com/products/tal-filter
+Preview: https://tal-software.com/images/products/tal-filter-2-new.jpg
+windows-x86_64 | 3.1.2 | 15699615 bytes
+https://tal-software.com/downloads/plugins/install_TAL-Filter-2.zip
+SHA-256: b239ceafaa9461f55c1fecdb86ad8fcd4fd4dca2a6957ed42b360d125cc5a671
+macos-universal | 3.1.2 | 19651010 bytes
+https://tal-software.com/downloads/plugins/TAL-Filter-2-installer_macos.zip
+SHA-256: 678eeb3c5f01b6eb9448ebfba33051f2840d31eae056dab60946e1e33aff9429
+linux-x86_64 | 3.1.2 | 6583243 bytes
+https://tal-software.com/downloads/plugins/TAL-Filter-2_64_linux.zip
+SHA-256: ca6c2f2b6d68dfe160a8a723549e51d2a74505b3cf8c462580bf5001f3847be9
+
+TAL-Vocoder | Modulation | Freeware
+Vintage-style vocoder with an internal synth carrier. Turns speech or rhythmic input into robotic, harmonically pitched textures. Play notes to shape the carrier while incoming audio supplies articulation; routing matters more than with an ordinary insert effect.
+Free; requires audio modulator and carrier/MIDI routing for vocoding.
+Official product/features/free status: https://tal-software.com/products/tal-vocoder
+Preview: https://tal-software.com/images/products/vocoder-3.jpg
+windows-x86_64 | 3.0.4 | 13444769 bytes
+https://tal-software.com/downloads/plugins/install_TAL-Vocoder-2.zip
+SHA-256: 27a280f13a9d92dda277d4b66748b9234849e85ef5df72e3c87bab315e3acdd5
+macos-universal | 3.0.4 | 16831054 bytes
+https://tal-software.com/downloads/plugins/TAL-Vocoder-2-installer_macos.zip
+SHA-256: 27e6959106ed60f92aaa78d757f92eb687ccf0125e459913826093f3ed188d42
+linux-x86_64 | 3.0.4 | 5422566 bytes
+https://tal-software.com/downloads/plugins/TAL-Vocoder-2_64_linux.zip
+SHA-256: bce4a942a37c0c42b87f9bc849e427641a71856dc0696d7eff42266a37a83ec6
+
+Voxengo OldSkoolVerb | Reverb | Freeware
+Algorithmic reverb for rooms, halls and plate-like spaces. Designed especially for smoother material such as vocals, piano and pads. Use it on a send to place several instruments in a shared space.
+Free OldSkoolVerb; the Plus version is a separate paid product.
+Official product/features/free status: https://www.voxengo.com/product/oldskoolverb/
+Preview: https://www.voxengo.com/cdn/img/49/49q6atm93.jpg
+macos-universal | 2.14 | 29375793 bytes
+https://www.voxengo.com/files/VoxengoOldSkoolVerb_214_Mac_AU_AAX_VST_setup.dmg
+SHA-256: f6ba1416e31d16d52becf8df7a602d9da22c5c015419fdada0ad8282f4ad2008
+windows-x86_64 | 2.14 | 7509256 bytes
+https://www.voxengo.com/files/VoxengoOldSkoolVerb_214_Win32_64_VST_VST3_AAX_setup.exe
+SHA-256: ff65291e30e2c38abc3b8bd89c47469f20905f6b50a7eed217f2c5c433915b30
+
+Voxengo Boogex | Saturation and distortion | Freeware
+Guitar amplifier and cabinet processor with convolution impulse-response support. Covers clean coloration through stronger distortion, with filtering and ambience controls. Useful for DI guitar tracks or for giving a synth a speaker-like character.
+Free; no account or activation.
+Official product/features/free status: https://www.voxengo.com/product/boogex/
+Preview: https://www.voxengo.com/cdn/img/28/28p1jew3g.jpg
+macos-universal | 3.8 | 48007700 bytes
+https://www.voxengo.com/files/VoxengoBoogex_38_Mac_AU_AAX_VST_setup.dmg
+SHA-256: 0a2e3d5e5230aae9f05a45d0c6d5494a0e181c4261c84e298016fd327a17072b
+windows-x86_64 | 3.8 | 10687176 bytes
+https://www.voxengo.com/files/VoxengoBoogex_38_Win32_64_VST_VST3_AAX_setup.exe
+SHA-256: 44048dbdc39bc7f19206925dbc81ba35e352225620f3adcfdbc588e6bab4003e
+
+Voxengo Marvel GEQ | EQ and filters | Freeware
+Sixteen-band linear-phase graphic equalizer for broad tonal shaping. Draw a curve across its bands to rebalance a track or bus, with multichannel and mid/side options. Linear-phase processing introduces latency, so it is best suited to mixing.
+Free; no account or activation.
+Official product/features/free status: https://www.voxengo.com/product/marvelgeq/
+Preview: https://www.voxengo.com/cdn/img/58/58uzyyykx.jpg
+macos-universal | 1.17 | 30469110 bytes
+https://www.voxengo.com/files/VoxengoMarvelGEQ_117_Mac_AU_AAX_VST_setup.dmg
+SHA-256: 10088c75129877881886ac9cf44b6a0bc869273b2762ad5a6e56d2071f12aad2
+windows-x86_64 | 1.17 | 7615288 bytes
+https://www.voxengo.com/files/VoxengoMarvelGEQ_117_Win32_64_VST_VST3_AAX_setup.exe
+SHA-256: 32502403cf6b0da776402e718c5605c4b1f0d0eeccad815de17eb8b7c8c9b8e7
+
+Voxengo Tube Amp | Saturation and distortion | Freeware
+Tube-style overdrive ranging from gentle warmth to stronger distortion. Use drive, filtering and output controls to thicken a track or soften its character. Useful on instruments and for parallel color alongside the clean signal.
+Free; no account or activation.
+Official product/features/free status: https://www.voxengo.com/product/tubeamp/
+Preview: https://www.voxengo.com/cdn/img/44/44ehotp6d.jpg
+macos-universal | 2.16 | 33376554 bytes
+https://www.voxengo.com/files/VoxengoTubeAmp_216_Mac_AU_AAX_VST_setup.dmg
+SHA-256: e538d8885b6d7adde82a8adf70cf1baa32d4ca1a911f2136208acda7896b5c79
+windows-x86_64 | 2.16 | 8561888 bytes
+https://www.voxengo.com/files/VoxengoTubeAmp_216_Win32_64_VST_VST3_AAX_setup.exe
+SHA-256: 123e3478ef333d6dee789d5293d2b3f51e198de4f7e60c470ef4eed22cb1e5c7
+
+u-he Podolski | Synthesizers | Freeware
+Lightweight virtual analog synthesizer with a flexible oscillator, multimode filter and arpeggiator/sequencer. Useful for quick basses, leads and rhythmic patterns. Built-in effects and presets help sketch ideas without a large instrument library.
+Free; no account or serial required.
+Official product/features/free status: https://u-he.com/products/podolski/
+Preview: https://u-he.com/products/podolski/assets/images/uhe-podolski-screenshot-fullui.jpg
+macos-universal | 1.2.3 | 53040979 bytes
+https://dl.u-he.com/releases/Podolski_123_12092_Mac.zip
+SHA-256: b3477dbd7306d733303bb3656798e8dbff2876cebc5057dd25bf05ae7162baa4
+windows-x86_64 | 1.2.3 | 36535299 bytes
+https://dl.u-he.com/releases/Podolski_123_12092_Win.zip
+SHA-256: d0ef1c3ee15a4377c4664114af08bd4cf1a7d2b7cbe504c8d5f4ff1df784c83a
+
+u-he Protoverb | Reverb | Freeware
+Experimental room reverb built around dense resonances. Randomized settings can create natural spaces or unusual textures, making it useful for ambience and exploratory sound design. Save settings you like before trying a new random configuration.
+Free; no account or serial required.
+Official product/features/free status: https://u-he.com/products/protoverb/
+Preview: https://u-he.com/products/protoverb/assets/images/uhe-protoverb-screenshot-fullui.jpg
+macos-universal | 1.0.1 | 25625800 bytes
+https://dl.u-he.com/releases/Protoverb_101_12092_Mac.zip
+SHA-256: 18d15e06620c14c41923bc59c0c61d7f4614afdd6174c399f5835c766c527eaf
+windows-x86_64 | 1.0.1 | 10634011 bytes
+https://dl.u-he.com/releases/Protoverb_101_12092_Win.zip
+SHA-256: 74068b721e993251c040820fa3eaf4cdb567e882f996a461253f902924a94794
+
+Xfer Dimension Expander | Stereo and routing | Freeware
+Stereo widening and short-delay effect inspired by dimension-style processing. Adds a wider, layered impression to synths, vocals and other sources with only a few controls. Compare in mono when using strong settings on important parts.
+Free; no account or serial required.
+Official product/features/free status: https://xferrecords.com/freeware
+Preview: Original identification icon
+windows-x86_64 | 1.24 | 4297640 bytes
+https://xferrecords.com/product_downloads/33/freeware
+SHA-256: b1054ce9b5407559be13b19e40ae6f2b1da77184e36f1ff228c8aacbd6e4c38c
+macos-universal | 1.24 | 13047628 bytes
+https://xferrecords.com/product_downloads/32/freeware
+SHA-256: 4e95a9a088c79aeaf44205f5c9cce748441940135b111891cccddf2d5cf8e7e4

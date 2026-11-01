@@ -637,7 +637,7 @@ impl App {
             let it = PItem::new(d.name.clone(), Cmd::MidiExt(Some(d.name.clone()))).mark(Mark::Radio(on));
             items.push(if cfg::input(&d.name).enabled { it } else { it.off() });
         }
-        self.state.playlist.popup = Some(Popup { x, y: y + 1.0, items, sub: None, scroll: [0; 2] });
+        self.state.playlist.popup = Some(Popup { x, y: y + 1.0, items, sub: None, scroll: [0; 2], cascade: Vec::new() });
         self.invalidate();
     }
 

@@ -149,14 +149,18 @@ struct Ctx<'a> {
 pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo, width: f32) {
     let t = ui.t;
     let lemon = super::lemon(ui);
-    let l = &s.bar.layout;
     let editing = s.bar.editing;
+    let mut visible_layout = s.bar.layout.clone();
+    if !editing { for row in &mut visible_layout.rows { row.retain(|p| *p != Panel::Caption); } }
+    let l = &visible_layout;
     let action_font = Font::new(12);
     let update_w = ui.c.text_width(action_font, "Update").ceil() + 12.0;
     let donate_w = ui.c.text_width(action_font, "Donate").ceil() + 12.0;
-    let actions_w = update_w + donate_w + 12.0;
+    let ai_w=48.;
+    let window_w = 104.0;
+    let actions_w = ai_w + update_w + donate_w + 18.0 + 32.0 + window_w;
     let content_width = (width - actions_w).max(100.0);
-    let fit = fit(s, content_width);
+    let fit = room(content_width, crate::toolbar::natural_width(l, editing));
     let (rows, h) = (l.rows.len(), l.height());
     // Separator lines: off from the Toolbars menu (spec: ui/toolbar-menu.md §2).
     let seps = s.toolbar.separators;
@@ -218,7 +222,14 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo, width: f32) {
     }
 
     {
-        let r = Rect::new(width - actions_w + 2.0, 8.0, update_w, 24.0);
+        let ai=Rect::new(width-actions_w+2.,8.,ai_w,24.);
+        let hover=ui.hit(ai,Action::Ai,if !s.ai.enabled {"AI control is off — connect an assistant"}else if s.ai.client.is_empty(){"AI control enabled — waiting for an approved assistant"}else{"AI assistant connected — manage or disconnect"});
+        ui.c.fill_rrect(ai,3.,if hover{t.button_hi}else{t.sunken});
+        let chip=Rect::new(ai.x+6.,ai.y+7.,10.,10.);let ink=if s.ai.enabled{t.accent}else{t.text_dim};
+        ui.c.stroke_rrect(chip,2.,1.,ink);for d in [2.,5.,8.] {ui.c.line(chip.x-2.,chip.y+d,chip.x,chip.y+d,1.,ink);ui.c.line(chip.right(),chip.y+d,chip.right()+2.,chip.y+d,1.,ink);}
+        ui.c.text_clip(action_font,ai.x+22.,ai.y+5.,20.,t.text,"AI");
+        if !s.ai.client.is_empty(){ui.c.fill_circle(ai.right()-3.,ai.y+3.,2.,t.accent);}
+        let r = Rect::new(ai.right()+6., 8.0, update_w, 24.0);
         let (label, hint) = crate::updates::display();
         ui.hit(r, Action::Updates, if !cfg!(windows) { "Open the latest downloads".to_string() } else if hint.is_empty() { "Automatic updates: check now".to_string() } else { hint });
         ui.c.fill_rrect(r, 3.0, t.sunken);
@@ -227,6 +238,18 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo, width: f32) {
         ui.hit(donate, Action::Donate, "Donate through Michael Lane's PayPal.me page");
         ui.c.fill_rrect(donate, 3.0, t.sunken);
         ui.c.text_clip(action_font, donate.x + 6.0, donate.y + 5.0, donate.w - 12.0, t.text, "Donate");
+    }
+    // Window controls remain at the far right, outside the customizable panels.
+    ui.c.fill_rect(Rect::new(width-window_w-17.,11.,1.,18.),t.toolbar_line);
+    for (offset, icon, action, hint) in [
+        (0., Icon::Minimize, Action::Minimize, "Minimize"),
+        (32., Icon::Restore, Action::Maximize, "Restore / maximize"),
+        (64., Icon::Close, Action::Close, "Exit Lemon Studio"),
+    ] {
+        let r=Rect::new(width-window_w+offset,8.,30.,24.);
+        let hover=ui.hit(r,action,hint);
+        super::button_face(ui,r,if hover {super::Look::Hover}else{super::Look::Off});
+        icons::draw(ui.c,icon,r.inset(6.),t.glyph);
     }
     // Panels left out (spec: ui/ui-scaling.md §1 "Toolbars scaling"): the ▶ arrow at the band's right end, in the logo's
     // place. Hovering it says why; a click does nothing.
@@ -271,7 +294,7 @@ fn separator(ui: &mut Ui, x: f32, row: usize, lemon: bool) {
 /// Paints panel `p`; false when one of its buttons did not fit (its row ends there).
 fn panel(ui: &mut Ui, c: &Ctx, p: Panel) -> bool {
     match p {
-        Panel::Caption => caption(ui, c),
+        Panel::Caption => { if c.preview { caption(ui, c); } },
         Panel::Hint => hint_panel(ui, c),
         Panel::Transport => transport(ui, c),
         Panel::Recording => return recording(ui, c),

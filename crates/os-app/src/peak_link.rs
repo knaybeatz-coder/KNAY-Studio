@@ -17,7 +17,7 @@ pub fn popup(s:&State,target:u32,value:f64,x:f32,y:f32)->crate::playlist::Popup 
   items.push(PItem::sub("Release",[50,150,300,600].into_iter().map(|ms|PItem::new(format!("{ms} ms"),Cmd::PeakLink(Command::Release(target,ms))).mark(crate::playlist::Mark::Radio(l.release_ms==ms))).collect()));
   items.push(PItem::new("Remove audio-level link",Cmd::PeakLink(Command::Remove(target))));
  }
- crate::playlist::Popup{x,y,items,sub:None,scroll:[0;2]}
+ crate::playlist::Popup{x,y,items,sub:None,scroll:[0;2], cascade: Vec::new()}
 }
 pub fn run(s:&mut State,cmd:Command){
  history::record(s,"Audio-level link",Snap::PeakLinks(s.project.peak_links.clone()));

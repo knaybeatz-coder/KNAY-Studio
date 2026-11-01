@@ -172,11 +172,12 @@ struct Mix {
     /// One source's block, and the sum of all of them (interleaved stereo).
     one: Vec<f32>,
     sum: Vec<f32>,
+    headphones: crate::headphones::Processor,
 }
 
 impl Mix {
     fn new(inbox: Arc<Queue>, outbox: Arc<Queue>) -> Mix {
-        Mix { sources: Vec::with_capacity(MAX_SOURCES), inbox, outbox, one: Vec::with_capacity(2 * MAX_FRAMES), sum: Vec::with_capacity(2 * MAX_FRAMES) }
+        Mix { headphones: Default::default(), sources: Vec::with_capacity(MAX_SOURCES), inbox, outbox, one: Vec::with_capacity(2 * MAX_FRAMES), sum: Vec::with_capacity(2 * MAX_FRAMES) }
     }
 
     /// The next `frames` frames of every source, summed (interleaved stereo, not clipped).
@@ -214,6 +215,7 @@ impl Mix {
             }
             i += 1;
         }
+        self.headphones.process(&mut self.sum);
         &self.sum
     }
 }
@@ -547,11 +549,11 @@ fn queues(xruns: &Arc<AtomicU64>) -> (Arc<Queue>, Arc<Queue>, Errors) {
     (Arc::new(Queue::new(MAX_SOURCES)), Arc::new(Queue::new(MAX_SOURCES)), errors)
 }
 
-/// Opens ASIO driver `name`, at the rate and buffer length of `cfg` when it takes them.
+/// Opens ASIO driver `name` at the requested rate and the buffer size set in its own panel.
 #[cfg(windows)]
 fn open_asio(name: &str, cfg: &AudioCfg, xruns: &Arc<AtomicU64>) -> Result<Open, String> {
     let (inbox, outbox, errors) = queues(xruns);
-    let a = asio::open(name, cfg.rate, cfg.buffer, Mix::new(inbox.clone(), outbox.clone()), errors.clone())?;
+    let a = asio::open(name, cfg.rate, None, Mix::new(inbox.clone(), outbox.clone()), errors.clone())?;
     let (fixed, buffers) = (Some(a.frames), Some(a.buffers));
     let info = DeviceInfo { host: ASIO, name: name.to_string(), rate: a.rate, fixed, buffers, channels: a.channels, inputs: a.inputs, input_latency: a.input_latency, rates: a.rates, sizes: a.sizes, latency: a.latency, instead: None };
     Ok(Open { _stream: Stream::Asio(a.out), inbox, outbox, info, note: None, failed: errors.failed, fault: errors.fault })
@@ -637,6 +639,7 @@ fn build<T>(device: &cpal::Device, config: &StreamConfig, mut mix: Mix, errors: 
 where
     T: SizedSample + FromSample<f32>,
 {
+    mix.headphones.set_rate(config.sample_rate);
     let channels = usize::from(config.channels);
     device
         .build_output_stream::<T, _, _>(
@@ -687,6 +690,24 @@ mod tests {
     fn mix(capacity: usize) -> (Mix, Arc<Queue>, Arc<Queue>) {
         let (inbox, outbox) = (Arc::new(Queue::new(capacity)), Arc::new(Queue::new(capacity)));
         (Mix::new(inbox.clone(), outbox.clone()), inbox, outbox)
+    }
+
+    #[test]
+    fn headphone_correction_is_after_the_summed_device_streams() {
+        use crate::settings_file as sf;
+        let text="Preamp: -6 dB\nFilter 1: ON PK Fc 1000 Hz Gain 0 dB Q 1";
+        sf::write("headphones_profile",&serde_json::to_string(text).unwrap());
+        sf::write("headphones_model","Synthetic test headphones");
+        sf::write("headphones_on","true");
+        let restored=crate::headphones::UiState::default();assert!(restored.on);assert_eq!(restored.name,"Synthetic test headphones");
+        let (mut m,inbox,_)=mix(4);m.headphones.set_rate(48000);
+        let (a,_,_)=level(0.25);let (b,_,_)=level(0.5);
+        assert!(inbox.push(a).is_ok() && inbox.push(b).is_ok());
+        for _ in 0..20 {m.block(64);}
+        assert!(m.block(64).iter().all(|v|(*v-0.75*10f32.powf(-6./20.)).abs()<0.00001));
+        sf::write("headphones_on","false");let _=crate::headphones::UiState::default();
+        for _ in 0..20 {m.block(64);}
+        assert!(m.block(64).iter().all(|v|*v==0.75));
     }
 
     /// No source: silence, as long as the device asks.

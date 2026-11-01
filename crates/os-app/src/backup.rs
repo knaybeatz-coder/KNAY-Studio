@@ -4,9 +4,9 @@
 
 //! Project backups (settings window, File ▸ Backup). While a project is open the interval of the Autosave choice runs;
 //! when it ends and the project changed since the last backup or save, the project is written to
-//! `<user folder>/Projects/Backup` as `<name> (autosaved on M-D-YYYY at HhMM).flp`, and the oldest autosaves of that
+//! `<user folder>/Projects/Backup` as `<name> (autosaved on M-D-YYYY at HhMM).lmn`, and the oldest autosaves of that
 //! name beyond Maximum are deleted. Saving over a file first copies the old file there as
-//! `<name> (overwritten on M-D-YYYY at HhMM).flp`. With Location's "project data folder" (the default), a project with a
+//! `<name> (overwritten on M-D-YYYY at HhMM).lmn`. With Location's "project data folder" (the default), a project with a
 //! data folder backs up to `<data folder>/Backup` instead (`crate::data_folder::backup_folder`). Not yet: Never's
 //! reminder and the backups "before risky operations".
 // spec: ui/settings-choices.md "Backup files", ui/data-folder.md §3
@@ -57,9 +57,9 @@ pub fn stamp(t: NaiveDateTime) -> String {
     format!("{}-{}-{} at {}h{:02}", t.month(), t.day(), t.year(), t.hour(), t.minute())
 }
 
-/// A backup's file name: `<name> (<what> on <stamp>).flp`; `what` is "autosaved" or "overwritten".
+/// A backup's file name: `<name> (<what> on <stamp>).lmn`; `what` is "autosaved" or "overwritten".
 pub fn file_name(name: &str, what: &str, t: NaiveDateTime) -> String {
-    format!("{name} ({what} on {}).flp", stamp(t))
+    format!("{name} ({what} on {}).lmn", stamp(t))
 }
 
 /// The name backups give the project: its file's, or `untitled` for a project never saved.
@@ -75,7 +75,8 @@ fn autosaved_at(file: &str, name: &str) -> Option<(u32, u32, u32, u32, u32)> {
 /// When backup `file` of `name` was written, if it is one of kind `what` ("autosaved" or "overwritten"): (year,
 /// month, day, hour, minute).
 pub(crate) fn saved_at(file: &str, name: &str, what: &str) -> Option<(u32, u32, u32, u32, u32)> {
-    let rest = file.strip_prefix(name)?.strip_prefix(" (")?.strip_prefix(what)?.strip_prefix(" on ")?.strip_suffix(").flp")?;
+    let file = file.strip_suffix(".flp").map(|s|format!("{s}.lmn")).unwrap_or_else(||file.to_string());
+    let rest = file.strip_prefix(name)?.strip_prefix(" (")?.strip_prefix(what)?.strip_prefix(" on ")?.strip_suffix(").lmn")?;
     let (date, time) = rest.split_once(" at ")?;
     let mut d = date.split('-').map(str::parse::<u32>);
     let (Some(Ok(m)), Some(Ok(day)), Some(Ok(y)), None) = (d.next(), d.next(), d.next(), d.next()) else { return None };
@@ -103,7 +104,7 @@ pub fn prune(dir: &Path, name: &str, max: usize) {
 }
 
 /// Before the project is saved over `target`: an existing file there is copied to the backup folder `dir` as
-/// `<name> (overwritten on ...).flp` (a copy of that name made earlier in the same minute is kept).
+/// `<name> (overwritten on ...).lmn` (a copy of that name made earlier in the same minute is kept).
 pub fn keep_overwritten(target: &Path, dir: Option<PathBuf>) {
     let Some(dir) = dir.filter(|_| target.is_file()) else { return };
     let to = dir.join(file_name(&project_name(Some(target)), "overwritten", chrono::Local::now().naive_local()));
@@ -193,12 +194,13 @@ mod tests {
 
     #[test]
     fn names_follow_fl() {
-        assert_eq!(file_name("gs7", "autosaved", at(10, 15, 0, 13)), "gs7 (autosaved on 10-15-2026 at 0h13).flp");
-        assert_eq!(file_name("untitled", "overwritten", at(3, 4, 18, 5)), "untitled (overwritten on 3-4-2026 at 18h05).flp");
+        assert_eq!(file_name("gs7", "autosaved", at(10, 15, 0, 13)), "gs7 (autosaved on 10-15-2026 at 0h13).lmn");
+        assert_eq!(file_name("untitled", "overwritten", at(3, 4, 18, 5)), "untitled (overwritten on 3-4-2026 at 18h05).lmn");
         assert_eq!(project_name(None), "untitled");
-        assert_eq!(project_name(Some(Path::new("/music/My song.flp"))), "My song");
+        assert_eq!(project_name(Some(Path::new("/music/My song.lmn"))), "My song");
+        assert_eq!(autosaved_at("gs7 (autosaved on 10-15-2026 at 0h13).lmn", "gs7"), Some((2026, 10, 15, 0, 13)));
         assert_eq!(autosaved_at("gs7 (autosaved on 10-15-2026 at 0h13).flp", "gs7"), Some((2026, 10, 15, 0, 13)));
-        for other in ["gs7 (overwritten on 10-15-2026 at 0h13).flp", "gs70 (autosaved on 10-15-2026 at 0h13).flp", "gs7.flp"] {
+        for other in ["gs7 (overwritten on 10-15-2026 at 0h13).lmn", "gs70 (autosaved on 10-15-2026 at 0h13).lmn", "gs7.lmn"] {
             assert_eq!(autosaved_at(other, "gs7"), None, "{other}");
         }
         assert_eq!(interval(2), Some(Duration::from_secs(600)), "Occasionally");
@@ -271,7 +273,7 @@ mod tests {
         let mut app = App::new(None);
         let work = dir.join("work");
         std::fs::create_dir_all(&work).unwrap();
-        let song = work.join("song.flp");
+        let song = work.join("song.lmn");
         app.save_to(song.clone());
         assert!(song.is_file());
         assert_eq!(names(&dir), ["work"], "a new file: nothing saved over");

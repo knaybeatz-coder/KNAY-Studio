@@ -60,6 +60,7 @@ pub struct FrameInfo {
     pub sounding: Vec<(u16, u16)>,
     /// The song position slider's handle is being dragged (it shows the dragged position, not the playhead).
     pub song_pos_drag: bool,
+    pub active_knob: Option<crate::knobs::KnobId>,
     /// What the toolbar editor's drag carries (spec: ui/toolbar-menu.md §8).
     pub bar_drag: Option<crate::toolbar::BarDrag>,
 }
@@ -245,6 +246,7 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo) -> usize {
     }
     let overlays = ui.hit_count();
     if s.native_view != s.native_input {return overlays;}
+    crate::plugin_downloads::paint_tooltip(ui, s);
     // The toolbar editor's palette goes over the windows, which docked plugin windows leave free like any overlay (spec:
     // ui/toolbar-menu.md §8).
     if s.bar.editing && !s.toolbar.hidden {

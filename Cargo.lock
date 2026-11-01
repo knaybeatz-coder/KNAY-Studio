@@ -2945,6 +2945,7 @@ dependencies = [
  "crossbeam-queue",
  "ed25519-dalek",
  "flacenc",
+ "getrandom 0.3.4",
  "jpeg-decoder",
  "lemon-3x-osc",
  "lemon-balance",

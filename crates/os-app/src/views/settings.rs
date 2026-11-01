@@ -288,6 +288,7 @@ pub const LIVE: &[&str] = &[
     "Reset",
     ASSOCIATE_CHECK,
     SHOW_ASIO_PANEL,
+    RESET_UNDERRUNS,
 ];
 
 /// MIDI: lists the devices again (`App::midi_refresh`); Update MIDI scripts stays greyed with its reason.
@@ -321,6 +322,8 @@ pub const MODE_EXCLUSIVE: &str = "Exclusive (Lemon Studio alone, smaller buffers
 #[cfg(target_os = "linux")]
 pub const MODE_EXCLUSIVE: &str = "Exclusive (ALSA directly, past the sound server)";
 const MODE_ASIO: &str = "Mode: for Windows devices (an ASIO driver plays on its own terms)";
+/// Reset the visible counter without erasing lifetime diagnostic totals.
+pub const RESET_UNDERRUNS: &str = "Reset underruns";
 /// With an ASIO driver: its own settings window, where its buffer length is set.
 pub const SHOW_ASIO_PANEL: &str = "Show ASIO panel";
 /// Show ASIO panel's hint while no ASIO driver is open.
@@ -634,11 +637,13 @@ pub fn page(tab: usize, s: &State) -> Vec<Group> {
                     },
                     vec![
                         combo(&rate_text, 120.0, SAMPLE_RATE),
-                        combo(&buffer, 190.0, BUFFER_LENGTH),
+                        if asio {
+                            Text(st.driver.as_ref().and_then(|d| d.fixed.map(|b| format!("Buffer: {} - set in ASIO panel", buffer_text(b, d.rate)))).unwrap_or_else(|| "Buffer: controlled by ASIO panel".into()), true)
+                        } else { combo(&buffer, 190.0, BUFFER_LENGTH) },
                         Check("Auto close", false),
                     ],
                     st.instead.iter().map(|i| Text(i.clone(), true)).collect(),
-                    vec![Text(st.status[0].clone(), true), Text(st.status[1].clone(), true)],
+                    vec![Text(st.status[0].clone(), true), Text(st.status[1].clone(), true), Buttons(vec![(RESET_UNDERRUNS, 136.0)])],
                     // Below Status, as FL has it; there are ASIO drivers on Windows only. The ASIO logo goes with them
                     // (the SDK's usage guidelines: in every dialog that switches ASIO on). With none installed, a line
                     // says to install one.

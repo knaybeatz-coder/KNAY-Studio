@@ -28,7 +28,12 @@ pub enum MHit {
     Polarity(u16),
     Swap(u16),
     Effects(u16),
+    StripBypass(u16),
     AllEffects,
+    Headphones,
+    HeadphonesToggle,
+    MasterAssistant,
+    MasterAssistantToggle,
     Jump(u16, Section),
     Meter(u16),
     CompProfile(u16),
@@ -45,8 +50,11 @@ pub enum MHit {
     InsertBefore(u16),
     Options,
     Layout,
+    View(u8),
     /// Effect slot `n` of the current track: name, ▸ arrow, LED.
     SlotName(u8),
+    AddSlot,
+    SlotScroll,
     SlotArrow(u8),
     SlotLed(u8),
     /// The level scale column.
@@ -128,7 +136,8 @@ pub enum MCmd {
     InsertOne(u16),
     /// Route the selected tracks to `dst`: only = drop their other routes, side = sidechain (level 0).
     Route { dst: u16, only: bool, side: bool },
-    /// Layout menu: Wide (the only layout drawn; the others are greyed out).
+    QuickSidechain(u16),
+    /// Compact or full mixer view.
     Layout(u8),
     InspectorLeft,
     Separator(u16),
@@ -166,9 +175,14 @@ pub enum FxReq {
     Remap(Vec<((u16, u8), (u16, u8))>),
 }
 
-pub const LAYOUTS: [&str; 8] = ["Compact", "Compact 2", "Compact alt", "Wide", "Wide 2", "Wide 3", "Wide alt", "Extra large"];
-/// Index of "Wide" (the only layout drawn).
+/// Full view keeps the existing wide layout identifier.
 pub const WIDE: u8 = 3;
+pub const COMPACT: u8 = 0;
+pub fn set_layout(s: &mut State, layout: u8) {
+    let old=crate::views::mixer::strip_width(s);
+    s.mixer.layout=if layout==COMPACT {COMPACT} else {WIDE};
+    s.mixer_scroll*=crate::views::mixer::strip_width(s)/old;
+}
 
 /// Mixer state that is not project data.
 #[derive(Debug,Clone,PartialEq)]
@@ -176,6 +190,8 @@ pub struct ChannelCopy {pub track:MixerTrack,pub names:HashMap<u8,String>}
 
 pub struct MixerUi {
     pub mini_eq: crate::mini_eq::View,
+    pub slot_scroll: HashMap<u16,usize>,
+    pub slots_shown: HashMap<u16,usize>,
     pub clipboard: Option<ChannelCopy>,
     pub recording: crate::mixer_recording::Setup,
     /// Session-wide audition bypass; individual track/slot choices remain untouched.
@@ -202,7 +218,7 @@ pub struct MixerUi {
 
 impl Default for MixerUi {
     fn default() -> Self {
-        MixerUi { mini_eq: Default::default(), clipboard:None, recording: Default::default(), all_fx_bypassed: false, peak_view: Default::default(), sel: Vec::new(), layout: WIDE, slot_names: HashMap::new(), pending: Vec::new(), meters: Vec::new(),
+        MixerUi { slot_scroll: HashMap::new(), slots_shown: HashMap::new(), mini_eq: Default::default(), clipboard:None, recording: Default::default(), all_fx_bypassed: false, peak_view: Default::default(), sel: Vec::new(), layout: WIDE, slot_names: HashMap::new(), pending: Vec::new(), meters: Vec::new(),
             meter_cfg: Default::default(), meter_at: None, solo: None, wheel_grab: None }
     }
 }
@@ -322,7 +338,7 @@ pub fn sep_text(sep: f64) -> String {
 }
 
 /// Would a route `src` -> `dst` make a loop (dst already reaches src)?
-fn makes_loop(s: &State, src: u16, dst: u16) -> bool {
+pub(crate) fn makes_loop(s: &State, src: u16, dst: u16) -> bool {
     let mut seen = vec![dst];
     let mut i = 0;
     while i < seen.len() {
@@ -378,9 +394,13 @@ pub(crate) fn snapshot_faders(s:&mut State,group:&[(u16,f64)]) {
 
 /// Left click (or press) on a mixer control.
 pub fn hit(app: &mut App, h: MHit) -> Option<String> {
+    if h==MHit::MasterAssistant {crate::master_assistant::open(app,false);return None;}
+    if h==MHit::MasterAssistantToggle {crate::master_assistant::open(app,true);return None;}
+    if h==MHit::Headphones {crate::headphones::open(app);return None;}
+    if h==MHit::HeadphonesToggle {crate::headphones::toggle(app);return None;}
     if let MHit::Jump(_, section) = h {
         if let Some(n) = section.target(&app.state) {
-            app.scroll_set(crate::app::Scroll::MixerX, f32::from(n.saturating_sub(1)) * crate::views::mixer::STRIP_W);
+            app.scroll_set(crate::app::Scroll::MixerX, f32::from(n.saturating_sub(1)) * crate::views::mixer::strip_width(&app.state));
             app.invalidate();
         }
         return None;
@@ -390,8 +410,9 @@ pub fn hit(app: &mut App, h: MHit) -> Option<String> {
     let at = app.mouse;
     let s = &mut app.state;
     match h {
+        MHit::View(mode)=>{set_layout(s,mode);None}
         MHit::Input(t)=>{s.playlist.popup=Some(crate::mixer_recording::input_menu(s,t,at.0,at.1+10.));None}
-        MHit::Disk(_)=>None,
+        MHit::Disk(_) | MHit::Headphones | MHit::HeadphonesToggle | MHit::MasterAssistant | MHit::MasterAssistantToggle=>None,
         MHit::TunePower(n)=>{
             let m=track(s,n)?;if !m.is_vocal(){return None;}let old=m.tune_enabled;
             crate::history::record(s,"Tune on/off",crate::history::Snap::TuneEnabled(n,old));
@@ -436,13 +457,13 @@ pub fn hit(app: &mut App, h: MHit) -> Option<String> {
         MHit::DriveType(n) => {
             let now=track(s,n)?.strip[6];
             let items=os_dsp::channel_strip::DRIVE_TYPES.iter().enumerate().map(|(i,p)|PItem::new(*p,Cmd::Mixer(MCmd::DriveType(n,i as u8))).mark(Mark::Radio(now==i as u16))).collect();
-            s.playlist.popup=Some(Popup{x:at.0,y:at.1,items,sub:None,scroll:[0;2]});
+            s.playlist.popup=Some(Popup{x:at.0,y:at.1,items,sub:None,scroll:[0;2], cascade: Vec::new()});
             None
         }
         MHit::CompProfile(n) => {
             let now=track(s,n)?.strip[5];
             let items=os_dsp::channel_strip::PROFILES.iter().enumerate().map(|(i,p)|PItem::new(p.name,Cmd::Mixer(MCmd::CompProfile(n,i as u8))).mark(Mark::Radio(now==i as u16))).collect();
-            s.playlist.popup=Some(Popup {x:at.0,y:at.1,items,sub:None,scroll:[0;2]});
+            s.playlist.popup=Some(Popup {x:at.0,y:at.1,items,sub:None,scroll:[0;2], cascade: Vec::new()});
             None
         }
         MHit::Meter(n) => {
@@ -459,6 +480,13 @@ pub fn hit(app: &mut App, h: MHit) -> Option<String> {
                 crate::history::record(s, "All mixer effects bypass", crate::history::Snap::AllEffects(s.mixer.all_fx_bypassed));
                 s.mixer.all_fx_bypassed = !s.mixer.all_fx_bypassed;
             }
+            changed(s);
+            None
+        }
+        MHit::StripBypass(n) => {
+            let old=track(s,n)?.strip_bypassed;
+            crate::history::record(s,"Mixer knobs bypass",crate::history::Snap::StripBypass(n,old));
+            track_mut(s,n)?.strip_bypassed=!old;
             changed(s);
             None
         }
@@ -502,6 +530,8 @@ pub fn hit(app: &mut App, h: MHit) -> Option<String> {
             s.playlist.popup = Some(layout_menu(s, at.0, at.1 + 10.0));
             None
         }
+        MHit::SlotScroll => None,
+        MHit::AddSlot => { let n=s.selected_mixer;let count=slot_count(s,n).saturating_add(1).min(63);s.mixer.slots_shown.insert(n,count);s.mixer.slot_scroll.insert(n,count.saturating_sub(10)); None },
         MHit::SlotName(i) => {
             let t = s.selected_mixer;
             if slot_name(s, t, i).is_some() {
@@ -574,16 +604,19 @@ pub fn right(app: &mut App, h: MHit) -> bool {
                 PItem::new("Route to this track", Cmd::Mixer(MCmd::Route { dst, only: false, side: false })),
                 PItem::new("Route to this track only", Cmd::Mixer(MCmd::Route { dst, only: true, side: false })),
                 PItem::sep(),
+                PItem::new("Quick Sidechain", Cmd::Mixer(MCmd::QuickSidechain(dst))),
                 PItem::new("Sidechain to this track", Cmd::Mixer(MCmd::Route { dst, only: false, side: true })),
                 PItem::new("Sidechain to this track only", Cmd::Mixer(MCmd::Route { dst, only: true, side: true })),
             ];
-            s.playlist.popup = Some(Popup { x: at.0, y: at.1, items, sub: None, scroll: [0; 2] });
+            s.playlist.popup = Some(Popup { x: at.0, y: at.1, items, sub: None, scroll: [0; 2], cascade: Vec::new() });
         }
         // The slot's plugin menu, like a left click (spec: ui/plugin-menu.md §1).
         MHit::SlotArrow(i) => {
             let t = s.selected_mixer;
             s.playlist.popup = Some(if slot_name(s, t, i).is_some() { slot_menu(s, i, at.0, at.1) } else { effect_menu(s, i, at.0, at.1) });
         }
+        MHit::SlotScroll => {},
+        MHit::AddSlot => { let n=s.selected_mixer;let count=slot_count(s,n).saturating_add(1).min(63);s.mixer.slots_shown.insert(n,count);s.mixer.slot_scroll.insert(n,count.saturating_sub(10)); },
         MHit::SlotName(i) => {
             let t = s.selected_mixer;
             if slot_name(s, t, i).is_some() {
@@ -596,8 +629,8 @@ pub fn right(app: &mut App, h: MHit) -> bool {
             // Solo the slot: the track's other slots are bypassed (§7).
             let t = s.selected_mixer;
             if let Some(m) = track_mut(s, t) {
-                let only = (0..10).all(|k| m.slot_on[k] == (k == usize::from(i)));
-                for k in 0..10 {
+                let only = (0..64).filter(|k|*k!=10).all(|k| m.slot_on[k] == (k == usize::from(i)));
+                for k in (0..64).filter(|k|*k!=10) {
                     m.slot_on[k] = only || k == usize::from(i);
                 }
                 changed(s);
@@ -634,12 +667,12 @@ pub fn slot_wheel(app: &mut App, slot: u8, notches: i32) {
     };
     let d: i8 = if notches > 0 { -1 } else { 1 };
     for _ in 0..notches.unsigned_abs() {
-        let to = i32::from(slot) + i32::from(d);
-        if !(0..10).contains(&to) {
+        let to = user_slot_index(slot) as i32 + i32::from(d);
+        if !(0..63).contains(&to) {
             break;
         }
         run(app, MCmd::SlotMove(slot, d));
-        slot = to as u8;
+        slot = user_slot(to as usize);
     }
     app.state.mixer.wheel_grab = Some((t, slot, at));
 }
@@ -852,14 +885,14 @@ fn remove_tracks(s: &mut State, gone: &[u16]) -> Option<String> {
     s.mixer.recording.inputs=std::mem::take(&mut s.mixer.recording.inputs).into_iter().filter_map(|(t,i)|Some((m(t)?,i))).collect();
     s.mixer.recording.armed=s.mixer.recording.armed.iter().copied().filter_map(m).collect();
     for &t in gone {
-        for slot in 0..11 {
+        for slot in 0..64 {
             s.mixer.pending.push(FxReq::Delete { track: t, slot });
         }
     }
     let mut map = Vec::new();
     for (&o, &n) in &new_of {
         if o != n {
-            map.extend((0..11u8).map(|slot| ((o, slot), (n, slot))));
+            map.extend((0..64u8).map(|slot| ((o, slot), (n, slot))));
         }
     }
     s.mixer.pending.push(FxReq::Remap(map));
@@ -1008,7 +1041,7 @@ fn renumber(s: &mut State, m: &dyn Fn(u16) -> u16, from: u16, to: u16, d: i32) {
     s.mixer.slot_names = std::mem::take(&mut s.mixer.slot_names).into_iter().map(|((t, k), v)| ((m(t), k), v)).collect();
     let mut map = Vec::new();
     for t in &old {
-        for k in 0..11u8 {
+        for k in 0..64u8 {
             map.push(((t.index, k), (m(t.index), k)));
         }
     }
@@ -1091,7 +1124,7 @@ fn delete_track(s: &mut State, n: u16) -> Option<String> {
     for c in s.project.channels.iter_mut().filter(|c| c.mixer_track == n) {
         c.mixer_track = 0;
     }
-    for k in 0..11 {
+    for k in 0..64 {
         s.mixer.pending.push(FxReq::Delete { track: n, slot: k });
     }
     s.mixer.slot_names.retain(|(t, _), _| *t != n);
@@ -1125,7 +1158,7 @@ fn delete_track(s: &mut State, n: u16) -> Option<String> {
     }
     let mut map = Vec::new();
     for t in n + 1..hidden {
-        for k in 0..11u8 {
+        for k in 0..64u8 {
             map.push(((t, k), (t - 1, k)));
         }
     }
@@ -1164,7 +1197,7 @@ const COLORS: [(&str, u32); 8] = [
 pub fn track_menu(s: &State, n: u16, x: f32, y: f32) -> Popup {
     let mut items = vec![PItem::head(format!("Mixer track ({})", name(s, n)))];
     items.extend(track_items(s, n));
-    Popup { x, y, items, sub: None, scroll: [0; 2] }
+    Popup { x, y, items, sub: None, scroll: [0; 2], cascade: Vec::new() }
 }
 
 fn track_items(s: &State, n: u16) -> Vec<PItem> {
@@ -1222,27 +1255,23 @@ pub fn options_menu(s: &State, x: f32, y: f32) -> Popup {
         PItem::head(format!("Mixer track ({})", name(s, s.selected_mixer))),
     ];
     items.extend(track_items(s, s.selected_mixer));
-    Popup { x, y, items, sub: None, scroll: [0; 2] }
+    Popup { x, y, items, sub: None, scroll: [0; 2], cascade: Vec::new() }
 }
 
-/// Layout combo menu (§6.4): only Wide is drawn, the other layouts are greyed out.
+/// The compact and full views also available on the mixer toolbar.
 pub fn layout_menu(s: &State, x: f32, y: f32) -> Popup {
     let mut items = Vec::new();
-    for (i, &l) in LAYOUTS.iter().enumerate() {
-        if i == 7 {
-            items.push(PItem::sep());
-        }
-        let on = Mark::Radio(s.mixer.layout == i as u8);
-        items.push(if i as u8 == WIDE { PItem::new(l, Cmd::Mixer(MCmd::Layout(i as u8))) } else { PItem::not_yet(l) }.mark(on));
+    for (mode,label) in [(COMPACT,"Compact"),(WIDE,"Full")] {
+        items.push(PItem::new(label,Cmd::Mixer(MCmd::Layout(mode))).mark(Mark::Radio(s.mixer.layout==mode)));
     }
-    Popup { x, y, items, sub: None, scroll: [0; 2] }
+    Popup { x, y, items, sub: None, scroll: [0; 2], cascade: Vec::new() }
 }
 
 /// Empty slot: the effect list (§7.1), the plugin menu for this slot (spec: ui/plugin-menu.md).
 pub fn effect_menu(s: &State, slot: u8, x: f32, y: f32) -> Popup {
     let mut items = vec![PItem::not_yet("Plugin database").key(crate::shortcuts::menu_key("Plugin database", "Shift+F8")), PItem::sep()];
     items.extend(crate::plugin_menu::items(s, crate::plugin_menu::Target::Fx(Some(slot)), false));
-    Popup { x, y, items, sub: None, scroll: [0; 2] }
+    Popup { x, y, items, sub: None, scroll: [0; 2], cascade: Vec::new() }
 }
 
 /// Filled slot ▸ (§7.2).
@@ -1284,7 +1313,7 @@ pub fn slot_menu(s: &State, slot: u8, x: f32, y: f32) -> Popup {
         PItem::sub("Scaling", vec![PItem::not_yet("100%")]),
         PItem::not_yet("Help"),
     ];
-    Popup { x, y, items, sub: None, scroll: [0; 2] }
+    Popup { x, y, items, sub: None, scroll: [0; 2], cascade: Vec::new() }
 }
 
 /// The tracks routed into track `n`, in track order: its inputs, numbered from 1 (spec: audio/sidechain.md "Settings").
@@ -1313,6 +1342,7 @@ fn sidechain_items(s: &State, slot: u8) -> Vec<PItem> {
 pub fn run(app: &mut App, c: MCmd) -> Option<String> {
     if app.audio_rec.is_some()&&matches!(c,MCmd::MoveLeft(_)|MCmd::MoveRight(_)|MCmd::Delete(_)|MCmd::InsertOne(_)|MCmd::Trim{..}){return Some("Stop the take before moving or removing mixer tracks".into());}
     match c {
+        MCmd::QuickSidechain(dst)=>return crate::quick_sidechain::run(app,dst),
         MCmd::Detach=>{app.act(Action::DetachWin(Win::Mixer));return None;},
         MCmd::RecordInput(t,i)=>return app.set_mixer_input(t,i),
         MCmd::ArmDisk(t)=>return app.arm_mixer_disk(t),
@@ -1336,7 +1366,7 @@ pub fn run(app: &mut App, c: MCmd) -> Option<String> {
             changed(s);
             None
         }
-        MCmd::Detach => None,
+        MCmd::Detach | MCmd::QuickSidechain(_) => None,
         MCmd::ChannelLayout(n,p) => {
             if n==0 {return None;}
             let old=track(s,n)?.channel_layout;
@@ -1451,8 +1481,7 @@ pub fn run(app: &mut App, c: MCmd) -> Option<String> {
             Some(format!("Inserted {}", name(s, n)))
         }
         MCmd::Route { dst, only, side } => route(s, dst, only, side),
-        // Wide is the layout shown; the others are greyed out in the menu.
-        MCmd::Layout(_) => None,
+        MCmd::Layout(mode) => {set_layout(s,mode);None},
         MCmd::Separator(n) => {
             let mut names: Vec<String> = crate::prefs::text("mixer_separators").and_then(|v| serde_json::from_str(&v).ok()).unwrap_or_default();
             let key = name(s, n);
@@ -1489,6 +1518,7 @@ pub fn run(app: &mut App, c: MCmd) -> Option<String> {
                 m.slot_mix[usize::from(slot)] = 1.0;
             }
             s.mixer.slot_names.remove(&(t, slot));
+            if user_slot_index(slot)>=9 {s.mixer.slot_scroll.insert(t,user_slot_index(slot).saturating_sub(8));}
             s.mixer.pending.push(FxReq::Create { track: t, slot, index, state: None });
             changed(s);
             None
@@ -1500,11 +1530,11 @@ pub fn run(app: &mut App, c: MCmd) -> Option<String> {
         }
         MCmd::SlotMove(slot, d) => {
             let t = s.selected_mixer;
-            let o = i32::from(slot) + i32::from(d);
-            if !(0..10).contains(&o) {
+            let o = user_slot_index(slot) as i32 + i32::from(d);
+            if !(0..63).contains(&o) {
                 return None;
             }
-            let (a, b) = (usize::from(slot), o as usize);
+            let (a, b) = (usize::from(slot), user_slot(o as usize) as usize);
             for l in &mut s.project.peak_links {if let os_model::target::Target::SlotParam(tr,k,p)=os_model::target::decode(l.target){if tr==t {let k=if k as usize==a{b as u8}else if k as usize==b{a as u8}else{k};l.target=os_model::target::slot_param(t,k,p);}}}
             if let Some(m) = track_mut(s, t) {
                 m.slots.swap(a, b);
@@ -1565,7 +1595,7 @@ pub(crate) fn put_channel(s:&mut State,c:ChannelCopy) {
     if let Some(dst)=track_mut(s,n) {*dst=c.track;} else {return;}
     s.mixer.slot_names.retain(|(t,_),_|*t!=n);
     for (k,v) in c.names {s.mixer.slot_names.insert((n,k),v);}
-    for slot in 0..11 {s.mixer.pending.push(FxReq::Delete{track:n,slot});}
+    for slot in 0..64 {s.mixer.pending.push(FxReq::Delete{track:n,slot});}
     changed(s);
 }
 
@@ -1828,7 +1858,7 @@ impl App {
             self.invalidate();
             return false;
         };
-        let Some(k) = track(s, t).and_then(|m| m.slots.iter().take(10).position(Option::is_none)) else {
+        let Some(k) = track(s, t).and_then(|m| m.slots.iter().enumerate().find(|(k,s)|*k!=10&&s.is_none()).map(|(k,_)|k)) else {
             s.message = Some("No free effect slot on this track".into());
             self.invalidate();
             return false;
@@ -1857,7 +1887,7 @@ impl App {
             PItem::new("Remove", Cmd::Mixer(MCmd::RemoveTeslasNow)),
             PItem::new("Cancel", Cmd::Nothing),
         ];
-        self.state.playlist.popup = Some(Popup { x, y, items, sub: None, scroll: [0; 2] });
+        self.state.playlist.popup = Some(Popup { x, y, items, sub: None, scroll: [0; 2], cascade: Vec::new() });
         self.invalidate();
         None
     }
@@ -1913,7 +1943,7 @@ impl App {
         select(&mut self.state, t, false);
         // The master strip is fixed; an insert scrolls into the mixer's last painted view.
         if let Some(bar) = self.bar(crate::app::Scroll::MixerX).filter(|_| t > 0) {
-            let w = crate::views::mixer::STRIP_W;
+            let w = crate::views::mixer::strip_width(&self.state);
             let left = w * f32::from(t - 1);
             let scroll = self.state.mixer_scroll;
             if left < scroll {
@@ -2009,6 +2039,16 @@ mod tests {
         assert!(paste_channel(&mut a,6).unwrap().contains("feedback"));assert_eq!(a.state.project,before);
     }
 
+    #[test]
+    fn knobs_bypass_preserves_values_and_undo() {
+        let mut a=app();a.state.project.mixer[1].strip=[20000;7];
+        let before=a.state.project.mixer[1].clone();
+        hit(&mut a,MHit::StripBypass(1));assert!(a.state.project.mixer[1].strip_bypassed);
+        let mut expected=before.clone();expected.strip_bypassed=true;assert_eq!(a.state.project.mixer[1],expected);
+        crate::history::undo(&mut a.state);assert_eq!(a.state.project.mixer[1],before);
+        crate::history::redo(&mut a.state);assert_eq!(a.state.project.mixer[1],expected);
+        hit(&mut a,MHit::StripBypass(1));assert_eq!(a.state.project.mixer[1],before);
+    }
     #[test]
     fn select_mute_solo() {
         let mut a = app();
@@ -2490,5 +2530,18 @@ pub fn tune_menu(s:&State,n:u16,x:f32,y:f32,voice:bool)->Popup {
   vec![PItem::sub("Key",os_dsp::snaptune::KEYS.iter().enumerate().map(|(i,l)|choice(l,1,i as u16)).collect()),
        PItem::sub("Scale",os_dsp::snaptune::SCALES.iter().enumerate().map(|(i,l)|choice(l,2,i as u16)).collect())]
  };
- Popup{x,y,items,sub:None,scroll:[0;2]}
+ Popup{x,y,items,sub:None,scroll:[0;2], cascade: Vec::new()}
+}
+
+/// Logical user slot numbers skip the reserved, independently bypassable EQ.
+pub fn user_slot(i:usize)->u8 { if i<10 {i as u8}else{(i+1) as u8} }
+pub fn user_slot_index(k:u8)->usize {if k<10 {k as usize}else{(k-1) as usize}}
+pub fn slot_count(s:&State,t:u16)->usize {
+    let filled=track(s,t).and_then(|m|(0..63).rfind(|i|m.slots[user_slot(*i) as usize].is_some())).map_or(10,|i|i+2);
+    filled.max(s.mixer.slots_shown.get(&t).copied().unwrap_or(10)).clamp(10,63)
+}
+pub fn scroll_slots(s:&mut State,delta:f32) {
+    let t=s.selected_mixer;let max=slot_count(s,t).saturating_sub(10);
+    let old=s.mixer.slot_scroll.get(&t).copied().unwrap_or(0).min(max);
+    s.mixer.slot_scroll.insert(t,(old as i32-delta.signum() as i32).clamp(0,max as i32) as usize);
 }

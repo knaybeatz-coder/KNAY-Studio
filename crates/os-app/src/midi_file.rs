@@ -22,6 +22,9 @@ use crate::project_forms::{FHit, Form};
 
 /// The form's caption (spec §2).
 pub const TITLE: &str = "Import MIDI data";
+pub fn is_midi_path(path: &Path) -> bool {
+    path.extension().is_some_and(|x| x.eq_ignore_ascii_case("mid") || x.eq_ignore_ascii_case("midi"))
+}
 /// The undo step of an import (spec §10.7).
 pub const IMPORT_STEP: &str = "Import MIDI file";
 /// The tempo control point's target: channel 0x4000, parameter 5 (spec §3).
@@ -707,6 +710,16 @@ impl App {
         all.sort_by_key(|(x, _)| x.position);
         let sel = all.iter().enumerate().filter(|(_, (_, new))| *new).map(|(i, _)| i).collect();
         pat.notes = all.into_iter().map(|(x, _)| x).collect();
+        // Import the selected tracks' channel controls along with their notes.
+        // Replacing a channel removes its old controls; blending keeps other
+        // positions, with the imported value winning at an identical event.
+        if !o.blend { pat.controls.retain(|c|c.channel()!=ch); }
+        for c in imp.parts.iter().flat_map(|p|&p.controls) {
+            let point=ControlPoint::new(c.position,ch,c.param(),c.value);
+            if let Some(old)=pat.controls.iter_mut().find(|old|old.kind==point.kind && old.position==point.position) { *old=point; }
+            else { pat.controls.push(point); }
+        }
+        pat.controls.sort_by_key(|c|c.position);
         if o.signatures && !imp.signatures.is_empty() {
             pat.markers.retain(|m| !(m.kind == TimeMarker::SIGNATURE && imp.signatures.iter().any(|x| x.position == m.position)));
             pat.markers.extend(imp.signatures.iter().cloned());
@@ -715,6 +728,7 @@ impl App {
         }
         s.piano.select(n, ch, sel);
         s.piano.dirty = true;
+        crate::piano::auto_zoom(s, crate::views::piano::grid_rect(s));
         s.message = Some(format!("Imported {} into the piano roll ({} notes)", file_name(path), new.len()));
         self.invalidate();
     }
@@ -1236,4 +1250,24 @@ mod tests {
         }
         assert_eq!(again.tempos, imp.tempos);
     }
+    #[test]
+    fn piano_import_controls_blend_replace_and_undo() {
+        let mut a=test_app();let f=three(96);let path=Path::new("controllers.mid");
+        let other=ControlPoint::new(12,1,ControlPoint::VOLUME,9876);
+        let old=ControlPoint::new(12,0,ControlPoint::VOLUME,1234);
+        crate::patterns::pat_mut(&mut a.state,1).controls=vec![old,other];
+        let before=a.state.project.patterns.clone();
+        a.import_into_piano(path,&f,&Options::default());
+        let cs=&a.state.project.pattern(1).unwrap().controls;
+        assert!(cs.contains(&other));assert!(!cs.contains(&old));
+        assert!(cs.iter().any(|c|c.channel()==0 && c.param()==ControlPoint::PITCH && c.position==96));
+        assert!(cs.iter().any(|c|c.channel()==0 && c.param()==ControlPoint::PAN));
+        history::undo(&mut a.state);assert_eq!(a.state.project.patterns,before);
+        a.import_into_piano(path,&f,&Options{blend:true,..Default::default()});
+        assert!(a.state.project.pattern(1).unwrap().controls.contains(&old));
+        let file=os_flp::project::create(&a.state.project).unwrap();
+        let loaded=os_flp::project::load(&file).unwrap();
+        assert_eq!(loaded.pattern(1).unwrap().controls,a.state.project.pattern(1).unwrap().controls);
+    }
+
 }

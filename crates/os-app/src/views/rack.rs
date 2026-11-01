@@ -343,7 +343,7 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo) {
         // Mixer track box (§12).
         if s.rack.show_mixer {
             let mb = Rect::span(x + 66.0, x + 99.0, ry + 1.0, ry + 25.0);
-            let mhov = ui.hit(mb, Action::RackMixer(i), format!("Target mixer track: {} (drag to mixer; wheel to change; double-click to show)", insert_name(ch.mixer_track)));
+            let mhov = ui.hit(mb, Action::RackMixer(i), format!("Target mixer track: {} (click to choose; drag to mixer; wheel to change)", insert_name(ch.mixer_track)));
             let face = match (s.rack.colorful, ch.color) {
                 (true, Some(col)) => rgb(col).mix(t.rack_row_box, 0.5),
                 _ => t.rack_row_box,

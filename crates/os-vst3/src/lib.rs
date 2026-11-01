@@ -595,7 +595,7 @@ impl Plugin {
                 bus_in: Vec::new(),
                 bus_out: Vec::new(),
                 queue: Vec::with_capacity(256),
-                note_ids: NoteIds { ids: [-1; 128], next: 0 },
+                note_ids: NoteIds { ids: [-1; 128], next: 0, active: Vec::with_capacity(128) },
                 fx_in: (Vec::new(), Vec::new()),
                 from_processor: Vec::with_capacity(256),
                 pending_since: None,
@@ -1155,8 +1155,9 @@ impl Plugin {
             let e = self.queue[i];
             if (e.time as usize) < n {
                 if self.takes_notes {
-                    if let Some(event) = self.note_ids.event(e) {
+                    while let Some(event) = self.note_ids.event(e) {
                         ev.push(event);
+                        if !matches!(e.kind,NoteKind::Off) {break;}
                     }
                     match e.kind {
                         NoteKind::On => self.ledger.start(e.key, -1),
@@ -1266,6 +1267,7 @@ impl Plugin {
 struct NoteIds {
     ids: [i32; 128],
     next: i32,
+    active: Vec<(u8, i32)>,
 }
 
 impl NoteIds {
@@ -1279,11 +1281,15 @@ impl NoteIds {
                 let id = self.next;
                 self.next = (id + 1) & 0x7fff_ffff;
                 self.ids[key] = id;
+                self.active.push((n.key,id));
                 let on = NoteOnEvent { channel: 0, pitch: i16::from(n.key), tuning: 0.0, velocity: n.velocity, length: 0, note_id: id };
                 (NOTE_ON_EVENT, EventData { note_on: on })
             }
             NoteKind::Off => {
-                (NOTE_OFF_EVENT, EventData { note_off: NoteOffEvent { channel: 0, pitch: i16::from(n.key), velocity: 0.0, note_id: -1, tuning: 0.0 } })
+                let at=self.active.iter().rposition(|&(k,_)|k==n.key)?;
+                let (_,id)=self.active.remove(at);
+                self.ids[key]=self.active.iter().rfind(|&&(k,_)|k==n.key).map_or(-1,|&(_,id)|id);
+                (NOTE_OFF_EVENT, EventData { note_off: NoteOffEvent { channel: 0, pitch: i16::from(n.key), velocity: 0.0, note_id: id, tuning: 0.0 } })
             }
             NoteKind::Tune => {
                 let id = self.ids[key];

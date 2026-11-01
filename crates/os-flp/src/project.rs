@@ -842,7 +842,10 @@ pub fn load(file: &FlpFile) -> Result<Project, ProjectError> {
     read_parametric_chunk(file, &mut p);
     read_peak_links(file,&mut p);
     read_channel_layouts(file,&mut p);
+    read_strip_bypass(file,&mut p);
     read_comp_groups(file, &mut p);
+    read_frozen_tracks(file, &mut p);
+    read_extra_fx(file, &mut p);
     read_instrument_lanes(file,&mut p);
     for c in &file.chunks {if c.tag==Tag(*b"LSHK") {if let ChunkBody::Raw(d)=&c.body {if d.len()==4&&d[0]==1&&d[1]<12&&(67..=88).contains(&d[2]) {p.harmony=Some((d[1],d[2],d[3]&15));}}}}
     Ok(p)
@@ -1645,6 +1648,7 @@ fn load_pl_track(events: &[Event], t: &PlTrackLoc, enc: TextEnc) -> PlaylistTrac
     let r = events[t.record].data().unwrap_or(&[]);
     let custom = t.color_flag.is_some_and(|i| int(&events[i]) != 0);
     PlaylistTrack {
+        frozen: None,
         comp: None,
         number: r.get(0..4).map_or(0, |b| u32::from_le_bytes(b.try_into().unwrap())),
         name: t.name.and_then(|i| events[i].data()).map(|d| decode_text(d, enc)),
@@ -2007,7 +2011,7 @@ fn load_mixer(events: &[Event], l: &Layout, enc: TextEnc) -> Vec<MixerTrack> {
         let index = n as u16;
         let from = starts[n];
         let to = starts.get(n + 1).copied().or(l.mixer_params).unwrap_or(events.len());
-        let mut slots: [Option<SlotPlugin>; 11] = Default::default();
+        let mut slots: [Option<SlotPlugin>; 64] = std::array::from_fn(|_|None);
         let mut pending_plugin: Option<SlotPlugin> = None;
         let mut routes = Vec::new();
         for e in &events[from..to] {
@@ -2041,8 +2045,8 @@ fn load_mixer(events: &[Event], l: &Layout, enc: TextEnc) -> Vec<MixerTrack> {
         }
         let custom = m.color_flag.is_some_and(|i| int(&events[i]) != 0);
         // Slot LED and mix (spec: flp/events/plugins.md §5).
-        let mut slot_on = [true; 11];
-        let mut slot_mix = [1.0; 11];
+        let mut slot_on = [true; 64];
+        let mut slot_mix = [1.0; 64];
         let rt = record_track(index, l.mixer.len());
         let base = mixer_location(rt, 0);
         // The stored switch and mix level; the initial values' records for them are set by the app on opening in song
@@ -3254,7 +3258,10 @@ pub fn apply(project: &Project, file: &mut FlpFile) -> Result<(), ProjectError> 
     write_parametric_chunk(project, file);
     write_peak_links(project,file);
     write_channel_layouts(project,file);
+    write_strip_bypass(project,file);
     write_comp_groups(project, file);
+    write_frozen_tracks(project, file);
+    write_extra_fx(project, file);
     write_instrument_lanes(project,file);
     Ok(())
 }
@@ -3777,7 +3784,10 @@ pub fn create(project: &Project) -> Result<FlpFile, ProjectError> {
     write_parametric_chunk(project, &mut file);
     write_peak_links(project,&mut file);
     write_channel_layouts(project,&mut file);
+    write_strip_bypass(project,&mut file);
     write_comp_groups(project, &mut file);
+    write_frozen_tracks(project, &mut file);
+    write_extra_fx(project, &mut file);
     write_instrument_lanes(project,&mut file);
     Ok(file)
 }
@@ -4596,6 +4606,14 @@ mod tests {
 
     /// Track switches (event 236 flags), the main volume (record 0 at 0x4000) and the main pitch (event 80) are
     /// written by `create` and `apply` and read back (spec: flp/layouts.md, audio/mixer.md, audio/voice-levels.md).
+    #[test]
+    fn knobs_bypass_roundtrip() {
+        let mut p=new_project();p.arrangements.push(default_arrangement());p.mixer=(0..3).map(MixerTrack::new).collect();
+        p.mixer[1].strip_bypassed=true;p.mixer[1].strip=[12345;7];p.mixer[1].slots_enabled=true;
+        let f=create(&p).unwrap();let back=load(&FlpFile::parse(&f.to_bytes().unwrap()).unwrap()).unwrap();
+        assert!(back.mixer[1].strip_bypassed);assert!(!back.mixer[2].strip_bypassed);assert!(back.mixer[1].slots_enabled);assert_eq!(back.mixer[1].strip[0],12345);
+        let mut old=f;old.chunks.retain(|c|c.tag!=STRIP_BYPASS_TAG);assert!(!load(&old).unwrap().mixer[1].strip_bypassed);
+    }
     #[test]
     fn channel_layouts_roundtrip_and_legacy_vocal_range() {
         let mut p=new_project();p.arrangements.push(default_arrangement());p.mixer=(0..45).map(MixerTrack::new).collect();
@@ -6459,4 +6477,80 @@ fn write_parametric_chunk(project: &Project, file: &mut FlpFile) {
     }
     file.chunks.retain(|c|c.tag!=PARAMETRIC_TAG);
     if data.len()>1 {file.chunks.push(Chunk{tag:PARAMETRIC_TAG,body:ChunkBody::Raw(data)});}
+}
+
+const STRIP_BYPASS_TAG:Tag=Tag(*b"LSKB");
+fn read_strip_bypass(file:&FlpFile,p:&mut Project){
+ for c in &file.chunks {if c.tag!=STRIP_BYPASS_TAG {continue;}let ChunkBody::Raw(d)=&c.body else{continue};if d.first()!=Some(&1){continue;}
+  for r in d[1..].chunks_exact(3){let n=u16::from_le_bytes([r[0],r[1]]);if let Some(m)=p.mixer.iter_mut().find(|m|m.index==n){m.strip_bypassed=r[2]!=0;}}
+ }
+}
+fn write_strip_bypass(p:&Project,file:&mut FlpFile){
+ let mut d=vec![1];for m in &p.mixer {d.extend(m.index.to_le_bytes());d.push(u8::from(m.strip_bypassed));}
+ file.chunks.retain(|c|c.tag!=STRIP_BYPASS_TAG);file.chunks.push(Chunk{tag:STRIP_BYPASS_TAG,body:ChunkBody::Raw(d)});
+}
+
+// Frozen source clips use the same lossless records as ordinary Playlist clips.
+const FREEZE_TAG: Tag = Tag(*b"LSFZ");
+fn write_frozen_tracks(p: &Project, file: &mut FlpFile) {
+    file.chunks.retain(|c| c.tag != FREEZE_TAG);
+    let mut d = vec![1];
+    for a in &p.arrangements { for t in &a.tracks {
+        if let Some(clips) = &t.frozen {
+            d.extend(a.number.to_le_bytes()); d.extend((t.number as u16).to_le_bytes());
+            d.extend((clips.len() as u32).to_le_bytes());
+            for c in clips { d.extend(encode_clip(c)); }
+        }
+    }}
+    if d.len()>1 { file.chunks.push(Chunk { tag: FREEZE_TAG, body: ChunkBody::Raw(d) }); }
+}
+fn read_frozen_tracks(file: &FlpFile, p: &mut Project) {
+    for c in &file.chunks {
+        if c.tag != FREEZE_TAG { continue; }
+        let ChunkBody::Raw(data) = &c.body else { continue; };
+        if data.first() != Some(&1) { continue; }
+        let mut d = &data[1..];
+        while d.len() >= 8 {
+            let a = u16::from_le_bytes(d[0..2].try_into().unwrap());
+            let t = u16::from_le_bytes(d[2..4].try_into().unwrap());
+            let n = u32::from_le_bytes(d[4..8].try_into().unwrap()) as usize;
+            d = &d[8..];
+            if n > d.len()/CLIP_LEN { break; }
+            if let Some(track) = p.arrangements.iter_mut().find(|v|v.number==a).and_then(|v|v.tracks.iter_mut().find(|v|v.number==u32::from(t))) {
+                track.frozen = Some(d[..n*CLIP_LEN].chunks_exact(CLIP_LEN).map(decode_clip).collect());
+            }
+            d = &d[n*CLIP_LEN..];
+        }
+    }
+}
+
+// Extended user slots. Physical slot 10 remains the dedicated mixer EQ.
+const EXTRA_FX: Tag = Tag(*b"LSFX");
+fn write_extra_fx(p:&Project,file:&mut FlpFile) {
+    file.chunks.retain(|c|c.tag!=EXTRA_FX);
+    let mut d=vec![1];
+    for m in &p.mixer {for k in 11..64 {
+        let slot=m.slots[k].as_ref();
+        if slot.is_none()&&m.slot_on[k]&&m.slot_mix[k]==1. {continue;}
+        let name=slot.map_or("",|s|s.name.as_str()).as_bytes();let state=slot.map_or(&[][..],|s|s.state.as_slice());
+        d.extend(m.index.to_le_bytes());d.push(k as u8);d.push(u8::from(m.slot_on[k]));d.push(u8::from(slot.is_some()));
+        d.extend(m.slot_mix[k].to_le_bytes());d.extend((name.len() as u32).to_le_bytes());d.extend((state.len() as u32).to_le_bytes());
+        d.extend(name);d.extend(state);
+    }}
+    if d.len()>1 {file.chunks.push(Chunk{tag:EXTRA_FX,body:ChunkBody::Raw(d)});}
+}
+fn read_extra_fx(file:&FlpFile,p:&mut Project) {
+    for c in &file.chunks {if c.tag!=EXTRA_FX {continue;}let ChunkBody::Raw(d)=&c.body else{continue;};if d.first()!=Some(&1){continue;}
+        let mut d=&d[1..];while d.len()>=21 {
+            let t=u16::from_le_bytes(d[..2].try_into().unwrap());let k=d[2] as usize;
+            let on=d[3]!=0;let filled=d[4]!=0;let mix=f64::from_le_bytes(d[5..13].try_into().unwrap());
+            let n=u32::from_le_bytes(d[13..17].try_into().unwrap()) as usize;let z=u32::from_le_bytes(d[17..21].try_into().unwrap()) as usize;d=&d[21..];
+            if n>d.len()||z>d.len()-n {break;}
+            if (11..64).contains(&k) {if let Some(m)=p.mixer.iter_mut().find(|m|m.index==t) {
+                m.slot_on[k]=on;m.slot_mix[k]=if mix.is_finite(){mix.clamp(0.,1.)}else{1.};
+                m.slots[k]=if filled {Some(SlotPlugin{name:String::from_utf8_lossy(&d[..n]).into_owned(),state:d[n..n+z].to_vec()})}else{None};
+            }}
+            d=&d[n+z..];
+        }
+    }
 }

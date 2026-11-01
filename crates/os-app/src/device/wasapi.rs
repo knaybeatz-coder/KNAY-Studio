@@ -423,6 +423,7 @@ fn render(name: Option<&str>, mode: Mode, rate: Option<u32>, buffer: Option<u32>
             return;
         }
     };
+    mix.headphones.set_rate(s.info.rate);
     if let Err(e) = unsafe { s.client.Start() } {
         let _ = tx.send(Err(Refused::of(&e)));
         return;

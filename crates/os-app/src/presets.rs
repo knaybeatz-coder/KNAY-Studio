@@ -516,7 +516,7 @@ pub fn popup(app: &App, key: usize, x: f32, y: f32) -> Popup {
     items.push(on(PItem::new("Delete preset...", Cmd::Preset(PCmd::Delete(key))), own));
     items.push(PItem::sep());
     items.push(PItem::new("Browse presets", Cmd::Preset(PCmd::Browse(key))));
-    Popup { x, y, items, sub: None, scroll: [0; 2] }
+    Popup { x, y, items, sub: None, scroll: [0; 2], cascade: Vec::new() }
 }
 
 /// Runs a preset command; returns the status message.
@@ -780,7 +780,7 @@ pub fn dropped(app: &mut App, path: &Path) -> Option<String> {
     }
     if let Some(i) = app.plugins.effects.iter().position(|a| same(&a.desc)) {
         let t = app.state.selected_mixer;
-        let slot = slot.or_else(|| app.state.project.mixer.iter().find(|m| m.index == t).and_then(|m| m.slots.iter().take(10).position(Option::is_none)).map(|k| k as u8));
+        let slot = slot.or_else(|| app.state.project.mixer.iter().find(|m| m.index == t).and_then(|m| m.slots.iter().enumerate().find(|(k,s)|*k!=10&&s.is_none()).map(|(k,_)|k)).map(|k| k as u8));
         let Some(k) = slot else { return Some("Every slot of this track is in use".into()) };
         crate::plugin_menu::add_effect(app, i, Some(k));
         app.plugins.preset_waits.push((crate::plugins::fx_key(t, k), path.to_path_buf(), std::time::Instant::now()));

@@ -48,7 +48,7 @@ fn file_name(p: &str) -> &str {
 }
 
 fn is_project(p: &Path) -> bool {
-    p.extension().is_some_and(|e| e.eq_ignore_ascii_case("flp"))
+    p.extension().is_some_and(|e| (e.eq_ignore_ascii_case("lmn") || e.eq_ignore_ascii_case("flp")))
 }
 
 /// Starts `job` on a thread of its own, behind the panel.
@@ -102,7 +102,7 @@ pub fn unzip(zip: &Path, fallback: Option<&Path>, done: &AtomicU64, total: &Atom
         .filter(|e| is_project(&e.1))
         .min_by_key(|e| (e.1.components().count(), e.1.to_string_lossy().to_lowercase()))
         .map(|e| e.1.clone())
-        .ok_or_else(|| "it holds no FLP project".to_string())?;
+        .ok_or_else(|| "it holds no Lemon Studio or legacy FLP project".to_string())?;
     total.store(entries.iter().map(|e| e.2).sum(), Ordering::Relaxed);
     let stem = zip.file_stem().map_or_else(|| "Project".to_string(), |s| s.to_string_lossy().into_owned());
     let beside = zip.parent().map(|d| if d.as_os_str().is_empty() { Path::new(".") } else { d });
@@ -244,12 +244,12 @@ impl Pack {
 /// The project itself, its file and its unsaved changes stay as they are.
 fn prepare(app: &mut App, zip: &Path) -> Result<(Vec<u8>, Pack), String> {
     let project = app.state.path.as_deref().and_then(Path::file_name).map_or_else(
-        || format!("{}.flp", zip.file_stem().map_or_else(|| "Untitled".into(), |s| s.to_string_lossy())),
-        |n| n.to_string_lossy().into_owned(),
+        || format!("{}.lmn", zip.file_stem().map_or_else(|| "Untitled".into(), |s| s.to_string_lossy())),
+        |n| Path::new(n).with_extension("lmn").to_string_lossy().into_owned(),
     );
     let mut pack = Pack { project, ..Default::default() };
     let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos());
-    let temp = std::env::temp_dir().join(format!("lemon-zip-{}-{nanos}.flp", std::process::id()));
+    let temp = std::env::temp_dir().join(format!("lemon-zip-{}-{nanos}.lmn", std::process::id()));
     let saved = app.save_copy_with(temp.clone(), &mut |p| pack.gather(p));
     let bytes = std::fs::read(&temp);
     let _ = std::fs::remove_file(&temp);
@@ -448,7 +448,7 @@ mod tests {
         assert_eq!(pack.missing, vec!["Gone.wav".to_string()]);
         let (done, total) = (AtomicU64::new(0), AtomicU64::new(0));
         write_zip(&zip, &flp, &pack, &done, &total).unwrap();
-        assert_eq!(names(&zip), vec!["Song.flp", "Kick.wav", "Kick_2.wav"]);
+        assert_eq!(names(&zip), vec!["Song.lmn", "Kick.wav", "Kick_2.wav"]);
         assert!(!d.join("out").join("Song.zip.part").exists());
         // On another computer: the original folders are gone.
         std::fs::remove_dir_all(d.join("one")).unwrap();

@@ -226,6 +226,7 @@ impl App {
 
     /// The built-in plugins plus the last scan's, and the user's choices. False when there is no scan cache yet.
     pub fn load_plugins(&mut self) -> bool {
+        crate::plugin_menu::import_installed_database();
         let (owner, scale) = (self.plugins.owner, self.plugins.scale);
         self.plugins = crate::plugins::Plugins::builtins();
         (self.plugins.owner, self.plugins.scale) = (owner, scale);
@@ -236,6 +237,7 @@ impl App {
         db.cache = cached.unwrap_or_default();
         self.plugins.merge(&self.state.plugdb.cache);
         self.state.plugdb.rebuild(&self.plugins);
+        crate::plugin_menu::sync_user_folders(&self.state);
         found
     }
 
@@ -294,6 +296,7 @@ impl App {
         db.cache = cache;
         db.progress = None;
         db.rebuild(&self.plugins);
+        crate::plugin_menu::sync_user_folders(&self.state);
         self.state.message = Some(report.message());
         self.invalidate();
     }
@@ -302,6 +305,7 @@ impl App {
     pub(crate) fn prefs_changed(&mut self) {
         self.state.plugdb.prefs.save();
         self.state.plugdb.rebuild(&self.plugins);
+        crate::plugin_menu::sync_user_folders(&self.state);
         self.invalidate();
     }
 }

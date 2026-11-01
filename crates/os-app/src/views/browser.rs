@@ -89,7 +89,7 @@ pub enum Item {
     Generator(usize),
     /// An effect (index into `Plugins::effects`).
     Effect(usize),
-    /// A non-audio file in a dropped folder (not draggable, spec §6).
+    /// A non-audio file in a dropped folder; MIDI files can be dragged to import.
     File(String),
     /// A parameter of a hosted plugin: hosted key, parameter index (spec: plugins/plugin-parameters.md §6).
     Param(usize, usize),
@@ -146,7 +146,7 @@ pub fn saved_opts()->std::collections::HashSet<&'static str> {
     }).collect()
 }
 pub fn tabs(s:&State)->Vec<(usize,Icon,&'static str)> {
-    let mut tabs=vec![(0,Icon::Wave,"Samples"),(3,Icon::Star,"Favorites")];
+    let mut tabs=vec![(0,Icon::Wave,"Samples"),(3,Icon::Star,"Favorites"),(5,Icon::Download,"Plugin Downloads"),(6,Icon::Vote,"Feature voting")];
     for (key,id,icon,label) in [(OPT_PROJECT,1,Icon::Page,"Current project"),(OPT_PLUGINS,2,Icon::Plug,"Plugin database"),(OPT_PRESETS,4,Icon::FilePreset,"Plugin presets")] {
         if opt(s,key) || s.browser_tab==id {tabs.push((id,icon,label));}
     }
@@ -186,6 +186,8 @@ pub fn search_changed(s: &State) -> bool {
 }
 
 pub fn rows(s: &State) -> Vec<Row> {
+    if s.browser_tab==6 {return Vec::new();}
+    if s.browser_tab==5 {return crate::plugin_downloads::rows(s)}
     if s.browser_search.is_empty() { return tree(s); }
     if [1,2,4].contains(&s.browser_tab) {
         let q=s.browser_search.to_lowercase();
@@ -271,6 +273,11 @@ fn tree(s: &State) -> Vec<Row> {
     out.retain(|r| r.open.is_some() || matches!(r.item, Item::Sample(_)) || r.icon == Icon::PianoRoll);
     for path in library_roots(s).into_iter().filter(|p| *p != root) {
         let key=disk_key(&path);
+        if path.is_file() && file_icon(&path.to_string_lossy())==Icon::FileAudio {
+            out.push(Row {key,depth:0,label:root_label(s,&path),icon:Icon::FileAudio,cat:FILE,open:None,bright:true,
+                item:Item::Sample(path.to_string_lossy().into_owned()),path:Some(path)});
+            continue;
+        }
         let open=is_open(s,&key);
         out.push(Row {key:key.clone(),depth:0,label:root_label(s,&path),icon:if open {Icon::FolderOpen}else{Icon::Folder},cat:FOLDER,open:Some(open),bright:open,item:Item::None,path:Some(path.clone())});
         if open {disk_rows(s,&path,&key,1,&mut out);}
@@ -356,7 +363,7 @@ pub fn file_icon(name: &str) -> Icon {
     match ext.as_str() {
         "wav" | "mp3" | "ogg" | "flac" | "aif" | "aiff" => Icon::FileAudio,
         "mid" | "midi" => Icon::PianoRoll,
-        "flp" => Icon::FileProject,
+        "lmn" | "flp" => Icon::FileProject,
         "txt" | "url" | "pdf" | "nfo" | "rtf" | "htm" | "html" | "md" => Icon::FileText,
         "fxp" | "fxb" | "fst" | "vstpreset" | "nmsv" | "spf" | "h2p" | "clap-preset" | "ospreset" => Icon::FilePreset,
         "zip" | "rar" | "7z" => Icon::FileZip,
@@ -573,6 +580,7 @@ fn plugin_rows(s: &State, root: &str, cat: u8, out: &mut Vec<Row>) {
 
 /// Height of the list viewport for a browser of height `h` (from `WORK_Y`).
 pub fn list_h(s: &State) -> f32 {
+    if s.browser_tab==5 {return (s.screen.1-list_top(s)-FOOTER_H-crate::plugin_downloads::detail_height(s)).max(0.);}
     (s.screen.1 - list_top(s) - FOOTER_H - info_h(&rows(s), s)).max(0.0)
 }
 
@@ -666,9 +674,12 @@ pub fn list_top(s: &State) -> f32 {
 /// Height of the search row above the list ("Search box on top").
 const SEARCH_ROW: f32 = 27.0;
 
+pub fn row_h(s:&State)->f32 {if s.browser_tab==6{return crate::feature_votes::ROW_H;}if s.browser_tab==5 {crate::plugin_downloads::ROW_H}else{ROW_H}}
+
 /// Largest useful scroll offset.
 pub fn max_scroll(s: &State) -> f32 {
-    (rows(s).len() as f32 * ROW_H - list_h(s)).max(0.0)
+    if s.browser_tab==6{return crate::feature_votes::max_scroll(s);}
+    (rows(s).len() as f32 * row_h(s) - list_h(s)).max(0.0)
 }
 
 /// A hovered row whose label does not fit scrolls it slowly to its end and back (spec §9): the row, when the hover
@@ -739,7 +750,8 @@ pub fn paint(ui: &mut Ui, s: &State, r: Rect) {
     let step=((bw-6.)/tabs.len() as f32).min(50.);
     for (slot,(i,icon,tip)) in tabs.into_iter().enumerate() {
         let cx = 3. + step*(slot as f32+0.5);
-        let rr = Rect::new(cx - 18.0, 108.0 + dy, 36.0, 30.0);
+        let tab_w=(step-2.).min(36.);
+        let rr = Rect::new(cx - tab_w/2., 108.0 + dy, tab_w, 30.0);
         let hov = ui.hit(rr, Action::BrowserTab(i), tip);
         let active = s.browser_tab == i;
         if active { ui.c.stroke_rrect(rr, 4.0, 1.5, t.browser_tab_outline); }
@@ -753,6 +765,10 @@ pub fn paint(ui: &mut Ui, s: &State, r: Rect) {
         ui.c.fill_rect(Rect::new(0.0, LIST_Y + dy, bw, SEARCH_ROW), t.browser_footer);
         search_box(ui, s, Rect::new(13.0, LIST_Y + dy + 4.0, bw - 38.0, 20.0));
     }
+    if s.browser_tab==6 {crate::feature_votes::paint(ui,s,Rect::new(0.,top,bw,(r.bottom()-FOOTER_H-top).max(0.)));}
+    else if s.browser_tab==5 {
+        crate::plugin_downloads::paint(ui,s,Rect::new(0.,top,bw,(r.bottom()-FOOTER_H-top).max(0.)));
+    } else {
     let rows = rows(s);
     let info = info_path(&rows, s);
     let ih = if info.is_some() { INFO_H } else { 0.0 };
@@ -822,13 +838,16 @@ pub fn paint(ui: &mut Ui, s: &State, r: Rect) {
         ui.c.text_clip(f, x + 25.0, y, w, c, &label);
     }
     *s.browser_marquee.borrow_mut() = marquee;
-    let empty = if !s.browser_search.is_empty() { if search_busy(s) { "Searching samples..." } else { "No matches" } } else if s.browser_tab == 3 { "No favorites yet" } else { "Pro Samples unavailable or empty" };
+    let empty = if !s.browser_search.is_empty() { if search_busy(s) { "Searching samples..." } else { "No matches" } } else if s.browser_tab == 3 { "No favorites yet" } else { "No samples yet" };
     if rows.is_empty() {
-        ui.c.text(os_ui::Font::new(14).italic(), 22.0, top + 6.0, t.text_faint, empty);
-    }
+        if s.browser_tab == 0 && s.browser_search.is_empty() {
+            crate::starter_pack::paint_empty(ui, list);
+        } else { ui.c.text(os_ui::Font::new(14).italic(), 22.0, top + 6.0, t.text_faint, empty); }
+    } else if s.browser_tab == 0 { crate::starter_pack::paint_status(ui, list); }
     ui.c.pop_clip();
     if let Some(p) = &info {
         paint_info(ui, s, p, Rect::new(0.0, list.bottom(), bw, ih));
+    }
     }
     // Footer: the search field takes the width the splitter adds.
     let fy = r.bottom() - 27.0;
@@ -876,13 +895,10 @@ fn library_roots(s: &State) -> Vec<PathBuf> {
     roots
 }
 
-/// Preserve the existing personal library where present; fresh computers use their user Samples folder.
+/// Libraries belong to the current profile. Personal locations are explicit preferences, never machine-wide guesses.
 pub fn samples_root() -> PathBuf {
     crate::prefs::text("browser_samples_root").filter(|p| !p.trim().is_empty()).map(PathBuf::from)
-        .unwrap_or_else(|| {
-            let legacy=PathBuf::from(r"E:\Pro Samples");
-            if legacy.is_dir() {legacy} else {os_paths::user_dir().unwrap_or_else(|| PathBuf::from(".")).join("Samples")}
-        })
+        .unwrap_or_else(|| os_paths::user_dir().unwrap_or_else(|| PathBuf::from(".")).join("Samples"))
 }
 
 /// Where the options menu opens (just below the title bar's ▸, spec §4).
@@ -907,7 +923,7 @@ fn search_box(ui: &mut Ui, s: &State, r: Rect) {
         shown = &shown[cut..];
     }
     if shown.is_empty() && !s.browser_search_focus {
-        ui.c.text_clip(f, r.x + 5.0, r.y + 1.0, text_w, t.text_faint, "Search samples...");
+        ui.c.text_clip(f, r.x + 5.0, r.y + 1.0, text_w, t.text_faint, if s.browser_tab==6 {"Search suggestions..."}else if s.browser_tab==5 {"Search plugins..."}else{"Search samples..."});
     } else {
         ui.c.text_clip(f, r.x + 5.0, r.y + 1.0, text_w, t.glyph, shown);
     }
@@ -938,6 +954,14 @@ pub fn paint_ghost(ui: &mut Ui, s: &State) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sample_library_defaults_to_active_profile_and_keeps_explicit_choice() {
+        crate::prefs::set_text("browser_samples_root", "");
+        assert_eq!(samples_root(),os_paths::user_dir().unwrap().join("Samples"));
+        crate::prefs::set_text("browser_samples_root", "D:/My Samples");
+        assert_eq!(samples_root(),PathBuf::from("D:/My Samples"));
+    }
 
     /// File dates read in the local time zone on every platform (spec §6): within a day of the UTC date.
     #[test]

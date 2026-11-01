@@ -181,14 +181,14 @@ pub fn set(app: &mut crate::app::App, row: usize, m: M, v: f32) {
 pub fn menu(app: &crate::app::App, row: usize, m: M, x: f32, y: f32) -> crate::playlist::Popup {
     use crate::playlist::{Cmd, Mark, PItem, Popup};
     if mp::draggable(m) && !mp::list_on_right(m) {
-        return Popup { x, y, items: vec![PItem::new("Reset", Cmd::Misc(row, m, mp::default_of(m)))], sub: None, scroll: [0; 2] };
+        return Popup { x, y, items: vec![PItem::new("Reset", Cmd::Misc(row, m, mp::default_of(m)))], sub: None, scroll: [0; 2], cascade: Vec::new() };
     }
     let cur = app.state.project.channels.get(row).map_or(mp::default_of(m), |ch| get(&ch.misc, m));
     let items = mp::list_entries(m)
         .into_iter()
         .map(|(label, v)| PItem::new(label, Cmd::Misc(row, m, v)).mark(Mark::Radio((v - cur).abs() < 0.5)))
         .collect();
-    Popup { x, y, items, sub: None, scroll: [0; 2] }
+    Popup { x, y, items, sub: None, scroll: [0; 2], cascade: Vec::new() }
 }
 
 #[cfg(test)]

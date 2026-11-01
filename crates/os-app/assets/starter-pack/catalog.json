@@ -1,0 +1,1580 @@
+[
+  {
+    "path": "Drums/Claps/freesound_388042__sami-kullstrom__clap.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/clap/388042__sami-kullstrom__clap.wav",
+    "size": 123736,
+    "sha256": "b483e6b3be4f7d6853886ae91fead493b383465ab366f625dad11ac1fa214aab"
+  },
+  {
+    "path": "Drums/Claps/freesound_448221__toxicfilmzsrsounds__hip-hop-clap.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/clap/448221__toxicfilmzsrsounds__hip-hop-clap.wav",
+    "size": 27236,
+    "sha256": "24605b629a4f0d5a68f0aa245ad26671e11a7ef16cc3ef742840fb9275b542f3"
+  },
+  {
+    "path": "Drums/Claps/freesound_493707__bastianpusch__handclap01.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/clap/493707__bastianpusch__handclap01.wav",
+    "size": 91140,
+    "sha256": "9be7f695ceb6d9aa0289c9c683f9184d4fd6c87416b1c27c583ef6eb33cf760f"
+  },
+  {
+    "path": "Drums/Claps/freesound_509526__synthnisse__claps.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/clap/509526__synthnisse__claps.wav",
+    "size": 58096,
+    "sha256": "560f9a1e417d854d78c8be87285c02d33f7d5944ede91d5702921af821d9dec7"
+  },
+  {
+    "path": "Drums/Claps/fugue-state-audio_distkit-clap.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/claps/distkit-clap.wav",
+    "size": 51122,
+    "sha256": "cce0b2d65bcde1c0444408cb7e6a4d34b3a42583d5dce24141e62671fb0cbba4"
+  },
+  {
+    "path": "Drums/Claps/fugue-state-audio_sdbkit-clap.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/claps/sdbkit-clap.wav",
+    "size": 276566,
+    "sha256": "2c2963df4d5f2d6dca10224812dc107c375811291f0721b7274bcd58b812dc00"
+  },
+  {
+    "path": "Drums/Claps/fugue-state-audio_synthkit-clap.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/claps/synthkit-clap.wav",
+    "size": 55676,
+    "sha256": "460a3df47807708de89e8f9a7f845993e05dfec9f16416b1f86603301067bd06"
+  },
+  {
+    "path": "Drums/Claps/fugue-state-audio_x0xproc1-clap.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/claps/x0xproc1-clap.wav",
+    "size": 204032,
+    "sha256": "dcd9ccb8d2f860deadd57f82206f9621d24ce1d0db8020842f609a889e236965"
+  },
+  {
+    "path": "Drums/Claps/fugue-state-audio_x0xproc2-clap.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/claps/x0xproc2-clap.wav",
+    "size": 257756,
+    "sha256": "0c7ae21c528fbabc7f45ea6d503f2944e8704674c767766a5993281bd412bef1"
+  },
+  {
+    "path": "Drums/Cymbals/freesound_104210__minorr__crash-paiste-pst5-17-left-ff.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/cymbal/crash/104210__minorr__crash-paiste-pst5-17-left-ff.wav",
+    "size": 1447244,
+    "sha256": "c9483ac22a0d6a550255d587581ccecbf879f4ac048439ef8f661c25f55f5cd4"
+  },
+  {
+    "path": "Drums/Cymbals/freesound_104217__minorr__crash-zildian-a-custom-16-centr-f.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/cymbal/crash/104217__minorr__crash-zildian-a-custom-16-centr-f.wav",
+    "size": 999980,
+    "sha256": "60d28b32cad54eb91f49a2f4008f4b5cbbfc4989b0db422a10bc4acc982f7e92"
+  },
+  {
+    "path": "Drums/Cymbals/freesound_140153__stomachache__analog-cymbal.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/cymbal/crash/140153__stomachache__analog-cymbal.wav",
+    "size": 477016,
+    "sha256": "69d87a29aa40c9da701feff04b321d974cc75bcb559a9edbf8f63be98ccb8919"
+  },
+  {
+    "path": "Drums/Cymbals/freesound_261413__veiler__crash.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/cymbal/crash/261413__veiler__crash.wav",
+    "size": 385024,
+    "sha256": "b79b3c0de4b1c1c1601a2d91441fd5f9f5f0f104cfdc21ba7a35e44474cd1d2f"
+  },
+  {
+    "path": "Drums/Cymbals/fugue-state-audio_distkit-crash.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/cymbals/distkit-crash.wav",
+    "size": 939326,
+    "sha256": "21451524d334fae532d469b0babce0f642595738dec8bf8af2f17b254580ee8e"
+  },
+  {
+    "path": "Drums/Cymbals/fugue-state-audio_distkit-ride.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/cymbals/distkit-ride.wav",
+    "size": 666830,
+    "sha256": "adca149b2efe52c44355c979bd3fd444ef3ab33664a6c2515fafb9665be57121"
+  },
+  {
+    "path": "Drums/Cymbals/fugue-state-audio_synthkit-crash.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/cymbals/synthkit-crash.wav",
+    "size": 423620,
+    "sha256": "4550ca9bb38c6517db5d9fed0a6a639b8b5c6f4824efa17e1c77b38703535a38"
+  },
+  {
+    "path": "Drums/Cymbals/fugue-state-audio_synthkit-ride.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/cymbals/synthkit-ride.wav",
+    "size": 446060,
+    "sha256": "3c376437da6cf49c045f9849622b1ee9f7c88e55fdac9ed0476cd7502fa84b33"
+  },
+  {
+    "path": "Drums/Cymbals/fugue-state-audio_x0xproc1-crash.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/cymbals/x0xproc1-crash.wav",
+    "size": 275096,
+    "sha256": "df1f91e5bdc418a2d9441385ca12e9e1e9703992e5c3d1b1e9f9eca88878301f"
+  },
+  {
+    "path": "Drums/Cymbals/fugue-state-audio_x0xproc1-ride.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/cymbals/x0xproc1-ride.wav",
+    "size": 254960,
+    "sha256": "2bfd5db6fdc170f9282d718a462f8eeb206a9644e9aca74dcde4ac6f1b891bc3"
+  },
+  {
+    "path": "Drums/Cymbals/fugue-state-audio_x0xproc2-cymbal.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/cymbals/x0xproc2-cymbal.wav",
+    "size": 724238,
+    "sha256": "e70cc580a8d5bdafebe4b684a039a53342eff5bac1df5c08da9efbac7a696f23"
+  },
+  {
+    "path": "Drums/Cymbals/karoryfer_crash_BRD_17.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/cymbals/crash_BRD_17.wav",
+    "size": 2772086,
+    "sha256": "f340dd22abee9369379e94f662a4aa897e15822f1572a082c127b47dacf70496"
+  },
+  {
+    "path": "Drums/Cymbals/karoryfer_crash_UD_16.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/cymbals/crash_UD_16.wav",
+    "size": 3200138,
+    "sha256": "6c580e5cfe3bbdc8b734d81553f68e539044bf3f512e965f648938aaef1d9821"
+  },
+  {
+    "path": "Drums/Cymbals/karoryfer_ride_BRD_22.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/cymbals/ride_BRD_22.wav",
+    "size": 3238686,
+    "sha256": "e272f70a76ec3ce7ad90168fa068fe2bfb112862edcd793bed8a0fc5196bb3ba"
+  },
+  {
+    "path": "Drums/Cymbals/karoryfer_ride_UD_20.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/cymbals/ride_UD_20.wav",
+    "size": 3599858,
+    "sha256": "235e77ade745988a25d4690a92f2ab45022c6a16e35dfce92a1c86e61c1937ea"
+  },
+  {
+    "path": "Drums/Hi Hats/freesound_165027__rodrigo-the-mad__mini-open-hihat.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/cymbal/open/165027__rodrigo-the-mad__mini-open-hihat.wav",
+    "size": 42462,
+    "sha256": "5f5ff5b42db635da420e5f098160ade2c157f300a63b5c48dbbfaee6b92aa55d"
+  },
+  {
+    "path": "Drums/Hi Hats/freesound_165028__rodrigo-the-mad__mini-909ish-open-hat.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/cymbal/open/165028__rodrigo-the-mad__mini-909ish-open-hat.wav",
+    "size": 36452,
+    "sha256": "f494749990dd40a4918bfc0e66a7df5e29aba03819d985918d2cafb16b2adc1c"
+  },
+  {
+    "path": "Drums/Hi Hats/freesound_317097__shpira__hat-open3.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/cymbal/open/317097__shpira__hat-open3.wav",
+    "size": 264650,
+    "sha256": "e6a95b1bc971931e5883cf1180862c005066f915a04c1115b76a7252d099ae99"
+  },
+  {
+    "path": "Drums/Hi Hats/freesound_339278__cabled-mess__hihat-closed-raw-03-gate-eq.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/cymbal/closed/339278__cabled-mess__hihat-closed-raw-03-gate-eq.wav",
+    "size": 59920,
+    "sha256": "df8c6d1d2356adcc8186b266a009c7b2b1b918b550deeef39b79723137528d1c"
+  },
+  {
+    "path": "Drums/Hi Hats/freesound_439766__twentytwentymusic__electronic-closed-hat-9.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/cymbal/closed/439766__twentytwentymusic__electronic-closed-hat-9.wav",
+    "size": 21138,
+    "sha256": "a48ab57d2d8c228f3cff35f3c35e034e7bc548755402f173d80ec733d6f58ba2"
+  },
+  {
+    "path": "Drums/Hi Hats/freesound_439820__twentytwentymusic__electronic-open-hat-7.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/cymbal/open/439820__twentytwentymusic__electronic-open-hat-7.wav",
+    "size": 22108,
+    "sha256": "0ff46842faba2cd0ebd334578f6c28ab3fccd526a3de109f457c5566fdcf3739"
+  },
+  {
+    "path": "Drums/Hi Hats/freesound_93909__pjcohen__skibacustomhihats1145top1215bottomclosededgeshank.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/cymbal/closed/93909__pjcohen__skibacustomhihats1145top1215bottomclosededgeshank.wav",
+    "size": 111496,
+    "sha256": "03d49e9a87127dc6f2ba5c7c93747c50821a16ba3424650898da6ae0d4972e41"
+  },
+  {
+    "path": "Drums/Hi Hats/fugue-state-audio_distkit-hatclsd.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/hihats/distkit-hatclsd.wav",
+    "size": 70304,
+    "sha256": "74077a134eb66bc4367f4b8a716956b16d724c5c21030c1d49fdabf0726b0895"
+  },
+  {
+    "path": "Drums/Hi Hats/fugue-state-audio_distkit-hatopen.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/hihats/distkit-hatopen.wav",
+    "size": 332828,
+    "sha256": "6f47aa3f5755f3c8ad486841760b956d43e7e4f12057c2d3fdb2def300aeb8d7"
+  },
+  {
+    "path": "Drums/Hi Hats/fugue-state-audio_sdbkit-hatclsd.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/hihats/sdbkit-hatclsd.wav",
+    "size": 53558,
+    "sha256": "f85a1a670067253f86bcd33a190242a95b474a9973f716d031e8a704cd40744a"
+  },
+  {
+    "path": "Drums/Hi Hats/fugue-state-audio_sdbkit-hatopen.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/hihats/sdbkit-hatopen.wav",
+    "size": 285098,
+    "sha256": "ec460260b8f8ff8335788f0e3c9f1a1f2160327cfcd224053ae7d4321ea50171"
+  },
+  {
+    "path": "Drums/Hi Hats/fugue-state-audio_synthkit-hatclsd.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/hihats/synthkit-hatclsd.wav",
+    "size": 88838,
+    "sha256": "3ae9ebd65f2b4deb7a655be5a2bbcd6b4d43df7ee32efd635e864372e868e063"
+  },
+  {
+    "path": "Drums/Hi Hats/fugue-state-audio_synthkit-hatopen.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/hihats/synthkit-hatopen.wav",
+    "size": 296384,
+    "sha256": "8a0c8019c88fab848bfab5370331414b9372e3127e2867246ea756a42700cc5e"
+  },
+  {
+    "path": "Drums/Hi Hats/fugue-state-audio_x0xproc1-hatclsd.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/hihats/x0xproc1-hatclsd.wav",
+    "size": 51644,
+    "sha256": "a43d2df5a21845c5256fb09ff3f1b97105514ef18b2a57bbc33d80c8892efc11"
+  },
+  {
+    "path": "Drums/Hi Hats/fugue-state-audio_x0xproc1-hatopen.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/hihats/x0xproc1-hatopen.wav",
+    "size": 140126,
+    "sha256": "c6a17e715380911a708f6a2ce9b15dea5eac78a3a2ffc89404dfd04aef9e1c05"
+  },
+  {
+    "path": "Drums/Hi Hats/fugue-state-audio_x0xproc2-hatclsd.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/hihats/x0xproc2-hatclsd.wav",
+    "size": 33236,
+    "sha256": "49e1268f26e2a90c492049a5d89e85478e03419fb166bb11b751a8ba4c2c196e"
+  },
+  {
+    "path": "Drums/Hi Hats/fugue-state-audio_x0xproc2-hatopen.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/hihats/x0xproc2-hatopen.wav",
+    "size": 329594,
+    "sha256": "2d60e6765c607af31a6e246c248f446cbefead8610be88a20bb61630584b8aa6"
+  },
+  {
+    "path": "Drums/Hi Hats/karoryfer_hihat_BRD_closed.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/hihats/hihat_BRD_closed.wav",
+    "size": 219034,
+    "sha256": "8799002f30442ededcdb90094170e7617083b037d1c21cd24b1566bcb2a2f934"
+  },
+  {
+    "path": "Drums/Hi Hats/karoryfer_hihat_BRD_open.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/hihats/hihat_BRD_open.wav",
+    "size": 1748298,
+    "sha256": "0a36e768b9161cea7f2fcb89ffc1792f7676d75469bf03b71ef92b15d4b68298"
+  },
+  {
+    "path": "Drums/Hi Hats/karoryfer_hihat_BRD_tight.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/hihats/hihat_BRD_tight.wav",
+    "size": 201558,
+    "sha256": "e41a734cf0b8994c9202e7839fc2d7f8f57799395e7a2b235518bc6f3225b1d8"
+  },
+  {
+    "path": "Drums/Hi Hats/stargate_hat-1.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/stargate/hats/hat-1.wav",
+    "size": 204888,
+    "sha256": "f6061d2a1bf845e3402c470e4770968d0d547d3e3dbb842c6f31b8eda250140a"
+  },
+  {
+    "path": "Drums/Hi Hats/stargate_hat-2.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/stargate/hats/hat-2.wav",
+    "size": 168024,
+    "sha256": "edfcb199b105153cbef387f21ec3947c6fcae9b26c515266aec9c8946226baa0"
+  },
+  {
+    "path": "Drums/Kicks/freesound_192512__nabz871__knife-party-like-kick.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/kick/192512__nabz871__knife-party-like-kick.wav",
+    "size": 146816,
+    "sha256": "797eeacf45715ac820110bd630ef750e04e43a32ced2999e4c9dc4c6d6e34fd3"
+  },
+  {
+    "path": "Drums/Kicks/freesound_266764__hard3eat__synth-kick-3.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/kick/266764__hard3eat__synth-kick-3.wav",
+    "size": 86534,
+    "sha256": "7bb46cc16b084db18bfcfc231f8c8e87ebfa4f4e0f4000d4f2caaab719ef495b"
+  },
+  {
+    "path": "Drums/Kicks/freesound_347166__dvbeats__kick-drum-1.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/kick/347166__dvbeats__kick-drum-1.wav",
+    "size": 44452,
+    "sha256": "00cbd023a37dd364e8a8143910d41eca177e3b68ef3be5b6b134ede9940cf24f"
+  },
+  {
+    "path": "Drums/Kicks/freesound_348785__arctis__hardstyle-rawstyle-kick-8.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/kick/348785__arctis__hardstyle-rawstyle-kick-8.wav",
+    "size": 273314,
+    "sha256": "a07c1b5a1fcbddb4ea5cabc56dcd38667a2a5df6b07b7a4ad8da33724277692d"
+  },
+  {
+    "path": "Drums/Kicks/freesound_561593__panxozerok__safari-kick-2.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/kick/561593__panxozerok__safari-kick-2.wav",
+    "size": 271638,
+    "sha256": "857b51ed91861abb6757fafe5f96a267cbef32c9f253e0a9cc1f8531490fc4a5"
+  },
+  {
+    "path": "Drums/Kicks/fugue-state-audio_distkit-kick.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/kicks/distkit-kick.wav",
+    "size": 252668,
+    "sha256": "80f029e56cb0cf8e8df6b180f02af380e0410a43376e3c2d8f2efd81b9d1e8ab"
+  },
+  {
+    "path": "Drums/Kicks/fugue-state-audio_sdbkit-kick.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/kicks/sdbkit-kick.wav",
+    "size": 52742,
+    "sha256": "ae1694fbba73717d459009283c1c942d07d3db46d84358282175ecec060d8fd1"
+  },
+  {
+    "path": "Drums/Kicks/fugue-state-audio_sdbkit-sub-a.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/kicks/sdbkit-sub-a.wav",
+    "size": 516446,
+    "sha256": "2ccab3dc777b7ce607bdb7dec396bb6feed658edb6b016b7068240c8f8780a51"
+  },
+  {
+    "path": "Drums/Kicks/fugue-state-audio_synthkit-kick.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/kicks/synthkit-kick.wav",
+    "size": 322028,
+    "sha256": "faef5e7dd5a08e70927ba3d1e45a8c6a825f187c9eea11d01d947f191ec4c331"
+  },
+  {
+    "path": "Drums/Kicks/fugue-state-audio_x0xproc1-kick.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/kicks/x0xproc1-kick.wav",
+    "size": 110636,
+    "sha256": "debd64498f2912701f9d7b1948a00840a5ca3ee424111945d2be5601c7cf735e"
+  },
+  {
+    "path": "Drums/Kicks/fugue-state-audio_x0xproc2-kick.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/kicks/x0xproc2-kick.wav",
+    "size": 382598,
+    "sha256": "1a60f67895ae09f6a7bef418d0ec6dfc2f4c5b25123d55988cef2195a90a4694"
+  },
+  {
+    "path": "Drums/Kicks/karoryfer_kick_Polmuz_mod_20_buzz.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/kicks/kick_Polmuz_mod_20_buzz.wav",
+    "size": 522350,
+    "sha256": "db5777236da288efa014c8fc24356aae205a106e37a83ff08252f0e4d81b491d"
+  },
+  {
+    "path": "Drums/Kicks/karoryfer_kick_Polmuz_mod_20_clean.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/kicks/kick_Polmuz_mod_20_clean.wav",
+    "size": 535274,
+    "sha256": "614b23455ee9400ef62996f192b7966a70e12f7a1be2d5978a621b16cf85240f"
+  },
+  {
+    "path": "Drums/Kicks/karoryfer_kick_Szpaderski_24_dampened.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/kicks/kick_Szpaderski_24_dampened.wav",
+    "size": 149996,
+    "sha256": "ac4da8e7ac947578637264b561152a99b2bab05fdd6a2aa824d279b65a0d6d05"
+  },
+  {
+    "path": "Drums/Kicks/karoryfer_kick_Szpaderski_24_open.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/kicks/kick_Szpaderski_24_open.wav",
+    "size": 353662,
+    "sha256": "502320b26e79b361b4f98fae9bfd7bc1ec6faa958e94b59b29ae5011b074dac5"
+  },
+  {
+    "path": "Drums/Kicks/karoryfer_kick_marching_20_old.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/kicks/kick_marching_20_old.wav",
+    "size": 88338,
+    "sha256": "11d464abc9b82330c134b90e0a78b4dcf0b01b92fc824e74753a5de1dbb55137"
+  },
+  {
+    "path": "Drums/Kicks/stargate_kick-1-A.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/stargate/kicks/kick-1-A.wav",
+    "size": 217176,
+    "sha256": "8e2beaa2f050289bdf925699a38d3ad63f1a57eb214daa1f06ab06a4b437aef6"
+  },
+  {
+    "path": "Drums/Kicks/stargate_kick-1-B.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/stargate/kicks/kick-1-B.wav",
+    "size": 225368,
+    "sha256": "28b4b5c2100a1bf9f6dfc6452bef8a89844dad8a3a7fd890749050630e03eba4"
+  },
+  {
+    "path": "Drums/Kicks/stargate_kick-1-C.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/stargate/kicks/kick-1-C.wav",
+    "size": 208984,
+    "sha256": "1136717fa425d84ddde652fa78180b9b9e087451164657e37f41d0869604b9a2"
+  },
+  {
+    "path": "Drums/Kicks/stargate_kick-2-A.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/stargate/kicks/kick-2-A.wav",
+    "size": 254040,
+    "sha256": "bc9bbdc544c75a031fd18b8ecf45b8bca7782e4447e771afe16d5d82ef43e4b0"
+  },
+  {
+    "path": "Drums/Kicks/stargate_kick-2-B.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/stargate/kicks/kick-2-B.wav",
+    "size": 221272,
+    "sha256": "db4589cffbf7e71c04db67abd9390082d7f6930d97f83dbcd076ebbc710d5794"
+  },
+  {
+    "path": "Drums/Percussion/VCSL_BongoH_Hit1_v1_rr1_Mid.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Membranophones/Struck%20Membranophones/Bongos/BongoH_Hit1_v1_rr1_Mid.wav",
+    "size": 146696,
+    "sha256": "7ebcd2149e8a75189446afba67c96b58f42757bf7aa355364f2e11cee705f33f"
+  },
+  {
+    "path": "Drums/Percussion/VCSL_BongoH_HitMuted1_v2_rr2_Mid.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Membranophones/Struck%20Membranophones/Bongos/BongoH_HitMuted1_v2_rr2_Mid.wav",
+    "size": 182468,
+    "sha256": "c593cd3c010bdecb6c3b346d3335b9653d6aba04724e8427e9b6e328d2ba0b34"
+  },
+  {
+    "path": "Drums/Percussion/VCSL_BongoL_Hit1_v3_rr1_Mid.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Membranophones/Struck%20Membranophones/Bongos/BongoL_Hit1_v3_rr1_Mid.wav",
+    "size": 209224,
+    "sha256": "07986a1bc54b31dafd9c7dc250e42a613977b320b33b2e4652d21332064de4eb"
+  },
+  {
+    "path": "Drums/Percussion/VCSL_BongoL_Roll_v3_rr1_Mid.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Membranophones/Struck%20Membranophones/Bongos/BongoL_Roll_v3_rr1_Mid.wav",
+    "size": 521284,
+    "sha256": "8a52008b9268f501d53db6068578ee0e831ff4af2d907724c18979bacf7ace1b"
+  },
+  {
+    "path": "Drums/Percussion/VCSL_Conga_HitFM_v1_rr1_Sum.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Membranophones/Struck%20Membranophones/Conga/Conga_HitFM_v1_rr1_Sum.wav",
+    "size": 119016,
+    "sha256": "5b18eeab0a84fededac9f5749b4d6502ad1725df37538d1b572f2068c6ec5f53"
+  },
+  {
+    "path": "Drums/Percussion/VCSL_Quinto_HitFM1_v1_rr2_Sum.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Membranophones/Struck%20Membranophones/Conga/Quinto_HitFM1_v1_rr2_Sum.wav",
+    "size": 103280,
+    "sha256": "7a11113885e87277d08a5f10d492ea793be6c01c48172fe0490ca29e8e3a1f1a"
+  },
+  {
+    "path": "Drums/Percussion/VCSL_Tumba_HitFM_v3_rr1_Sum.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Membranophones/Struck%20Membranophones/Conga/Tumba_HitFM_v3_rr1_Sum.wav",
+    "size": 92140,
+    "sha256": "5573840d97955f2efb0115f48f57b2a12f5ac04e03aea8a69f27c3f9fd64a017"
+  },
+  {
+    "path": "Drums/Percussion/VCSL_Tumba_HitN_v4_rr2_Sum.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Membranophones/Struck%20Membranophones/Conga/Tumba_HitN_v4_rr2_Sum.wav",
+    "size": 200148,
+    "sha256": "0f47c8791caf3a056c046ea58fee8c6845dbb0e5a7af26a466f1558072325b55"
+  },
+  {
+    "path": "Drums/Percussion/freesound_219157__jagadamba__bongo01.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/bongo/219157__jagadamba__bongo01.wav",
+    "size": 35952,
+    "sha256": "1117f1ae188cb0180f8c3e13c56b79f5f5af6254280e7c6b07bad9c4ce1832b2"
+  },
+  {
+    "path": "Drums/Percussion/freesound_455640__uberproduktion__fd808a-rimshot.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/rimshot/455640__uberproduktion__fd808a-rimshot.wav",
+    "size": 52964,
+    "sha256": "60d51e18ab1d2f06a04dde5c60b472d4358e974b5d20abce043a8ea42d2bf556"
+  },
+  {
+    "path": "Drums/Percussion/freesound_511382__pjhedman__se1-rim.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/rimshot/511382__pjhedman__se1-rim.wav",
+    "size": 29792,
+    "sha256": "8364abdae3e1c0a01a87359a6fe5cd080ffdb3dd475f901a9580c6fca6bc9aab"
+  },
+  {
+    "path": "Drums/Percussion/freesound_533089__sassaby__timbales-high-rimshot-macho.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/rimshot/533089__sassaby__timbales-high-rimshot-macho.wav",
+    "size": 301552,
+    "sha256": "dd2eedfa5745ce18867117400b75beb6350dd6568d8509fb88daf2227a7332b8"
+  },
+  {
+    "path": "Drums/Percussion/freesound_573256__sorinious-genious__timpani-rimshot-4.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/rimshot/573256__sorinious-genious__timpani-rimshot-4.wav",
+    "size": 1161460,
+    "sha256": "c018feab50c8703e25f3f3a84a5af6d471830e5e05bc242a54a5a93941be5615"
+  },
+  {
+    "path": "Drums/Percussion/freesound_579853__curesforbrokenhearts__lp-matador-bongo-drum-hembra.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/bongo/579853__curesforbrokenhearts__lp-matador-bongo-drum-hembra.wav",
+    "size": 563716,
+    "sha256": "f14ea00009cf94f8d35c7e0ac7665ef8cd474bdf3435d46f5ed985e49fde64f2"
+  },
+  {
+    "path": "Drums/Percussion/freesound_99752__menegass__bongo2.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/bongo/99752__menegass__bongo2.wav",
+    "size": 106094,
+    "sha256": "2873ce881c1b95021e01622fb798410aceb7b72ef63f23c7ee0a038b4b33cfa2"
+  },
+  {
+    "path": "Drums/Percussion/freesound_99754__menegass__bongo4.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/bongo/99754__menegass__bongo4.wav",
+    "size": 105886,
+    "sha256": "726633f5a2b0c5b8dcf8b43c107472dfc7327686fb38fa2ba4bc4e0f4ae1af92"
+  },
+  {
+    "path": "Drums/Percussion/freesound_99755__menegass__bngoh.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/bongo/99755__menegass__bngoh.wav",
+    "size": 17684,
+    "sha256": "579083d0abcbbc35b29544e5906049c2d1b334f13416e32b607b961153368bf4"
+  },
+  {
+    "path": "Drums/Percussion/fugue-state-audio_distkit-claves.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/percussion/distkit-claves.wav",
+    "size": 8072,
+    "sha256": "3be640e2234b19464afadcfe76101bd7e38e1a7edab5faeae454d0ab205e3e11"
+  },
+  {
+    "path": "Drums/Percussion/fugue-state-audio_distkit-cowbell.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/percussion/distkit-cowbell.wav",
+    "size": 159116,
+    "sha256": "becad8bdf672c1a417ca7dc2583197504780c93cf162725818bd37f74bcc0569"
+  },
+  {
+    "path": "Drums/Percussion/fugue-state-audio_distkit-zap.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/percussion/distkit-zap.wav",
+    "size": 143264,
+    "sha256": "448e90e52c7dd2f454c16717688d0c285d62fdc823b92fb2a5c98c3f70d8d1c2"
+  },
+  {
+    "path": "Drums/Percussion/fugue-state-audio_sdbkit-fmperc.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/percussion/sdbkit-fmperc.wav",
+    "size": 117296,
+    "sha256": "4525380378a65866f917185b8f4d2ea9910bc7212799b740a4febf572562435d"
+  },
+  {
+    "path": "Drums/Percussion/fugue-state-audio_synthkit-8bit.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/percussion/synthkit-8bit.wav",
+    "size": 68306,
+    "sha256": "e35addceeeeda390f25ca0eef0e23d3efed287f4fb2b3e296b3bdf302922c9e2"
+  },
+  {
+    "path": "Drums/Percussion/fugue-state-audio_x0xproc1-rimshot.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/percussion/x0xproc1-rimshot.wav",
+    "size": 39548,
+    "sha256": "eb6206d6b5a510121f45091fa7a5b87a5c968c0db97fa514c05cee1ba62b5413"
+  },
+  {
+    "path": "Drums/Percussion/fugue-state-audio_x0xproc2-claves.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/percussion/x0xproc2-claves.wav",
+    "size": 27794,
+    "sha256": "5b29e8fc66ea6253bf54602178d96743a70108f47e5eb9fb2cc1ea16fd4c56a3"
+  },
+  {
+    "path": "Drums/Percussion/fugue-state-audio_x0xproc2-cowbell.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/percussion/x0xproc2-cowbell.wav",
+    "size": 148148,
+    "sha256": "450d5fa056a9a3865154c404ff727473c73a15792fb7284562748b6ae572d82e"
+  },
+  {
+    "path": "Drums/Percussion/fugue-state-audio_x0xproc2-maracas.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/percussion/x0xproc2-maracas.wav",
+    "size": 20024,
+    "sha256": "4730d893f35c3699f0d1a3b3cf379d11353a23bd42c3c4758e864bb358599bd4"
+  },
+  {
+    "path": "Drums/Percussion/fugue-state-audio_x0xproc2-rimshot.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/percussion/x0xproc2-rimshot.wav",
+    "size": 14588,
+    "sha256": "7c4ba10005d5e73dd9055b6c9aeea53b3cfbd57def961cf591a9638591cf7dae"
+  },
+  {
+    "path": "Drums/Percussion/karoryfer_antlers_large_clash.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/percussion/antlers_large_clash.wav",
+    "size": 518386,
+    "sha256": "467270e21619c9195021f9a4f8009f155d02b51896352ea928472d0eabd9ba7f"
+  },
+  {
+    "path": "Drums/Percussion/karoryfer_big_metal_rods.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/percussion/big_metal_rods.wav",
+    "size": 347104,
+    "sha256": "c4fe7c02c9513e34af790c1030fbaa547bf2c20c5b2bf4df53a301ac4b455ed0"
+  },
+  {
+    "path": "Drums/Percussion/karoryfer_bones_down.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/percussion/bones_down.wav",
+    "size": 482178,
+    "sha256": "9df883f8f7645506147350e64fb3acec9f70a8d854b1ae972eabde306b81fed6"
+  },
+  {
+    "path": "Drums/Percussion/karoryfer_bones_up.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/percussion/bones_up.wav",
+    "size": 521814,
+    "sha256": "e8b59209bff9061778ae81a3849f9a21e1b8e4cbe44ec8796ca61f512e1f1b1e"
+  },
+  {
+    "path": "Drums/Percussion/karoryfer_canvas_head_drum_with_jingles_14.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/percussion/canvas_head_drum_with_jingles_14.wav",
+    "size": 869730,
+    "sha256": "7757c04ab67926eb5893d33697e48004ed3ef46aa940082fef667824b0f88211"
+  },
+  {
+    "path": "Drums/Percussion/karoryfer_chain_drop.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/percussion/chain_drop.wav",
+    "size": 300132,
+    "sha256": "fc52f58bc5fcad212c3864d0e3d8f3824894c9caac0510c1ca5e859264b3fa6f"
+  },
+  {
+    "path": "Drums/Percussion/karoryfer_cow_teeth_drop.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/percussion/cow_teeth_drop.wav",
+    "size": 394428,
+    "sha256": "b0fbc7e5b985ced0519656fa9d90a05e2f8a1f87442616ab3dc1a0b4e65bb2d0"
+  },
+  {
+    "path": "Drums/Percussion/karoryfer_frame_drum_16.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/percussion/frame_drum_16.wav",
+    "size": 959616,
+    "sha256": "2453d15b43730248836ed34e0a7f08c0b81b8d3860267d845b0060a54f0e9b08"
+  },
+  {
+    "path": "Drums/Percussion/karoryfer_jewelers_anvil.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/percussion/jewelers_anvil.wav",
+    "size": 502278,
+    "sha256": "06fc142c9256a0b832f7c5c8f0ed1e03afb95e1db01920a489e1eaa93debd497"
+  },
+  {
+    "path": "Drums/Percussion/karoryfer_medieval_drum_20.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/percussion/medieval_drum_20.wav",
+    "size": 815244,
+    "sha256": "6e8ef47ed22912da06917dd42cc82716a7c01656c295e26381415ce766b9b4af"
+  },
+  {
+    "path": "Drums/Percussion/karoryfer_medieval_drum_24.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/percussion/medieval_drum_24.wav",
+    "size": 1274730,
+    "sha256": "f87c0b14bc32dd01b6b5cf577ef37490f22329199970affba4417c9d3ed90950"
+  },
+  {
+    "path": "Drums/Percussion/karoryfer_pitchfork_socket.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/percussion/pitchfork_socket.wav",
+    "size": 645240,
+    "sha256": "f2a1e28918051e9398c482032f343f29e1bb04c238687c834de1740dd1c5f382"
+  },
+  {
+    "path": "Drums/Percussion/karoryfer_shoemakers_last.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/percussion/shoemakers_last.wav",
+    "size": 377640,
+    "sha256": "f438b7651cc8a4a7af970f2fd9a7ff4a8ec097884f2ece29de02c762d711fb09"
+  },
+  {
+    "path": "Drums/Percussion/karoryfer_sword.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/percussion/sword.wav",
+    "size": 1108842,
+    "sha256": "cece55ead4c5fc237da087d2c2f41693a36d59b3c929c4b00a56ee6cda49d751"
+  },
+  {
+    "path": "Drums/Percussion/microlag_Clap1.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/One-Shots/Drums/Clap1.wav",
+    "size": 66006,
+    "sha256": "b85c03b4c534698b6e0d4c9d1ab1ca01f224cb64fafc205f6e9ec9724cf548f5"
+  },
+  {
+    "path": "Drums/Percussion/microlag_Hihat1.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/One-Shots/Drums/Hihat1.wav",
+    "size": 17472,
+    "sha256": "14dddc4b2041900c1a88e560dff4dc557649c6350631a831c6f63c4df0d1b83a"
+  },
+  {
+    "path": "Drums/Percussion/microlag_Hihat2.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/One-Shots/Drums/Hihat2.wav",
+    "size": 34404,
+    "sha256": "094af95ce38c97239872183442d98427144e0e4a3eaf41bf7cf973a19da1a74f"
+  },
+  {
+    "path": "Drums/Percussion/microlag_Kick1.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/One-Shots/Drums/Kick1.wav",
+    "size": 196680,
+    "sha256": "76421cd952998571df801a8b96ccb8c756103029f49e099dda2b55fe49b9fe6b"
+  },
+  {
+    "path": "Drums/Percussion/microlag_Kick2.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/One-Shots/Drums/Kick2.wav",
+    "size": 115236,
+    "sha256": "818465622838b63fec3499f12a0265f800193849d6133e5a433a7472114b855c"
+  },
+  {
+    "path": "Drums/Percussion/microlag_Snare1.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/One-Shots/Drums/Snare1.wav",
+    "size": 332334,
+    "sha256": "9986f9928cdf2118b7e95faeecfcc571d3767f2ec14eff98d2b0f4ede98a3bd8"
+  },
+  {
+    "path": "Drums/Snares/freesound_173087__yellowtree__wood-snare-sample-3.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/snare/173087__yellowtree__wood-snare-sample-3.wav",
+    "size": 264538,
+    "sha256": "284b3ddd59b5c17e450f7965265b199d7313e8c84e516fc23c0aff73daf9d542"
+  },
+  {
+    "path": "Drums/Snares/freesound_212211__alexthegr81__tapesnare-18.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/snare/212211__alexthegr81__tapesnare-18.wav",
+    "size": 182494,
+    "sha256": "b27935c89f2e38db9bcdda1b8f367081a1bfda4aba9f41ad1b8483df7b7ff979"
+  },
+  {
+    "path": "Drums/Snares/freesound_212233__alexthegr81__tapesnare-5.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/snare/212233__alexthegr81__tapesnare-5.wav",
+    "size": 57182,
+    "sha256": "ee993d97df9e4cec6f21dd305b007287f8b6cd7f32d68b67cc747d245a238b13"
+  },
+  {
+    "path": "Drums/Snares/freesound_212234__alexthegr81__tapesnare-21.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/snare/212234__alexthegr81__tapesnare-21.wav",
+    "size": 220942,
+    "sha256": "8092e514fa37e09cf7cf12565b68a4b0b717fecfb3e10475100c999faf6549e7"
+  },
+  {
+    "path": "Drums/Snares/freesound_387186__alexiero-1__ai-snare-20.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/snare/387186__alexiero-1__ai-snare-20.wav",
+    "size": 56846,
+    "sha256": "55aca22829d6a54590e54be9c44040689427239d8e874e9242e30ee455125e0c"
+  },
+  {
+    "path": "Drums/Snares/freesound_501249__veiler__brian-snare-loud.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/freesound/drums/snare/501249__veiler__brian-snare-loud.wav",
+    "size": 97792,
+    "sha256": "b5451d19d7a2f20ffc4b0a92d3d57c887237d8a4dd796e741482962aa085c104"
+  },
+  {
+    "path": "Drums/Snares/fugue-state-audio_distkit-snare.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/snares/distkit-snare.wav",
+    "size": 68840,
+    "sha256": "bca873444c1a07f1aaaa79ed304faf593d375a4330c73b2aaadb563947fe4422"
+  },
+  {
+    "path": "Drums/Snares/fugue-state-audio_sdbkit-snare.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/snares/sdbkit-snare.wav",
+    "size": 69986,
+    "sha256": "163d8942e804f5f81ed62d541fa1985332af891cc84b0e3bc6237374698a223f"
+  },
+  {
+    "path": "Drums/Snares/fugue-state-audio_synthkit-snare.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/snares/synthkit-snare.wav",
+    "size": 61952,
+    "sha256": "177549cd845ecccef1a4a8d89bfa0ff3df7279e1e6016ff05534db0b3e1f541e"
+  },
+  {
+    "path": "Drums/Snares/fugue-state-audio_x0xproc1-snare.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/snares/x0xproc1-snare.wav",
+    "size": 111182,
+    "sha256": "5c5b35d9565e53500a6bc5524ab1d4f249fe3d91878b1d1c103d95c87acdfe6b"
+  },
+  {
+    "path": "Drums/Snares/fugue-state-audio_x0xproc2-snare.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/snares/x0xproc2-snare.wav",
+    "size": 85796,
+    "sha256": "161cfe4121a2340edec75eb228a5754684c25a4999ca3477542e7d895e128246"
+  },
+  {
+    "path": "Drums/Snares/karoryfer_snare_10x6.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/snares/snare_10x6.wav",
+    "size": 367736,
+    "sha256": "c75dfff0c8bf61474e7bef45ecab8f0107a8364b71d47f2f8b1c001b34f3cfe5"
+  },
+  {
+    "path": "Drums/Snares/karoryfer_snare_12x5.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/snares/snare_12x5.wav",
+    "size": 604418,
+    "sha256": "9a1d89f5ed76891fe35c76b76eed510626667e47d4277ca81dafcec954d2ecf2"
+  },
+  {
+    "path": "Drums/Snares/karoryfer_snare_16x7.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/snares/snare_16x7.wav",
+    "size": 573380,
+    "sha256": "2fd7dadf9ec09560a164c89ac019648778ec99f4e6d1510aa36d943902025806"
+  },
+  {
+    "path": "Drums/Snares/karoryfer_snare_Pearl_alumunum_14x8.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/snares/snare_Pearl_alumunum_14x8.wav",
+    "size": 595352,
+    "sha256": "1cca8e26a75168b3abcd3bee740c0e57d444fa6ead0be411aed5fa799ef1cdcf"
+  },
+  {
+    "path": "Drums/Snares/karoryfer_snare_ziggurat.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/snares/snare_ziggurat.wav",
+    "size": 605690,
+    "sha256": "e7c1b3ac83da1c6dcfdb1ffd3766658014fcc44487ab5569d200b91d63fc782c"
+  },
+  {
+    "path": "Drums/Toms/fugue-state-audio_distkit-hitom.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/toms/distkit-hitom.wav",
+    "size": 180176,
+    "sha256": "4ca8f4daf4b55d61d8f0a48f95268329852877c10bb40864a82f67f3774a421d"
+  },
+  {
+    "path": "Drums/Toms/fugue-state-audio_distkit-lotom.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/toms/distkit-lotom.wav",
+    "size": 177866,
+    "sha256": "1c37f8720881f3530f39c6f33a749a7e81fffb9d9d331bfb63ef8c85f19bd1d2"
+  },
+  {
+    "path": "Drums/Toms/fugue-state-audio_distkit-midtom.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/toms/distkit-midtom.wav",
+    "size": 202616,
+    "sha256": "7ccd033c24fdf8722086aef255cb022d6fec618f2939221d8704a3e0b03fbb1c"
+  },
+  {
+    "path": "Drums/Toms/fugue-state-audio_sdbkit-hitom.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/toms/sdbkit-hitom.wav",
+    "size": 164492,
+    "sha256": "afa13190e549d8a984d70209449194699cd2c9412874cfbaf89a14443b6a6328"
+  },
+  {
+    "path": "Drums/Toms/fugue-state-audio_sdbkit-lotom.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/toms/sdbkit-lotom.wav",
+    "size": 158288,
+    "sha256": "80b5dcec5a5be0cddfef0bc2bfb49f4594868ee38b31453e8a456fdf4ebf86a8"
+  },
+  {
+    "path": "Drums/Toms/fugue-state-audio_sdbkit-midtom.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/toms/sdbkit-midtom.wav",
+    "size": 155390,
+    "sha256": "9848e353e6f21047f578baf4b4f4eab5e92835d6237a26cd03122c8f8107f911"
+  },
+  {
+    "path": "Drums/Toms/fugue-state-audio_synthkit-hitom.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/toms/synthkit-hitom.wav",
+    "size": 155624,
+    "sha256": "2c6966492d2bf868e24abac0af4f5fcb025b59b2d9023cbb0134392fbd535fc6"
+  },
+  {
+    "path": "Drums/Toms/fugue-state-audio_synthkit-lotom.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/toms/synthkit-lotom.wav",
+    "size": 163442,
+    "sha256": "b213f21bfc9e40586d1d3a1d2e9388dccfb26079517c576c27bb8d00e3402e2e"
+  },
+  {
+    "path": "Drums/Toms/fugue-state-audio_synthkit-midtom.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/toms/synthkit-midtom.wav",
+    "size": 158660,
+    "sha256": "aac853f578e39e45ef440ba13db76c40dc57bafc104fce208a79bb5753cb28b5"
+  },
+  {
+    "path": "Drums/Toms/fugue-state-audio_x0xproc1-hitom.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/toms/x0xproc1-hitom.wav",
+    "size": 159428,
+    "sha256": "71bf275586cb7698c2325378d617a4770f9faca09d8f770d12b34eeb6bf0e756"
+  },
+  {
+    "path": "Drums/Toms/fugue-state-audio_x0xproc1-lotom.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/toms/x0xproc1-lotom.wav",
+    "size": 221108,
+    "sha256": "e5544cb873a6bcbdd11d38033249037b9a1953816b3c77dd552d81ee9ff8f7fb"
+  },
+  {
+    "path": "Drums/Toms/fugue-state-audio_x0xproc1-midtom.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/toms/x0xproc1-midtom.wav",
+    "size": 208658,
+    "sha256": "ebc2f45ee7337d48d156c71706dff3889d23f7f823b37b0bc65d33e0139f7535"
+  },
+  {
+    "path": "Drums/Toms/fugue-state-audio_x0xproc2-hitom.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/toms/x0xproc2-hitom.wav",
+    "size": 100334,
+    "sha256": "35dc012905e980babca66c5d8af395b192bdc17ac5803aadf130b205ac4f1628"
+  },
+  {
+    "path": "Drums/Toms/fugue-state-audio_x0xproc2-lotom.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/toms/x0xproc2-lotom.wav",
+    "size": 277388,
+    "sha256": "e6d49e70e4fd6a5b2b02367283ef9e68991f38e61067d27a14d748a7d7641570"
+  },
+  {
+    "path": "Drums/Toms/fugue-state-audio_x0xproc2-midtom.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/drums/toms/x0xproc2-midtom.wav",
+    "size": 128444,
+    "sha256": "1f6a79bdedc4f438d4875d267e530eed0cc4c197607c4349f951df87ab7ca6af"
+  },
+  {
+    "path": "Drums/Toms/karoryfer_tom_RMIF_22.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/toms/tom_RMIF_22.wav",
+    "size": 788570,
+    "sha256": "3ca31135e18411eb3c60efc97ec75390327d7b19b02169ea3356dd1360c97371"
+  },
+  {
+    "path": "Drums/Toms/karoryfer_tom_Szpaderski_14.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/toms/tom_Szpaderski_14.wav",
+    "size": 661262,
+    "sha256": "3bb45ccd337301f66314953b27879088283cc620ddb7790cb17cbbbdced55402"
+  },
+  {
+    "path": "Drums/Toms/karoryfer_tom_Szpaderski_15.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/toms/tom_Szpaderski_15.wav",
+    "size": 613442,
+    "sha256": "2ce07a606aad2557bb3f720f43f2d61e9e2a0a1351fad9e387f9fb615f5df331"
+  },
+  {
+    "path": "Drums/Toms/karoryfer_tom_Szpaderski_18.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/karoryfer/toms/tom_Szpaderski_18.wav",
+    "size": 599876,
+    "sha256": "0024c36a41232c73d510dad817bb461840fd7a9fca726721d0ad158dd1176b9a"
+  },
+  {
+    "path": "Effects and Textures/fugue-state-audio_a-dive1.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/guitar-fx/a-dive1.wav",
+    "size": 606290,
+    "sha256": "ea4af44162f6ce8b8c1f3a1e31d46c0d2ff6cc832c8eff6ddc1cd552cc7968c0"
+  },
+  {
+    "path": "Effects and Textures/fugue-state-audio_a-dive2.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/guitar-fx/a-dive2.wav",
+    "size": 796784,
+    "sha256": "62438654c5fce8a95f955936a6a431e9cbc0dcfbfa9a0a8c6a759c1d52aa5c47"
+  },
+  {
+    "path": "Effects and Textures/fugue-state-audio_a-harm.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/guitar-fx/a-harm.wav",
+    "size": 1035998,
+    "sha256": "57dcf7ff15f7c109d244f54c78d1611d80237c2c690b12ed561f0a792452052e"
+  },
+  {
+    "path": "Effects and Textures/fugue-state-audio_bowlhit.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/found-sounds/bowlhit.wav",
+    "size": 139168,
+    "sha256": "8ca69b42bedb23e937f31e27ba3f7c7e18579d6eeacb2cbfdbb09c328e8ab8c2"
+  },
+  {
+    "path": "Effects and Textures/fugue-state-audio_coinshake1.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/found-sounds/coinshake1.wav",
+    "size": 724218,
+    "sha256": "99364999b89f70be6a3a696045c4831a4b1c68a215a6162338d8bf7e44fdf436"
+  },
+  {
+    "path": "Effects and Textures/fugue-state-audio_coinshake2.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/found-sounds/coinshake2.wav",
+    "size": 306352,
+    "sha256": "b6f66027d7bb68f43ea22ac637d66c50b42d5648a559fe93987aa3bed42a30d9"
+  },
+  {
+    "path": "Effects and Textures/fugue-state-audio_cyborganic.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/synth-fx/cyborganic.wav",
+    "size": 18871340,
+    "sha256": "347073e3e68ba15849d1df66d25106aecda633cd47eb49c6a17907b567a59e12"
+  },
+  {
+    "path": "Effects and Textures/fugue-state-audio_d-harm.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/guitar-fx/d-harm.wav",
+    "size": 907358,
+    "sha256": "3fdbe9d034fc2999848c79c34269ca0776a94bb159c85a34b13f1711bb6f530f"
+  },
+  {
+    "path": "Effects and Textures/fugue-state-audio_e-harm.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/guitar-fx/e-harm.wav",
+    "size": 923996,
+    "sha256": "9e940c4411d99dc400a81af59c3f3ed483855845fd934a6dbab4589c69595c48"
+  },
+  {
+    "path": "Effects and Textures/fugue-state-audio_glass-hit.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/found-sounds/glass-hit.wav",
+    "size": 35358,
+    "sha256": "bd6c8adbeb5c6f903fc16f4f6ae9e642ef87deda96613e5bad8f842fbc1bb4ee"
+  },
+  {
+    "path": "Effects and Textures/fugue-state-audio_lid-swirl.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/found-sounds/lid-swirl.wav",
+    "size": 751936,
+    "sha256": "add994f53c53a50bdd485b3fe1af1240f77393cb9d6fc5224387b988ad79df56"
+  },
+  {
+    "path": "Effects and Textures/fugue-state-audio_spookscape.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/synth-fx/spookscape.wav",
+    "size": 20250668,
+    "sha256": "9c4acc5cdc3f801f11327096513f038e6ab05e36f1dffc70d748a2f63100fb9b"
+  },
+  {
+    "path": "Effects and Textures/fugue-state-audio_stringscrape.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/guitar-fx/stringscrape.wav",
+    "size": 1116770,
+    "sha256": "bdbbaed19d640924c169e5675a5e14b7343cd31f93de4296d0c446d2b8f8d9a9"
+  },
+  {
+    "path": "Effects and Textures/fugue-state-audio_thunder.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/found-sounds/thunder.wav",
+    "size": 2179796,
+    "sha256": "9739df297a607095dccabeb574bbbe00cece4daa128e730678588a3e63c73d58"
+  },
+  {
+    "path": "Effects and Textures/fugue-state-audio_whatsinthere.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/synth-fx/whatsinthere.wav",
+    "size": 15591980,
+    "sha256": "e5d729f4dc5f469208f221f556985813aa54ca9e469ed1df95261fadeffa8e39"
+  },
+  {
+    "path": "Effects and Textures/microlag_Alien_Shotgun_G.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/One-Shots/FX/Alien_Shotgun_G.wav",
+    "size": 1112056,
+    "sha256": "0f240946ef3375709371d19b02ce1fbad9759a7ece0f09b27d541f15a09f02dc"
+  },
+  {
+    "path": "Effects and Textures/stargate_pink-plain.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/stargate/noise/pink-plain.wav",
+    "size": 2650200,
+    "sha256": "c0cd3bf296db9d33c16de269a651796b9ca43f7124aa8671e3447d570c165e84"
+  },
+  {
+    "path": "Effects and Textures/stargate_pink-stereo.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/stargate/noise/pink-stereo.wav",
+    "size": 2650200,
+    "sha256": "b03c1800e8dbb11cfd9c467ce5b4fbbf2cbc9714c10abcc393db1470afadf77c"
+  },
+  {
+    "path": "Effects and Textures/stargate_white-plain.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/stargate/noise/white-plain.wav",
+    "size": 2650200,
+    "sha256": "48700661ba0c79437da25583f2a38987a9926919069af56d3149003a14d28e8d"
+  },
+  {
+    "path": "Effects and Textures/stargate_white-stereo.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/stargate/noise/white-stereo.wav",
+    "size": 2650200,
+    "sha256": "6b7904da4eb010810882c5751ebc815dee0de0a50da82cdd225fea0039172422"
+  },
+  {
+    "path": "Keys/Clavisynth/VCSL_Clavisynth_C0_vl2.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Electrophones/TX81Z/Clavisynth/Clavisynth_C0_vl2.wav",
+    "size": 1589821,
+    "sha256": "5cdadf6ee7a8bfe7a6dac8c191595965792ddd2ac2c04d70f5726aa4edf1113e"
+  },
+  {
+    "path": "Keys/Clavisynth/VCSL_Clavisynth_C3_vl2.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Electrophones/TX81Z/Clavisynth/Clavisynth_C3_vl2.wav",
+    "size": 406438,
+    "sha256": "eccc4d3c7cb08871c91b682272f7efc3b968516888e46c29246b90d96421b2a7"
+  },
+  {
+    "path": "Keys/Clavisynth/VCSL_Clavisynth_C5_vl2.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Electrophones/TX81Z/Clavisynth/Clavisynth_C5_vl2.wav",
+    "size": 106639,
+    "sha256": "23dc35904f6aa1a285bfad207dee5c24a6f7869703c2eeacfa7b7385f803874a"
+  },
+  {
+    "path": "Keys/Clavisynth/VCSL_Clavisynth_E1_vl2.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Electrophones/TX81Z/Clavisynth/Clavisynth_E1_vl2.wav",
+    "size": 748828,
+    "sha256": "b87b3f8acb14e78a56d6bdb4011d349da53fe514b8a2c2c4732aa19afc57b5a4"
+  },
+  {
+    "path": "Keys/Clavisynth/VCSL_Clavisynth_E3_vl2.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Electrophones/TX81Z/Clavisynth/Clavisynth_E3_vl2.wav",
+    "size": 331084,
+    "sha256": "6115bf3cc71d1a645b5e13a78b15c61a839631b5a21acaa994a25fe7a8d033c5"
+  },
+  {
+    "path": "Keys/Clavisynth/VCSL_Clavisynth_G#0_vl2.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Electrophones/TX81Z/Clavisynth/Clavisynth_G%230_vl2.wav",
+    "size": 1375156,
+    "sha256": "c84cac50ace4ec3bfacf983a98f50977545937afbb579d981f6e2bb780e6744e"
+  },
+  {
+    "path": "Keys/Clavisynth/VCSL_Clavisynth_G#2_vl2.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Electrophones/TX81Z/Clavisynth/Clavisynth_G%232_vl2.wav",
+    "size": 535240,
+    "sha256": "778c0d364d281c35da076b549ff58c5a37d97a79656e68fc959767d573bb6ee2"
+  },
+  {
+    "path": "Keys/Clavisynth/VCSL_Clavisynth_G#5_vl2.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Electrophones/TX81Z/Clavisynth/Clavisynth_G%235_vl2.wav",
+    "size": 62701,
+    "sha256": "b8d3b086fc547ea41dec40298f3631a313ba03dd878b0feda1bb851492cd118f"
+  },
+  {
+    "path": "Keys/FM Piano/VCSL_FMPiano_C0_vl2.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Electrophones/TX81Z/FM%20Piano/FMPiano_C0_vl2.wav",
+    "size": 1611442,
+    "sha256": "4e24c74c7bd4c65f4b7e59b9aa5a41b127526b1d6e2ae364244d466cb4da02da"
+  },
+  {
+    "path": "Keys/FM Piano/VCSL_FMPiano_C3_vl2.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Electrophones/TX81Z/FM%20Piano/FMPiano_C3_vl2.wav",
+    "size": 1319437,
+    "sha256": "6f11eda294358ac5931225e3cf2400dadf0730a1fe092a75457f6e097148fdec"
+  },
+  {
+    "path": "Keys/FM Piano/VCSL_FMPiano_C6_vl2.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Electrophones/TX81Z/FM%20Piano/FMPiano_C6_vl2.wav",
+    "size": 480088,
+    "sha256": "ff41a17dde6baf761e9a0b9a8daa971c7a129d948ae1c15c84d3fa1692af2325"
+  },
+  {
+    "path": "Keys/FM Piano/VCSL_FMPiano_E1_vl2.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Electrophones/TX81Z/FM%20Piano/FMPiano_E1_vl2.wav",
+    "size": 1597441,
+    "sha256": "94cd5f7475ecc26023a940a1889ba15a460cf129e4af7c186cdb0a53e27c6104"
+  },
+  {
+    "path": "Keys/FM Piano/VCSL_FMPiano_E4_vl2.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Electrophones/TX81Z/FM%20Piano/FMPiano_E4_vl2.wav",
+    "size": 821359,
+    "sha256": "ffdb976f02bc4b1ab8a8eda4f880a46c2505804f35ce07e73fff02b177b54e46"
+  },
+  {
+    "path": "Keys/FM Piano/VCSL_FMPiano_G#0_vl2.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Electrophones/TX81Z/FM%20Piano/FMPiano_G%230_vl2.wav",
+    "size": 1599421,
+    "sha256": "473123742b743c15c1add738e26f997cfe66bb17af63cf5ff1e441b4c60e2504"
+  },
+  {
+    "path": "Keys/FM Piano/VCSL_FMPiano_G#3_vl2.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Electrophones/TX81Z/FM%20Piano/FMPiano_G%233_vl2.wav",
+    "size": 942760,
+    "sha256": "6c32c0dea461ea49f4cf3c3439b20f5f94340e387fd0a32d6d5cbaa937a4a04d"
+  },
+  {
+    "path": "Keys/FM Piano/VCSL_FMPiano_G#6_vl2.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Electrophones/TX81Z/FM%20Piano/FMPiano_G%236_vl2.wav",
+    "size": 337960,
+    "sha256": "e48ead18e2b5771907ff2ad8966c1c3fe53a46f1f2a3551f3f6d0fcf50d8e954"
+  },
+  {
+    "path": "Keys/Grand Piano/VCSL_GPiano_sus_A#-1_v3_rr1_Player.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Kawai/Sustains/GPiano_sus_A%23-1_v3_rr1_Player.wav",
+    "size": 2986524,
+    "sha256": "83ce55a125b9aaa8d35176adf222b5fd7ab2069d9e36fae34b857cb7ff028468"
+  },
+  {
+    "path": "Keys/Grand Piano/VCSL_GPiano_sus_A0_v3_rr1_Player.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Kawai/Sustains/GPiano_sus_A0_v3_rr1_Player.wav",
+    "size": 5522460,
+    "sha256": "75560d79a0feb7352d76b6ba02e6811f6db2909094b7910c70e5af36235d4264"
+  },
+  {
+    "path": "Keys/Grand Piano/VCSL_GPiano_sus_B4_v3_rr1_Player.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Kawai/Sustains/GPiano_sus_B4_v3_rr1_Player.wav",
+    "size": 1484132,
+    "sha256": "00cd9f702d90dc69c366ced45f45fdc2742e7cae636c63b5b0e1958a04bd362d"
+  },
+  {
+    "path": "Keys/Grand Piano/VCSL_GPiano_sus_C3_v3_rr1_Player.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Kawai/Sustains/GPiano_sus_C3_v3_rr1_Player.wav",
+    "size": 3579752,
+    "sha256": "98496ea0d77ba1a753bc390b499267e9dc0b9015f9f928ab6f26bff39daef9a4"
+  },
+  {
+    "path": "Keys/Grand Piano/VCSL_GPiano_sus_C7_v3_rr1_Player.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Kawai/Sustains/GPiano_sus_C7_v3_rr1_Player.wav",
+    "size": 736724,
+    "sha256": "bd8688b672d408adfdd956b38a23ec40ebad6b4964fbb8879e8227517c7a6e90"
+  },
+  {
+    "path": "Keys/Grand Piano/VCSL_GPiano_sus_D#6_v3_rr1_Player.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Kawai/Sustains/GPiano_sus_D%236_v3_rr1_Player.wav",
+    "size": 790928,
+    "sha256": "2b47613ab0449c3588432079c6fa082098587aef944d1cb44215f51576ed5ca1"
+  },
+  {
+    "path": "Keys/Grand Piano/VCSL_GPiano_sus_E2_v3_rr1_Player.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Kawai/Sustains/GPiano_sus_E2_v3_rr1_Player.wav",
+    "size": 5643696,
+    "sha256": "1b054cbefb4d04ea2956620b6c7eedf34e3b4000d75c3bd4358cc71415c097b9"
+  },
+  {
+    "path": "Keys/Grand Piano/VCSL_GPiano_sus_F#1_v3_rr1_Player.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Kawai/Sustains/GPiano_sus_F%231_v3_rr1_Player.wav",
+    "size": 5544884,
+    "sha256": "71a52517651b8c854e93309cdbefa7b72333a711083fa07d9a53b87c5c7fd0a6"
+  },
+  {
+    "path": "Keys/Grand Piano/VCSL_GPiano_sus_F#5_v3_rr1_Player.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Kawai/Sustains/GPiano_sus_F%235_v3_rr1_Player.wav",
+    "size": 1319588,
+    "sha256": "75f2e9411888439c13d111c0965481da96099a385578f903161d6de79afb5ddb"
+  },
+  {
+    "path": "Keys/Grand Piano/VCSL_GPiano_sus_G#4_v3_rr1_Player.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Kawai/Sustains/GPiano_sus_G%234_v3_rr1_Player.wav",
+    "size": 2313244,
+    "sha256": "438eda14b4d10be6f46ef38dcd0080d10e5979b065e5bee0d2bb9b98d7817d8a"
+  },
+  {
+    "path": "Loops/Bass/microlag_Bass_A_Major_72BPM.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/Loops/Bass_A_Major_72BPM.wav",
+    "size": 1764736,
+    "sha256": "c167b717cb05b2bf485f9d4ef2cfcd85ba8a4935404ed4c4021e07a2d63ab09a"
+  },
+  {
+    "path": "Loops/Bass/microlag_Bass_C_Minor_76BPM.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/Loops/Bass_C_Minor_76BPM.wav",
+    "size": 1671892,
+    "sha256": "12f490e8ea2c66190de8b0d79f9b64dd2d76b28b3339092770418216f019f735"
+  },
+  {
+    "path": "Loops/Drums/fugue-state-audio_120-crossed.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/loops/120-crossed.wav",
+    "size": 1059136,
+    "sha256": "aa4965a194500e4965aacbed5f4ce953714b7edc1661198ea10b89e37f33735a"
+  },
+  {
+    "path": "Loops/Drums/fugue-state-audio_120-filterhats.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/loops/120-filterhats.wav",
+    "size": 2117536,
+    "sha256": "e1871a396fae6161179adb50804fabd9c3cacf32110da80678ee9928daf9ea3f"
+  },
+  {
+    "path": "Loops/Drums/fugue-state-audio_120-funkybeat.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/loops/120-funkybeat.wav",
+    "size": 1059242,
+    "sha256": "767af9fa3e164f3472623fe6c93f1d61d45f259cc66bd1ff1f5c28ef5a8c6d02"
+  },
+  {
+    "path": "Loops/Drums/fugue-state-audio_130-discobeat.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/loops/130-discobeat.wav",
+    "size": 977912,
+    "sha256": "c64e092f0a684487dd13813439c4c0d51c9f106add2e2d710350fc22a20ec0b8"
+  },
+  {
+    "path": "Loops/Drums/fugue-state-audio_130-voxybeat.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/loops/130-voxybeat.wav",
+    "size": 977722,
+    "sha256": "39332feb646a8563e295b277b9c1e0f45b2042a34da8ec835fbc964aa9facf85"
+  },
+  {
+    "path": "Loops/Drums/fugue-state-audio_130_metalworx.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/loops/130_metalworx.wav",
+    "size": 3907982,
+    "sha256": "c241e0d9d93c8afa143c1e945af4d19ae8e59ac519f2bf2f8f1424df80cff3c9"
+  },
+  {
+    "path": "Loops/Drums/fugue-state-audio_140-resobeat.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/loops/140-resobeat.wav",
+    "size": 1815136,
+    "sha256": "41dd07ecf256d255e587cf42aa675c5e6d4b0346713ef4e936c1672a6aed381b"
+  },
+  {
+    "path": "Loops/Drums/fugue-state-audio_140-vocodiver.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/fugue-state-audio/loops/140-vocodiver.wav",
+    "size": 1815136,
+    "sha256": "88ebbee66abd691620447b18045d6121a9987075cb6ab0e88e6ec2617d4df992"
+  },
+  {
+    "path": "Loops/Drums/microlag_Drums_100BPM.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/Loops/Drums_100BPM.wav",
+    "size": 2540896,
+    "sha256": "9ebf8f4447dae3ac9b91cc93d313e8f18e0f5273dcf30c2122ea576cb53f61df"
+  },
+  {
+    "path": "Loops/Drums/microlag_Drums_120BPM.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/Loops/Drums_120BPM.wav",
+    "size": 2117536,
+    "sha256": "b5a0b00d3e2162f7c127206d07f1bc7c56ccec646569bed97ecc78ea1e0580f6"
+  },
+  {
+    "path": "Loops/Drums/microlag_Drums_15-16_95BPM.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/Loops/Drums_15-16_95BPM.wav",
+    "size": 2507470,
+    "sha256": "36c2307106275c96ebd9dd27ffd2346fd6b139e169b93cf9a758102f3e0c25fc"
+  },
+  {
+    "path": "Loops/Drums/microlag_Drums_170BPM.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/Loops/Drums_170BPM.wav",
+    "size": 1494946,
+    "sha256": "ab321ae4dd0bde84b575a79fc5bd72ba9fbc725a9f3f32809d98ddec177e93a9"
+  },
+  {
+    "path": "Loops/Drums/microlag_Drums_19-16_110BPM.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/Loops/Drums_19-16_110BPM.wav",
+    "size": 2742952,
+    "sha256": "0a82118b967f55fb5c5c424e0f78122d551dfb3942a15a4be5408e840c8cdd8b"
+  },
+  {
+    "path": "Loops/Drums/microlag_Drums_5-8_75BPM.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/Loops/Drums_5-8_75BPM.wav",
+    "size": 2117536,
+    "sha256": "d4d7466044611beb79e45f68656cdb4f33b279a7412c0e55d6b68c26e12eb4d0"
+  },
+  {
+    "path": "Loops/Drums/microlag_Drums_67BPM.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/Loops/Drums_67BPM.wav",
+    "size": 3792022,
+    "sha256": "0784a41427fb7535b28058b1566eda42e89bca10c09acba41f832ade87941aae"
+  },
+  {
+    "path": "Loops/Drums/microlag_Drums_7-8_85BPM.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/Loops/Drums_7-8_85BPM.wav",
+    "size": 2615608,
+    "sha256": "9bf225c622e3383ea954d793eda8e62481af0d84702efa1c8b2f754c8772d6d2"
+  },
+  {
+    "path": "Loops/Drums/microlag_Drums_70BPM.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/Loops/Drums_70BPM.wav",
+    "size": 3629536,
+    "sha256": "953c9ea9333461ccd1a2c7a746b9c2e82b2f7461ca8a7804087722ccce09e2b8"
+  },
+  {
+    "path": "Loops/Drums/microlag_Drums_80BPM.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/Loops/Drums_80BPM.wav",
+    "size": 3175854,
+    "sha256": "9a88081d90be82c5dbb8e7610da66ef49d9866f2dc8e6c92470a53644280cebd"
+  },
+  {
+    "path": "Loops/Drums/microlag_Drums_90BPM.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/Loops/Drums_90BPM.wav",
+    "size": 2823136,
+    "sha256": "6ff12a65cda0f646f9f944067d769fb91304579f8826ee622705d3fc9d138e8c"
+  },
+  {
+    "path": "Loops/Melodic and Textures/microlag_Ambience_A_85BPM.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/Loops/Ambience_A_85BPM.wav",
+    "size": 1494946,
+    "sha256": "0d8496132bdb3564db8590392798a50bc8cc190c3d11c9ed889782c179ede7b2"
+  },
+  {
+    "path": "Loops/Melodic and Textures/microlag_Chord_Bb_Half_Diminished_96BPM.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/Loops/Chord_Bb_Half_Diminished_96BPM.wav",
+    "size": 2646654,
+    "sha256": "a59aa41fe812e8dba35961d32847ae724424beaf2f84f650ce9f4c2d9f5bf2e9"
+  },
+  {
+    "path": "Loops/Melodic and Textures/microlag_Chord_C_Locrian_Natural_Six_83.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/Loops/Chord_C_Locrian_Natural_Six_83.wav",
+    "size": 3061168,
+    "sha256": "e284d80f8411183e02a82278ff4c8f75290796d4c92249f4da305f6a6fb7afa5"
+  },
+  {
+    "path": "Loops/Melodic and Textures/microlag_Chord_D_Harmonic_Minor_81BPM.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/Loops/Chord_D_Harmonic_Minor_81BPM.wav",
+    "size": 3136656,
+    "sha256": "b93be8ffa76eff134af0c9979c32d61ab38a4ed18300fdf7c26f790d489ca4bd"
+  },
+  {
+    "path": "Loops/Melodic and Textures/microlag_Chord_E_Dorian_Flat_Two_89BPM.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/Loops/Chord_E_Dorian_Flat_Two_89BPM.wav",
+    "size": 2854846,
+    "sha256": "4e375b9ab4602f0e5a37f1f1bdfd18eaea6c3792619e9a7d0e022b855a369cde"
+  },
+  {
+    "path": "Loops/Melodic and Textures/microlag_Chord_Eb_Natural_Minor_77BPM.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/Loops/Chord_Eb_Natural_Minor_77BPM.wav",
+    "size": 3299562,
+    "sha256": "80b48024f93dd37bf829ed15be1667050eaec8fa5351342bfbdf5158cdcf85d1"
+  },
+  {
+    "path": "Loops/Melodic and Textures/microlag_FX_65BPM.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/Loops/FX_65BPM.wav",
+    "size": 1954708,
+    "sha256": "e774cde734c2e68069df8ae4140679e6962239cdf32432c8b3d43a90f70ebd8d"
+  },
+  {
+    "path": "Loops/Melodic and Textures/microlag_Guitar_Db_Minor_74BPM.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/Loops/Guitar_Db_Minor_74BPM.wav",
+    "size": 3433384,
+    "sha256": "75f227fa3ef98131adf2796b70deb6aadd8b97e90a6736f64468322556dc95be"
+  },
+  {
+    "path": "Loops/Melodic and Textures/microlag_Guitar_F#_Major_93BPM.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/Loops/Guitar_F%23_Major_93BPM.wav",
+    "size": 2732092,
+    "sha256": "982bb16fbc4860256c6bcb9dfc93cd37106859263862c79053c2f8b144028714"
+  },
+  {
+    "path": "Loops/Melodic and Textures/microlag_Guitar_F_Harmonic_Minor_3-4_86BPM.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/Loops/Guitar_F_Harmonic_Minor_3-4_86BPM.wav",
+    "size": 2215990,
+    "sha256": "35cb3430f7ce85b7f58cb5802562dee82fa961af7d7220e0a7dd790dcbe9618c"
+  },
+  {
+    "path": "Loops/Melodic and Textures/microlag_Melody_B_Minor_73BPM.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/Loops/Melody_B_Minor_73BPM.wav",
+    "size": 1740574,
+    "sha256": "c52b49048f99d775fb783b785c86e253709d2a70ed093edf78a59da10971a122"
+  },
+  {
+    "path": "Mallets/Marimba/VCSL_Marimba_hit_Outrigger_B2_med_01.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Marimba/Marimba_hit_Outrigger_B2_med_01.wav",
+    "size": 1495616,
+    "sha256": "4d0ffc47858d0c4545191eef3240d470c40df1c090841c0fb2ae2f47900794ee"
+  },
+  {
+    "path": "Mallets/Marimba/VCSL_Marimba_hit_Outrigger_B4_med_01.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Marimba/Marimba_hit_Outrigger_B4_med_01.wav",
+    "size": 433802,
+    "sha256": "d676b76e3850d85333c85b1fc77d20f4524ff2e9e6f03551f52c5b22fbe8ab30"
+  },
+  {
+    "path": "Mallets/Marimba/VCSL_Marimba_hit_Outrigger_C4_med_01.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Marimba/Marimba_hit_Outrigger_C4_med_01.wav",
+    "size": 655244,
+    "sha256": "3e88c006eef05e8f7891f8f6027042006199a4ec3b53a0ad7308f9782a52d4df"
+  },
+  {
+    "path": "Mallets/Marimba/VCSL_Marimba_hit_Outrigger_C6_med_01.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Marimba/Marimba_hit_Outrigger_C6_med_01.wav",
+    "size": 451844,
+    "sha256": "d93fc6f7b399ac28d1ecf91987e9eb55b34024c6033b7f0e3aaf35f49d51a2f2"
+  },
+  {
+    "path": "Mallets/Marimba/VCSL_Marimba_hit_Outrigger_F1_med_01.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Marimba/Marimba_hit_Outrigger_F1_med_01.wav",
+    "size": 1027292,
+    "sha256": "484de6300831ebb267a867a4c435567bacfb77aed953f317fde5b1c312bafac4"
+  },
+  {
+    "path": "Mallets/Marimba/VCSL_Marimba_hit_Outrigger_F3_med_01.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Marimba/Marimba_hit_Outrigger_F3_med_01.wav",
+    "size": 1382924,
+    "sha256": "a493b31ac2e588ed961c522a66b790acc584b59a08918bd7193d6e6fa8df4756"
+  },
+  {
+    "path": "Mallets/Marimba/VCSL_Marimba_hit_Outrigger_G2_med_01.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Marimba/Marimba_hit_Outrigger_G2_med_01.wav",
+    "size": 1513244,
+    "sha256": "e9c2d33b9f50f0689b349dc9aee20a5b621961cf8294abb5ac4ba5a4674bd7c2"
+  },
+  {
+    "path": "Mallets/Marimba/VCSL_Marimba_hit_Outrigger_G4_med_01.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Marimba/Marimba_hit_Outrigger_G4_med_01.wav",
+    "size": 580262,
+    "sha256": "278e738d8214cdc192e63c3350b1e464a72c86dc135ddf0c5ce035569be66c71"
+  },
+  {
+    "path": "Mallets/Vibraphone/VCSL_Vibes_soft_A2_v1_rr1_Main.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Vibraphone/Soft%20Mallets/Vibes_soft_A2_v1_rr1_Main.wav",
+    "size": 1811676,
+    "sha256": "b6e23a94322107d0ab884d7c38e51be538eb45f613c6a24e980c2261151bed75"
+  },
+  {
+    "path": "Mallets/Vibraphone/VCSL_Vibes_soft_A4_v2_rr1_Main.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Vibraphone/Soft%20Mallets/Vibes_soft_A4_v2_rr1_Main.wav",
+    "size": 2388580,
+    "sha256": "fb507c5cb2f2023289fdf1384092f3c5e13f03a2b5b1c39f6792cc57aa77d58d"
+  },
+  {
+    "path": "Mallets/Vibraphone/VCSL_Vibes_soft_C3_v1_rr2_Main.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Vibraphone/Soft%20Mallets/Vibes_soft_C3_v1_rr2_Main.wav",
+    "size": 1815048,
+    "sha256": "1dda9a4c3205c365345d66dcb68c8e09c0dca76a310b8fe8108e43c7e8c1cd0a"
+  },
+  {
+    "path": "Mallets/Vibraphone/VCSL_Vibes_soft_C5_v2_rr1_Main.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Vibraphone/Soft%20Mallets/Vibes_soft_C5_v2_rr1_Main.wav",
+    "size": 1161864,
+    "sha256": "129c5661e386f3c08a4f777c108815f174d96e02f5fb4b4026a9437905327847"
+  },
+  {
+    "path": "Mallets/Vibraphone/VCSL_Vibes_soft_E3_v1_rr2_Main.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Vibraphone/Soft%20Mallets/Vibes_soft_E3_v1_rr2_Main.wav",
+    "size": 2081904,
+    "sha256": "620a241017d0de0e6cb789c97d439401f25d659d08f753746690632e71de8f0b"
+  },
+  {
+    "path": "Mallets/Vibraphone/VCSL_Vibes_soft_E5_v2_rr1_Main.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Vibraphone/Soft%20Mallets/Vibes_soft_E5_v2_rr1_Main.wav",
+    "size": 1496764,
+    "sha256": "7e854b01269cd206cd863025c5b61416bba90362fa965597a7b174851d07648e"
+  },
+  {
+    "path": "Mallets/Vibraphone/VCSL_Vibes_soft_F4_v1_rr1_Main.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Vibraphone/Soft%20Mallets/Vibes_soft_F4_v1_rr1_Main.wav",
+    "size": 1368508,
+    "sha256": "95b7d6eeb71d77cce607c0c52b0a6dfd23d0eeedc2eb393fb9a6c5a5768f4aa5"
+  },
+  {
+    "path": "Mallets/Vibraphone/VCSL_Vibes_soft_G3_v2_rr1_Main.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Vibraphone/Soft%20Mallets/Vibes_soft_G3_v2_rr1_Main.wav",
+    "size": 3221132,
+    "sha256": "ecd350b0fec96ce465a185c44a9c3b2ee966d6b56784c27c17d42e9b5d887882"
+  },
+  {
+    "path": "Plucked Instruments/Harp/VCSL_EWHarp_Normal_A#1_v3_RR1.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Composite%20Chordophones/Folk%20Harp/EWHarp_Normal_A%231_v3_RR1.wav",
+    "size": 2021686,
+    "sha256": "58ec00782be27a6eb18304a498249878ba239ac3c1d6b9165c51eb837d73213e"
+  },
+  {
+    "path": "Plucked Instruments/Harp/VCSL_EWHarp_Normal_C1_v3_RR1.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Composite%20Chordophones/Folk%20Harp/EWHarp_Normal_C1_v3_RR1.wav",
+    "size": 5312742,
+    "sha256": "7237e03c627b9fd25ce8554c89391ca10ac81ed86dc01430ab89f8df0964319b"
+  },
+  {
+    "path": "Plucked Instruments/Harp/VCSL_EWHarp_Normal_C5_v3_RR1.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Composite%20Chordophones/Folk%20Harp/EWHarp_Normal_C5_v3_RR1.wav",
+    "size": 535838,
+    "sha256": "2fe2392574397fda7f834b98c8fbe6a4271ceb75d525d74c3583788bd4f0a0e4"
+  },
+  {
+    "path": "Plucked Instruments/Harp/VCSL_EWHarp_Normal_D4_v3_RR1.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Composite%20Chordophones/Folk%20Harp/EWHarp_Normal_D4_v3_RR1.wav",
+    "size": 1420538,
+    "sha256": "ab8eb5df96cdf61c92b473911b9be4a991f9b1e87f17d8beba8f33ade04c30cb"
+  },
+  {
+    "path": "Plucked Instruments/Harp/VCSL_EWHarp_Normal_E3_v3_RR1.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Composite%20Chordophones/Folk%20Harp/EWHarp_Normal_E3_v3_RR1.wav",
+    "size": 1682518,
+    "sha256": "63994faec3fc7c041943babed92ac36c43dbbed56946a356eafb39b2389dcf15"
+  },
+  {
+    "path": "Plucked Instruments/Harp/VCSL_EWHarp_Normal_F#2_v3_RR1.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Composite%20Chordophones/Folk%20Harp/EWHarp_Normal_F%232_v3_RR1.wav",
+    "size": 1669302,
+    "sha256": "3176bdfe956457b5502686ef785f98ad5182186382697b6214b34e624cf0c883"
+  },
+  {
+    "path": "Plucked Instruments/Harp/VCSL_EWHarp_Normal_G#1_v3_RR1.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Composite%20Chordophones/Folk%20Harp/EWHarp_Normal_G%231_v3_RR1.wav",
+    "size": 3424654,
+    "sha256": "b2de23394daa06c1204e5a01030f264ffdba820c84d26c910d4911199fb9d638"
+  },
+  {
+    "path": "Plucked Instruments/Harp/VCSL_EWHarp_Normal_G#5_v3_RR1.wav",
+    "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Composite%20Chordophones/Folk%20Harp/EWHarp_Normal_G%235_v3_RR1.wav",
+    "size": 269894,
+    "sha256": "0433bfd6ec96e85743cfcf404d1239c2fe6582d969051270d92f612e9cfab1a8"
+  },
+  {
+    "path": "Vocal Hits/microlag_December.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/One-Shots/Vocals/December.wav",
+    "size": 315978,
+    "sha256": "d795fc6e7ac551272b3e0541987dd83528df153503e0222611f45506a389b26c"
+  },
+  {
+    "path": "Vocal Hits/microlag_Excuse_Me.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/One-Shots/Vocals/Excuse_Me.wav",
+    "size": 39468,
+    "sha256": "25f4a7b3a49074816c7e95bd5e8534acc6022009b24b9d266fe7b3fd6d72989a"
+  },
+  {
+    "path": "Vocal Hits/microlag_Fantastic.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/One-Shots/Vocals/Fantastic.wav",
+    "size": 2249836,
+    "sha256": "269590aa49f2fc0097da8a6cd0e7ea680890cdfd6625d73df6830cb1eb1ffffa"
+  },
+  {
+    "path": "Vocal Hits/microlag_I_Hope_It's_Not_Over.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/One-Shots/Vocals/I_Hope_It%27s_Not_Over.wav",
+    "size": 662236,
+    "sha256": "362f290244d96ff062089c18f7796f279e972e108095de42747ffd0afe3a3535"
+  },
+  {
+    "path": "Vocal Hits/microlag_Life_Goes_On.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/One-Shots/Vocals/Life_Goes_On.wav",
+    "size": 409662,
+    "sha256": "1d97465e62e1d1c430740957c011fb0cb86ec305c3bfa6ca475500af71dd900a"
+  },
+  {
+    "path": "Vocal Hits/microlag_One_Two_Three_Let's_Go.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/One-Shots/Vocals/One_Two_Three_Let%27s_Go.wav",
+    "size": 778360,
+    "sha256": "f97fa70b3895549f078ee14f134a27362949a2a7d63bc235b7111e94d30dd309"
+  },
+  {
+    "path": "Vocal Hits/microlag_Praise_The_Lord.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/One-Shots/Vocals/Praise_The_Lord.wav",
+    "size": 445698,
+    "sha256": "3a96ebd244112ef76453c54c1878d512fa115020c74e63665a64ba8b26a3318e"
+  },
+  {
+    "path": "Vocal Hits/microlag_Pretty_Cool.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/One-Shots/Vocals/Pretty_Cool.wav",
+    "size": 311622,
+    "sha256": "40d93be7949bca47db434500f647dbd044e20873f7e49ffe07e481a1d69ae583"
+  },
+  {
+    "path": "Vocal Hits/microlag_Shine_Muscat_Is_Bussin.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/One-Shots/Vocals/Shine_Muscat_Is_Bussin.wav",
+    "size": 600426,
+    "sha256": "8b9d887a584294261072c437d0273d05428f368507fd806728f0f1134c895163"
+  },
+  {
+    "path": "Vocal Hits/microlag_That's_Insane.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/One-Shots/Vocals/That%27s_Insane.wav",
+    "size": 794536,
+    "sha256": "54a45c16d019d00124c1ed4ee732bac5790532b4f0851a06981a96510d091423"
+  },
+  {
+    "path": "Vocal Hits/microlag_Vocal_Check_This_Out.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/One-Shots/Vocals/Vocal_Check_This_Out.wav",
+    "size": 319350,
+    "sha256": "822ba8359314e4aa046f2eed2c7bef2fb17338a1811ff5b586c082aa7afb0a48"
+  },
+  {
+    "path": "Vocal Hits/microlag_Word_Up.wav",
+    "url": "https://raw.githubusercontent.com/stargatedaw/stargate-sample-pack/dbfd6ec52d4ed53b60bdbea5fc6adf295127c027/stargate-sample-pack/microlag/One-Shots/Vocals/Word_Up.wav",
+    "size": 529936,
+    "sha256": "679280f2a719e9be669d85a8fcbf5d541851597d0f1b40bbfb3d8a3732284fa8"
+  }
+]
