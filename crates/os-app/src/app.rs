@@ -3901,7 +3901,7 @@ impl App {
     /// Periodic housekeeping; returns whether a repaint is needed.
     pub fn tick(&mut self) -> bool {
         crate::updates::tick();
-        if crate::key_match::take_fresh() { self.invalidate(); }
+        if crate::key_match::take_fresh() && self.state.shown(Win::Playlist) { let r = self.state.win_rect(Win::Playlist); self.damage_rect(r); }
         let (_, update_status) = crate::updates::display();
         if self.update_status != update_status { self.update_status = update_status; self.invalidate(); }
         if views::browser::search_changed(&self.state) { self.invalidate(); }

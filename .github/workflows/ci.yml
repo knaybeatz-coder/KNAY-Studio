@@ -44,6 +44,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Build
+        id: build
         run: cargo build --workspace --all-targets --locked
 
       # The plugin bundles (VST3 + CLAP): the hosting tests load them, and skip without them.
@@ -51,6 +52,7 @@ jobs:
         run: cargo run -p bundle-plugins --locked
 
       - name: Bundle the app
+        id: bundle
         if: runner.os == 'macOS'
         run: cargo run -p bundle-app --locked
 
@@ -62,25 +64,26 @@ jobs:
         run: cargo test --workspace --locked --no-fail-fast
 
       # KNAY: the ready-to-run program, downloadable from the run's Artifacts.
+      # Also when tests the edition inherited still fail: the program itself built.
       - name: Build release program (Windows)
-        if: runner.os == 'Windows'
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && runner.os == 'Windows' }}
         env:
           OPENSTUDIO_NO_PLUGIN_BUILD: "1"
         run: cargo build --locked --release -p os-app
 
       - name: Upload Windows program
-        if: runner.os == 'Windows'
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && runner.os == 'Windows' }}
         uses: actions/upload-artifact@v4
         with:
           name: KNAY-Lemon-Studio-Windows
           path: target/release/lemonstudio.exe
 
       - name: Zip the Mac app
-        if: runner.os == 'macOS'
+        if: ${{ !cancelled() && steps.bundle.outcome == 'success' && runner.os == 'macOS' }}
         run: ditto -c -k --keepParent "target/bundled/Lemon Studio.app" "target/KNAY-Lemon-Studio-Mac.zip"
 
       - name: Upload Mac app
-        if: runner.os == 'macOS'
+        if: ${{ !cancelled() && steps.bundle.outcome == 'success' && runner.os == 'macOS' }}
         uses: actions/upload-artifact@v4
         with:
           name: KNAY-Lemon-Studio-Mac
