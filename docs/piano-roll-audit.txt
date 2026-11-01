@@ -1,0 +1,33 @@
+Piano roll audit - 1 November 2026 (local Windows update)
+
+Confirmed and fixed:
+- MIDI files were visible in the browser but excluded from dragging. They now
+  drag through the MIDI import path, with .mid/.midi and mixed-case extensions.
+- External MIDI drops always used whole-project import. Dropping on the piano
+  roll now imports into its selected channel instead.
+- Piano-roll MIDI import discarded supported channel volume, pan and pitch
+  controls. Those now accompany notes, respect replace/blend, and undo together.
+- Imported notes could remain outside the current view. Import now fits the view.
+- Channel-event lanes had no clipboard handling: copy/cut/delete fell through to
+  notes. Selecting a channel control lane or clicking its panel gives it
+  Ctrl+A/C/X/V and Delete. A ruler time selection limits the events; without one,
+  all events in that lane are targeted. Paste uses the placed play-start marker,
+  then selection start, otherwise the original within-bar position. Paste into
+  the same control type; changing channels is supported. Notes and other lanes
+  remain intact. Clicking the note grid restores note shortcuts. Note copies
+  retain their full properties, including velocity, pan and fine pitch.
+- Vertical dragging in a channel-control lane failed to adjust a point unless
+  the pointer crossed a time step. It now follows vertical adjustments, with
+  a single undo step per drag.
+
+Validation: 61 distinct automated checks passed across the piano roll, MIDI
+import/export and event panel. Includes selection, moving/resizing, snapping,
+clipboard, undo, stored controller data, drop routing, scrolling and partial
+repaint comparisons. One pre-existing interactive test remains ignored.
+Two old test assumptions were corrected: typing-keyboard startup preference and
+fixed pixel-to-key movement. No user preference was changed by those corrections.
+
+Scope: source/offscreen and synthetic-data checks, not hands-on audio or visual
+verification. User should try real MIDI files and the updated controls. Standard
+MIDI types 0 and 1 are supported; type 2 and SMPTE timing remain unsupported.
+This is a local development update, not a published release.

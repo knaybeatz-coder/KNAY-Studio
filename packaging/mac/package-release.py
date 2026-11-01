@@ -4,13 +4,17 @@ import hashlib, json, platform, re, shutil, subprocess, sys, tempfile, zipfile
 if platform.system() != 'Darwin': raise SystemExit('macOS is required.')
 root = Path(__file__).resolve().parents[2]
 app = Path(sys.argv[1]).resolve()
+sys.path.insert(0,str(root/'packaging'))
+from private_build import require_public_binary
+require_public_binary(app/'Contents/MacOS/lemonstudio')
+if any('Master Assistant' in str(p) for p in app.rglob('*')): raise SystemExit('Private assistant bundle cannot be published.')
 version = re.search(r'pub const VERSION: u64 = (\d+);', (root/'crates/os-app/src/updates.rs').read_text()).group(1)
 arch = platform.machine()
 if arch not in ('arm64','x86_64'): raise SystemExit('Unsupported architecture')
 out = Path.home()/'Desktop/Lemon Studio Mac Public Download'/version
 out.mkdir(parents=True, exist_ok=True)
 source = out/f'Lemon-Studio-Source-Mac-{arch}-{version}.zip'
-subprocess.run([sys.executable, str(root/'packaging/export-source.py'), str(source)], check=True)
+subprocess.run([sys.executable, str(root/'packaging/export-source.py'), str(source), "--public"], check=True)
 stage = Path(tempfile.mkdtemp(prefix='mac-package-', dir=app.parent))
 subprocess.run(['ditto', str(app), str(stage/'Lemon Studio.app')], check=True)
 (stage/'Applications').symlink_to('/Applications')

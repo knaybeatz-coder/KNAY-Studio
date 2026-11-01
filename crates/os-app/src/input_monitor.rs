@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //! An independent, bounded input queue: monitoring never consumes the disk recorder's samples.
 use crate::capture::{Input, InputStream, Ring};
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 
 #[derive(Default)]
@@ -44,6 +44,8 @@ pub struct Monitor {
     track: AtomicU32,
     rate: AtomicU32,
     block: AtomicU32,
+    dropouts: AtomicU64,
+    baseline: AtomicU64,
     ring: Ring,
     read: Mutex<Read>,
 }
@@ -57,6 +59,8 @@ impl Monitor {
             track: AtomicU32::new(0),
             rate: AtomicU32::new(48000),
             block: AtomicU32::new(0),
+            dropouts: AtomicU64::new(0),
+            baseline: AtomicU64::new(0),
             ring: Ring::new(1 << 16),
             read: Mutex::new(Read::default()),
         }
@@ -122,11 +126,17 @@ impl Monitor {
         // a permanent FIFO delay. Normal callback-sized input bursts remain intact.
         let needed=((out.len()/2) as u64*rate as u64).div_ceil(output_rate.max(1) as u64) as usize;
         let callback=self.block.load(Ordering::Relaxed) as usize;
-        // Enforce this on every render: setup, scheduling stalls and engine edits can
-        // accumulate input even after the initial ownership handover. One input block
-        // of headroom preserves normal large/unequal callback bursts without a 50 ms floor.
-        let max=needed+if handover {0}else{callback}+usize::from(rate!=output_rate)*2;
-        if self.ring.waiting_frames() > max {
+        // The output feeder may render a whole tick beyond its 6 ms maximum
+        // margin. Input must tolerate that scheduling span, even for 16-frame
+        // callbacks. This is a ceiling, not a target: normal reads do not wait
+        // for this headroom to fill. Keep a separate hysteresis band so slight
+        // clock/tick variation cannot trigger repeated sample shaving.
+        let headroom = callback.max(needed + (rate as usize * 6).div_ceil(1000));
+        let max = needed + if handover { 0 } else { headroom }
+            + usize::from(rate != output_rate) * 2;
+        let trim_at = max + if handover { 0 } else { headroom };
+        if self.ring.waiting_frames() > trim_at {
+            if r.heard && !handover { self.dropouts.fetch_add(1, Ordering::Relaxed); }
             while self.ring.waiting_frames() > max {
                 self.ring.pop_frame();
             }
@@ -134,6 +144,21 @@ impl Monitor {
             r.a = None;
             r.b = None;
             r.phase = 0.0;
+        }
+        // The feeder renders whole engine ticks, often larger than a device callback.
+        // Keep partial input queued until a complete tick is available. Consuming it
+        // now and padding the rest repeats a hole on every small callback.
+        let available = self.ring.waiting_frames() + usize::from(r.a.is_some()) + usize::from(r.b.is_some());
+        let required = needed + usize::from(rate != output_rate);
+        if available < required {
+            // Count the start of an interruption, not every silent render tick.
+            if r.heard && !r.starved && !handover { self.dropouts.fetch_add(1, Ordering::Relaxed); }
+            for f in out.chunks_exact_mut(2) {
+                let v = r.sample(None, output_rate);
+                f[0] += v[0];
+                f[1] += v[1];
+            }
+            return;
         }
         if rate == output_rate {
             for f in out.chunks_exact_mut(2) {
@@ -182,6 +207,16 @@ pub fn push_all(asio: bool, rate: u32, frames: usize, at: impl Fn(usize,usize)->
 pub fn render_all(rate: u32, tracks: &mut [Vec<f32>], owner:u64) {
     monitor().render_owned(rate,tracks,owner);
     for m in EXTRA_MONITORS.iter().filter_map(OnceLock::get) { m.render_owned(rate,tracks,owner); }
+}
+/// Monitoring interruptions are separate from device/output underruns.
+pub fn visible_dropouts() -> u64 {
+    std::iter::once(monitor()).chain(EXTRA_MONITORS.iter().filter_map(OnceLock::get))
+        .map(|m| m.dropouts.load(Ordering::Relaxed).saturating_sub(m.baseline.load(Ordering::Relaxed))).sum()
+}
+pub fn reset_dropouts() {
+    for m in std::iter::once(monitor()).chain(EXTRA_MONITORS.iter().filter_map(OnceLock::get)) {
+        m.baseline.store(m.dropouts.load(Ordering::Relaxed), Ordering::Relaxed);
+    }
 }
 pub fn monitor() -> &'static Monitor {
     static M: OnceLock<Monitor> = OnceLock::new();
@@ -316,6 +351,39 @@ mod tests {
         }
     }
     #[test]
+    fn dropout_counter_excludes_startup_and_counts_recovery_episodes() {
+        let m = Monitor::new(); m.start(1, &input(false));
+        let mut tracks = vec![vec![0.; 128]; 2];
+        m.render(48000, &mut tracks);
+        assert_eq!(m.dropouts.load(Ordering::Relaxed), 0);
+        m.push(true, 48000, 64, |_,_| 0.2); m.render(48000, &mut tracks);
+        for _ in 0..4 { m.render(48000, &mut tracks); }
+        assert_eq!(m.dropouts.load(Ordering::Relaxed), 1);
+        m.push(true, 48000, 64, |_,_| 0.2); m.render(48000, &mut tracks);
+        m.render(48000, &mut tracks);
+        assert_eq!(m.dropouts.load(Ordering::Relaxed), 2);
+        for _ in 0..80 { m.push(true, 48000, 64, |_,_| 0.3); }
+        m.render(48000, &mut tracks);
+        assert_eq!(m.dropouts.load(Ordering::Relaxed), 3);
+    }
+
+    #[test]
+    fn partial_input_waits_for_a_complete_engine_block() {
+        let m = Monitor::new(); m.start(1, &input(false));
+        let mut tracks = vec![vec![0.; 256 * 2]; 2];
+        for batch in 0..4 {
+            m.push(true, 48000, 64, |_, f| (batch * 64 + f) as f32);
+            m.render(48000, &mut tracks);
+            if batch < 3 {
+                assert_eq!(m.ring.waiting_frames(), (batch + 1) * 64);
+                assert!(tracks[1].iter().all(|&v| v == 0.));
+            }
+        }
+        for f in 0..256 { assert_eq!(tracks[1][2 * f], f as f32); }
+        assert_eq!(m.ring.waiting_frames(), 0);
+    }
+
+    #[test]
     fn simultaneous_monitor_routes_are_independent() {
         let _lock=crate::capture::TEST_RECORDING.lock().unwrap_or_else(|e|e.into_inner());
         stop_all();
@@ -379,7 +447,7 @@ mod tests {
             for _ in 0..20 {m.push(true,48000,input_block,|_,_|0.1);}
             m.push(true,48000,input_block,|_,_|0.8);
             m.render_owned(48000,&mut tracks,1);
-            assert!(m.ring.waiting_frames()<=input_block,"persistent backlog");
+            assert!(m.ring.waiting_frames()<=input_block.max(output_block + 288),"persistent backlog");
         }
         // Ordinary unequal callback sizes preserve the full input, in order.
         let m=Monitor::new();m.start(1,&input(false));

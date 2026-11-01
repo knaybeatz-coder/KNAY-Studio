@@ -233,6 +233,10 @@ pub struct Marker {
 /// markers, the loop, the tempo and the mixer tracks' names.
 #[derive(Debug, Clone)]
 pub struct Job {
+    /// Track renders isolate hosted generators without changing their rack identities.
+    pub instrument_rows: Option<Vec<usize>>,
+    /// Only these mixer stems need buffering (None keeps ordinary split-export behavior).
+    pub capture_tracks: Option<Vec<usize>>,
     pub options: Options,
     /// The files' folder and name (without extension).
     pub folder: PathBuf,
@@ -254,6 +258,8 @@ impl Job {
     pub fn wav(path: &Path) -> Job {
         let options = Options { markers: false, loops: false, ..Options::default() };
         Job {
+        instrument_rows: None,
+        capture_tracks: None,
             options,
             folder: path.parent().map(Path::to_path_buf).unwrap_or_default(),
             name: path.file_stem().map_or_else(|| "Untitled".into(), |n| n.to_string_lossy().into_owned()),

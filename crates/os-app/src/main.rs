@@ -11,6 +11,8 @@
 #![cfg_attr(all(windows, not(test)), windows_subsystem = "windows")]
 
 mod app;
+mod ai_control;
+mod ai_commands;
 mod updates;
 mod donate;
 mod audio_cfg;
@@ -22,6 +24,9 @@ mod audio_bench;
 #[cfg(test)]
 mod open_bench;
 mod browser;
+mod plugin_downloads;
+mod starter_pack;
+mod feature_votes;
 mod cable;
 mod capture;
 mod input_monitor;
@@ -85,10 +90,20 @@ mod remote;
 mod peak_link;
 mod render;
 mod pattern_render;
+mod track_render;
+mod quick_sidechain;
+mod headphones;
+#[cfg(feature = "private-master-assistant")]
+mod master_assistant;
+#[cfg(not(feature = "private-master-assistant"))]
+#[path = "master_assistant_disabled.rs"]
+mod master_assistant;
+mod route_picker;
 mod patterns;
 mod perf;
 mod playlist;
 mod loop_fit;
+mod stem_separation;
 mod playlist_controls;
 mod playlist_tools;
 mod plugin_db;
@@ -1822,6 +1837,18 @@ fn wake_ui() {
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str)==Some("--build-flavour") {
+        #[cfg(feature="private-master-assistant")]
+        println!("LEMON_PRIVATE_MASTER_ASSISTANT_BUILD");
+        #[cfg(not(feature="private-master-assistant"))]
+        println!("public");
+        return;
+    }
+    if args.first().map(String::as_str)==Some("--reset-preview-layout") {
+        match layout::reset_preview_layout() {Ok(message)=>println!("{message}"),Err(e)=>{eprintln!("{e}");std::process::exit(1);}}
+        return;
+    }
+    if args.first().map(String::as_str)==Some("--ai-mcp"){std::process::exit(ai_control::bridge(&args[1..]));}
     if args.first().map(String::as_str) == Some("--apply-update") {
         std::process::exit(updates::helper(&args[1..]));
     }

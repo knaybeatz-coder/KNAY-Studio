@@ -44,7 +44,7 @@ pub fn input_menu(s: &State,t: u16,x: f32,y: f32)->Popup {
     }
     items.push(PItem::head(format!("{} armed - 32-bit float WAV",s.mixer.recording.armed.len())));
     if items.len()==2 { items.push(PItem::new("No audio inputs found: check Settings > Audio",Cmd::Nothing).off()); }
-    Popup{x,y,items,sub:None,scroll:[0;2]}
+    Popup{x,y,items,sub:None,scroll:[0;2], cascade: Vec::new()}
 }
 impl App {
     pub(crate) fn set_mixer_input(&mut self,t:u16,input:Option<Input>)->Option<String> {

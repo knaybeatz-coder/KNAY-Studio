@@ -699,12 +699,13 @@ struct MixTrack {
     eq: os_dsp::mixer::TrackEq,
     strip: os_dsp::channel_strip::ChannelStrip,
     custom_strip: bool,
+    strip_bypassed: bool,
     tune: Option<os_dsp::snaptune::SnapTune>,
     /// Insert effects in slot order (applied before the fader).
     effects: Vec<FxSlot>,
     /// Slot switches and stored mix levels (0..12800) by slot, for hosted effects attached later.
-    slot_on: [bool; 11],
-    slot_mix: [i32; 11],
+    slot_on: [bool; 64],
+    slot_mix: [i32; 64],
     /// Largest |sample| per side after the fader since the meters last read them.
     peak: [f32; 2],
     vu: crate::vu::Vu,
@@ -731,8 +732,8 @@ struct Stored {
     eq: [[i32; 3]; 3],
     strip: [f32;8],
     tune_amount: f32,
-    slot_on: [bool; 11],
-    slot_mix: [i32; 11],
+    slot_on: [bool; 64],
+    slot_mix: [i32; 64],
     /// Send gains, one per route.
     sends: Vec<f32>,
 }
@@ -830,10 +831,11 @@ impl MixTrack {
             eq: os_dsp::mixer::TrackEq::default(),
             strip: Default::default(),
             custom_strip: true,
+            strip_bypassed: false,
             tune: None,
             effects: Vec::new(),
-            slot_on: [true; 11],
-            slot_mix: [12800; 11],
+            slot_on: [true; 64],
+            slot_mix: [12800; 64],
             peak: [0.0; 2],
             vu: crate::vu::Vu::default(),
             matrix: unity,
@@ -846,8 +848,8 @@ impl MixTrack {
                 eq: os_dsp::mixer::EQ_DEFAULT,
                 strip: [0.0;8],
                 tune_amount: 0.,
-                slot_on: [true; 11],
-                slot_mix: [12800; 11],
+                slot_on: [true; 64],
+                slot_mix: [12800; 64],
                 sends: vec![],
             },
             latency: (0.0, 0.0),
@@ -885,7 +887,7 @@ impl MixTrack {
                 }
             }
         }
-        for k in 0..11 {
+        for k in 0..64 {
             self.set_slot_on(k, s.slot_on[k]);
             self.set_slot_mix(k, s.slot_mix[k]);
         }
@@ -964,12 +966,14 @@ pub trait MixerInput: Send {
 }
 
 fn strip_process(track:&mut MixTrack,buf:&mut[f32]) {
+ if track.strip_bypassed {return;}
  if !track.custom_strip {track.eq.process(buf);return;}
  if let Some(t)=&mut track.tune {t.process(buf);}
  track.strip.low_cut(buf);track.strip.gate(buf);track.strip.pre(buf);track.eq.process(buf);track.strip.tame(buf);track.strip.compress(buf);track.strip.deess(buf);
 }
 
 pub struct Engine {
+    frozen_instrument_rows: Vec<usize>,
     peak_links: Vec<(os_model::PeakLink,f32)>,
     audition: Vec<(u64,usize,u16,u8)>,
     audition_held: Vec<(usize,u16)>,
@@ -1143,6 +1147,7 @@ pub struct Engine {
     /// Every mixer track's post-fader output, tick after tick, while capturing (`set_track_capture`; an export's Split
     /// mixer tracks).
     capture: Option<Vec<Vec<f32>>>,
+    capture_tracks: Option<Vec<usize>>,
     /// Plugin delay compensation: the pads not kept with the tracks, the head of the stream skipped, the values
     /// waiting for late audio (spec: audio/delay-compensation.md).
     pdc: pdc::Pdc,
@@ -1192,6 +1197,7 @@ impl Engine {
 
     fn build(project: &Project, library: &mut SampleLibrary, rate: u32, mode: PlayMode, hosted: &[usize]) -> Self {
         let mut report = EngineReport::default();
+        let frozen_instrument_rows = if mode == PlayMode::Song { project.frozen_instrument_rows() } else { Vec::new() };
         let tempo = project.tempo.unwrap_or(140.0);
         let ppq = project.ppq.max(1);
         // The tempo the ticks run at (spec: audio/timing.md "The tempo counts the bar's beats").
@@ -1208,7 +1214,7 @@ impl Engine {
             .enumerate()
             .map(|(row, ch)| {
                 let plays_sample = matches!(ch.kind, ChannelKind::Sampler | ChannelKind::AudioClip);
-                if ch.kind == ChannelKind::Plugin {
+                if ch.kind == ChannelKind::Plugin && !frozen_instrument_rows.contains(&row) {
                     report.plugin_channels_silent += 1;
                 }
                 // A channel its hosted instrument plays: the length and rate of its sample are all it needs.
@@ -1358,7 +1364,7 @@ impl Engine {
                             None => report.effects_bypassed += 1,
                         }
                     }
-                    effects.sort_by_key(|e| if e.slot == 10 && m.parametric_pre {0} else {e.slot+1});
+                    effects.sort_by_key(|e| if e.slot == 10 {if m.parametric_pre {0}else{65}} else {e.slot+1});
                     let routes = if m.index == 0 {
                         vec![]
                     } else {
@@ -1385,6 +1391,7 @@ impl Engine {
                         parametric_pre: m.parametric_pre,
                         eq: os_dsp::mixer::TrackEq::new(m.eq, rate).with_smoothing(m.channel_layout!=0),
                         custom_strip: m.channel_layout!=0,
+                        strip_bypassed: m.strip_bypassed,
                         tune: if m.is_vocal(){Some(os_dsp::snaptune::SnapTune::new(rate,m.tune,m.tune_learn).with_enabled(m.tune_enabled))}else{None},
                         strip: {let strip=os_dsp::channel_strip::ChannelStrip::new(m.strip,rate);if m.is_vocal(){strip.with_deess(m.deess_amount())}else{strip}},
                         effects,
@@ -1552,6 +1559,7 @@ impl Engine {
         };
         let pdc = pdc::Pdc::new(channels.len(), tracks.iter().map(|t| t.slot_on));
         Engine {
+            frozen_instrument_rows,
             peak_links: project.peak_links.iter().copied().map(|l|(l,0.)).collect(),
             main_gain,
             main_glide: os_dsp::glide::Glide::new(main_gain),
@@ -1651,6 +1659,7 @@ impl Engine {
             insert_fx: true,
             master_fx: true,
             capture: None,
+            capture_tracks: None,
             pdc,
             pad_buf: Vec::new(),
             main_unity: main_volume == os_model::Project::MAIN_VOLUME_DEFAULT,
@@ -1712,6 +1721,7 @@ impl Engine {
     /// Plugin channels, and sampler channels played by a hosted sampler plugin (Lemon Studio hosts Lemon Sampler for every
     /// sampler channel): the channel's notes go to `inst` instead of the engine's own sample voices.
     pub fn set_instrument(&mut self, channel: usize, inst: SharedInstrument) {
+        if self.frozen_instrument_rows.contains(&channel) { return; }
         if let Some(ch) = self.channels.get_mut(channel) {
             if ch.plugin && ch.instrument.0.is_none() {
                 self.report.plugin_channels_silent = self.report.plugin_channels_silent.saturating_sub(1);
@@ -1731,12 +1741,12 @@ impl Engine {
     /// Runs mixer slot `slot` of track `track` through a hosted effect plugin (replacing whatever the slot had).
     pub fn set_effect(&mut self, track: usize, slot: usize, fx: crate::instrument::SharedEffect) {
         let Some(t) = self.tracks.get_mut(track) else { return };
-        if slot >= 11 {
+        if slot >= t.slot_on.len() {
             return;
         }
         t.effects.retain(|e| e.slot != slot);
         t.effects.push(FxSlot::new(slot, t.slot_on[slot], t.slot_mix[slot], Fx::Hosted(fx)));
-        t.effects.sort_by_key(|e| if e.slot == 10 && t.parametric_pre {0} else {e.slot+1});
+        t.effects.sort_by_key(|e| if e.slot == 10 {if t.parametric_pre {0}else{65}} else {e.slot+1});
         self.pdc.due = true;
     }
 
@@ -1859,6 +1869,8 @@ impl Engine {
     }
 
     /// Keeps every mixer track's post-fader output (before its sends) from now on: `take_track_audio` hands it over.
+    pub fn set_capture_tracks(&mut self, tracks: Option<Vec<usize>>) { self.capture_tracks = tracks; }
+
     pub fn set_track_capture(&mut self, on: bool) {
         self.capture = on.then(|| vec![Vec::new(); self.tracks.len()]);
         self.pdc.taken = self.pdc.handed;
@@ -3542,7 +3554,8 @@ impl Engine {
                 pk[0] = pk[0].max(f[0].abs());
                 pk[1] = pk[1].max(f[1].abs());
             }
-            if let Some(c) = self.capture.as_mut().and_then(|c| c.get_mut(t)) {
+            let capture_this = self.capture_tracks.as_ref().is_none_or(|tracks| tracks.contains(&t));
+            if let Some(c) = self.capture.as_mut().filter(|_|capture_this).and_then(|c| c.get_mut(t)) {
                 // Each track's own lateness is skipped at the start (`take_track_audio`).
                 let skip = self.pdc.cap_skip.get_mut(t).map_or(0, |s| {
                     let k = (*s).min(frames as u64);
@@ -6783,7 +6796,7 @@ mod tests {
         p.mixer = (0..3).map(os_model::MixerTrack::new).collect();
         let flat = |v| vec![AutoPoint::new(0.0, v), AutoPoint::new(8.0, v)];
         // One clip on the channel volume and two mixer volumes, an unknown target among them.
-        let targets = vec![target::channel(0, 0), target::mixer(1, target::MIXER_VOLUME), 0x7FFF_FFFF, target::mixer(2, target::MIXER_VOLUME)];
+        let targets = vec![target::channel(0, 0), target::mixer(1, target::MIXER_VOLUME), 0xFFFF_FFFF, target::mixer(2, target::MIXER_VOLUME)];
         p.automations.push(Automation { channel: 1, targets, points: flat(0.25), header: vec![0; 21], tail: vec![] });
         // A later clip on mixer track 2 only: it decides that target while the first keeps the others.
         p.automations.push(Automation { channel: 2, targets: vec![target::mixer(2, target::MIXER_VOLUME)], points: flat(0.5), header: vec![0; 21], tail: vec![] });
@@ -6800,8 +6813,8 @@ mod tests {
             e.next_tick();
         }
         assert_eq!((e.tracks[1].vol, e.tracks[2].vol), (4000, 8000));
-        // A clip whose targets are all unknown is ignored.
-        p.automations[1].targets = vec![0x7FFF_FFFF];
+        // A clip whose targets are all unknown is ignored (0x7FFF_FFFF now names a plugin parameter).
+        p.automations[1].targets = vec![0xFFFF_FFFF];
         let e = Engine::new(&p, &mut lib, 48000, PlayMode::Song);
         assert_eq!((e.autos.len(), e.report.automation_clips_ignored), (1, 1));
     }
@@ -7312,6 +7325,26 @@ mod tests {
         }}}
     }
 
+
+    #[test]
+    fn expanded_slots_keep_eq_order_audio_bypass_and_latency() {
+        struct Shape(bool);
+        impl crate::instrument::HostedEffect for Shape {
+            fn process_fx(&mut self,_:u32,l:&mut[f32],r:&mut[f32]) {for x in l.iter_mut().chain(r) {*x=if self.0 {*x*2.}else{x.clamp(-0.5,0.5)};}}
+        }
+        for slot in [11,63] {for pre in [false,true] {
+            let mut p=song(vec![],vec![]);p.mixer=(0..3).map(os_model::MixerTrack::new).collect();p.mixer[1].parametric_pre=pre;
+            let mut e=Engine::new(&p,&mut SampleLibrary::new(None),48000,PlayMode::Pattern(1));
+            e.set_effect(1,10,Arc::new(Mutex::new(Shape(true))));e.set_effect(1,slot,Arc::new(Mutex::new(Shape(false))));
+            e.tracks[1].effects.iter_mut().for_each(|f|f.delay=if f.slot==10 {64}else{32});e.plan_delays();
+            assert_eq!(e.pdc.wait(os_model::target::Target::SlotParam(1,slot as u8,0),1) as i64-e.pdc.wait(os_model::target::Target::SlotParam(1,10,0),1) as i64,if pre {64}else{-32});
+            e.tracks[1].effects.iter_mut().for_each(|f|f.delay=0);e.plan_delays();
+            e.bus.iter_mut().for_each(|b|*b=vec![0.;256]);e.bus[1].fill(0.4);let song=e.transport_at(0);e.mix(128,&song);
+            let expected=if pre {0.5}else{0.8};assert!(e.track_output(1).iter().all(|x|(*x-expected).abs()<1e-5));
+            e.tracks[1].slots_enabled=false;e.bus.iter_mut().for_each(|b|b.fill(0.));e.bus[1].fill(0.4);e.mix(128,&song);
+            assert!(e.track_output(1).iter().all(|x|(*x-0.8).abs()<1e-5));
+        }}
+    }
     #[test]
     fn mini_eq_pre_post_orders_audio_and_latency() {
         struct Shape(bool);
@@ -7434,12 +7467,13 @@ mod tests {
         let mut expected=input.clone();let mut c=os_dsp::channel_strip::ChannelStrip::new(p.mixer[1].strip,48000).with_deess(p.mixer[1].deess_amount());
         c.low_cut(&mut expected);c.gate(&mut expected);c.pre(&mut expected);c.tame(&mut expected);c.compress(&mut expected);c.deess(&mut expected);
         let mut outputs=Vec::new();
-        for mode in 0..3 {
+        for mode in 0..4 {
+            p.mixer[1].strip_bypassed=mode==3;
             let mut lib=SampleLibrary::new(None);let mut e=Engine::new(&p,&mut lib,48000,PlayMode::Song);e.set_multicore(false);
             let seen=Arc::new(Mutex::new(Vec::new()));e.set_effect(1,0,Arc::new(Mutex::new(Observe(seen.clone()))));
             if mode==1 {e.tracks[1].slots_enabled=false;}if mode==2 {e.insert_fx=false;e.master_fx=false;}
             e.bus[0]=vec![0.;input.len()];e.bus[1]=input.clone();let song=e.transport_at(0);e.mix(1024,&song);
-            if mode==0 {assert_eq!(*seen.lock().unwrap(),expected,"slot receives complete strip output");}else{assert!(seen.lock().unwrap().is_empty());}
+            if mode==3 {assert_eq!(*seen.lock().unwrap(),input,"knobs bypass leaves plugin processing enabled");}else if mode==0 {assert_eq!(*seen.lock().unwrap(),expected,"slot receives complete strip output");}else{assert!(seen.lock().unwrap().is_empty());}
             outputs.push(e.bus[0].clone());
         }
         assert_eq!(outputs[0],outputs[1]);assert_eq!(outputs[0],outputs[2]);assert!(outputs[0].iter().any(|v|v.abs()>0.01));
@@ -8191,4 +8225,33 @@ mod tests {
         assert!(rest.iter().any(|&s| s != 0.0));
         assert!(e2.finished(), "silent again once the click is over");
     }
+    #[test]
+    fn track_freeze_suspends_only_exclusive_song_instruments() {
+        use std::sync::{Arc,Mutex,atomic::{AtomicUsize,Ordering}};
+        struct Probe(Arc<AtomicUsize>);
+        impl crate::Instrument for Probe {
+            fn note_on(&mut self,_:u32,_:u8,_:f32){}
+            fn note_off(&mut self,_:u32,_:u8){}
+            fn process(&mut self,_:u32,l:&mut [f32],r:&mut [f32]){self.0.fetch_add(1,Ordering::Relaxed);l.fill(0.);r.fill(0.);}
+        }
+        let mut p=project(vec![Note::step(0,0)],vec![]);
+        let original=os_model::Clip::new(0,96,0,os_model::ClipSource::Pattern(1));
+        let mut tr=os_model::PlaylistTrack::new(1);tr.frozen=Some(vec![original]);
+        p.arrangements=vec![os_model::Arrangement{tracks:vec![tr,os_model::PlaylistTrack::new(2)],..Default::default()}];
+        let calls=Arc::new(AtomicUsize::new(0));
+        let probe:SharedInstrument=Arc::new(Mutex::new(Probe(calls.clone())));
+        let mut lib=SampleLibrary::new(None);
+        let mut e=Engine::with_instruments(&p,&mut lib,44100,PlayMode::Song,&[(0,probe.clone())]);
+        assert!(e.channels[0].instrument.0.is_none());
+        e.render_all(96);assert_eq!(calls.load(Ordering::Relaxed),0,"frozen instrument never processes");
+        let e=Engine::with_instruments(&p,&mut lib,44100,PlayMode::Pattern(1),&[(0,probe.clone())]);
+        assert!(e.channels[0].instrument.0.is_some(),"patterns remain editable/auditionable");drop(e);
+        p.arrangements[0].clips.push(os_model::Clip{track:1,..original});
+        let e=Engine::with_instruments(&p,&mut lib,44100,PlayMode::Song,&[(0,probe.clone())]);
+        assert!(e.channels[0].instrument.0.is_some(),"another row still needs the shared instrument");drop(e);
+        p.arrangements[0].clips.clear();p.arrangements[0].tracks[0].frozen=None;
+        let e=Engine::with_instruments(&p,&mut lib,44100,PlayMode::Song,&[(0,probe)]);
+        assert!(e.channels[0].instrument.0.is_some(),"unfreeze reattaches");
+    }
+
 }

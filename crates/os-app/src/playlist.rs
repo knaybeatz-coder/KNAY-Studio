@@ -60,6 +60,9 @@ impl PlTool {
 
     pub fn from_letter(c: &str) -> Option<PlTool> {
         Some(match c.to_ascii_lowercase().as_str() {
+            "p" => PlTool::Draw,
+            "s" => PlTool::Slip,
+            "y" => PlTool::Playback,
             "b" => PlTool::Paint,
             "p" => PlTool::Draw,
             "y" => PlTool::Playback,
@@ -246,6 +249,9 @@ pub enum Cmd {
     /// Shift+Tab: the next common snap setting (§4).
     CycleSnap,
     Consolidate,
+    FreezeTrack(u16),
+    UnfreezeTrack(u16),
+    BounceTrack(u16),
     SelectAll,
     Deselect,
     InvertSelection,
@@ -287,11 +293,13 @@ pub enum Cmd {
     ClipRename(usize),
     ClipRandomColor(usize),
     ClipPreview(usize),
+    ClipRoute(usize),
     FitLoop(usize, crate::loop_fit::Fit),
     /// KNAY Key match commands for audio clip `usize` (`crate::key_match`).
     KeyMatch(usize, crate::key_match::KCmd),
     /// KNAY VariAudio: open audio clip `usize` in the piano roll's pitch editor (`crate::vari`).
     Vari(usize),
+    SeparateStems(usize),
     /// A picker item's menu (§10a) on an audio or automation clip source: the command and the source's channel index.
     Pick(PickCmd, u16),
     PointDelete(u16, usize),
@@ -515,6 +523,8 @@ pub struct Popup {
     /// The first column shown of the list and of its open submenu, when they are wider than the window (spec:
     /// ui/menus.md "Menus wider than the window"; `views::playlist::popup_list`).
     pub scroll: [usize; 2],
+    /// Each deeper open folder: selected row in its parent and its own column scroll.
+    pub cascade: Vec<(usize, usize)>,
 }
 
 /// A Themes tile's menu (Settings > Theme; `App::theme_cmd`): the tile's index in `SettingsUi::themes`.
@@ -1073,7 +1083,7 @@ pub fn track_on(s: &State, t: u16) -> bool {
 pub fn track_name(s: &State, t: u16) -> String {
     if let Some(l)=s.mixer.recording.live.iter().find(|l|l.row==t){return l.name.clone();}
     let name=track_info(s, t).and_then(|t| t.name.clone()).filter(|n| !n.is_empty()).unwrap_or_else(|| format!("Track {}", t + 1));
-    if track_info(s,t).is_some_and(|t|t.comp.is_some()) {format!("{name} - COMP")}else{name}
+    if track_info(s,t).is_some_and(|t|t.frozen.is_some()) {format!("{name} - FROZEN")} else if track_info(s,t).is_some_and(|t|t.comp.is_some()) {format!("{name} - COMP")}else{name}
 }
 
 /// The current clip source (the current pattern unless another was picked).
@@ -1662,9 +1672,22 @@ pub fn split(s: &mut State, i: usize, tick: u32) -> Option<usize> {
     Some(n - 1)
 }
 
-/// Slice every clip crossing `tick` on tracks `t0..=t1`.
+/// Slice only the editable layer on each displayed row; hidden automation and audio
+/// underneath an active automation overlay are independent editing surfaces.
 pub fn slice(s: &mut State, tick: u32, t0: u16, t1: u16) -> usize {
-    let hit: Vec<usize> = clips(s).iter().enumerate().filter(|(_, c)| c.track >= t0 && c.track <= t1 && c.position < tick && c.end() > tick).map(|(i, _)| i).collect();
+    let g=PGeom::new(s,Rect::new(0.,0.,1.,1.));
+    let hit: Vec<usize> = clips(s).iter().enumerate().filter(|(_, c)| {
+        if c.position>=tick || c.end()<=tick {return false;}
+        let is_auto=source_kind(s,c.source)==PickKind::Automation;
+        let row=if is_auto {
+            let ClipSource::Channel(ch)=c.source else{return false};
+            if let Some((&row,_))=g.automation_views.iter().find(|(_,v)|**v==ch) {row}
+            else if g.automation_owners.contains_key(&ch) {return false}
+            else {c.track}
+        } else {c.track};
+        row>=t0 && row<=t1 && !track_info(s,row).is_some_and(|t|t.locked || t.frozen.is_some())
+            && (is_auto || !g.automation_views.contains_key(&row))
+    }).map(|(i, _)| i).collect();
     hit.iter().filter(|&&i| split(s, i, tick).is_some()).count()
 }
 
@@ -1951,6 +1974,14 @@ pub fn swap_tracks(s: &mut State, a: u16, b: u16) {
 
 /// Insert an empty track at `t` (the rest move down; the last track's clips stay on it).
 pub fn insert_track(s: &mut State, t: u16) {
+    let shift = |r:u16| if r>=t {r.saturating_add(1).min(TRACKS-1)} else {r};
+    s.playlist.automation_last=std::mem::take(&mut s.playlist.automation_last).into_iter().map(|(r,ch)|(shift(r),ch)).collect();
+    s.playlist.automation_views=std::mem::take(&mut s.playlist.automation_views).into_iter().map(|(r,ch)|(shift(r),ch)).collect();
+    for r in s.playlist.automation_owners.values_mut(){*r=shift(*r);}
+    for r in s.playlist.sampler_rows.values_mut(){*r=shift(*r);}
+    s.playlist.track=shift(s.playlist.track);
+    if let Some((r,states))=&mut s.playlist.solo { *r=shift(*r); if (t as usize)<states.len() {states.insert(t as usize,true);states.pop();} }
+
     let number=arr_mut(s).number;
     for v in &mut s.project.instrument_lanes {if v.1==number&&v.2>=t&&v.2<TRACKS-1 {v.2+=1;}}
     let arr = arr_mut(s);
@@ -2034,9 +2065,26 @@ fn end_solo(s: &mut State) {
     }
 }
 
-/// Make unique: a pattern clip gets its own copy of the pattern (§5).
+/// Make unique: an audio clip gets its own channel; a pattern clip gets its own pattern (§5).
 pub fn make_unique(s: &mut State, i: usize) -> Option<u16> {
     let c = *clips(s).get(i)?;
+    if let ClipSource::Channel(index) = c.source {
+        if source_kind(s,c.source)!=PickKind::Audio {return None;}
+        let row=s.project.channels.iter().position(|ch|ch.index==index)?;
+        let mut ch=s.project.channels[row].clone();
+        let next=s.project.channels.iter().map(|ch|ch.index).max().unwrap_or(0).checked_add(1)?;
+        ch.index=next;
+        ch.name=Some(crate::rack::clone_name(s,row));
+        // Share the immutable source file, but give this slice independent sample settings
+        // and mixer routing. Its clip window/offset and placement remain untouched.
+        let row=s.project.channels.len();
+        s.project.channels.push(ch);
+        arr_mut(s).clips.get_mut(i)?.source=ClipSource::Channel(next);
+        s.playlist.source=Some(ClipSource::Channel(next));
+        s.selected_channel=row;
+        s.piano.dirty=true;
+        return Some(next);
+    }
     let ClipSource::Pattern(n) = c.source else { return None };
     let mut p = s.project.pattern(n).cloned().unwrap_or(os_model::Pattern { number: n, ..Default::default() });
     let next = s.project.patterns.iter().map(|p| p.number).max().unwrap_or(0).max(n) + 1;
@@ -2051,6 +2099,14 @@ pub fn make_unique(s: &mut State, i: usize) -> Option<u16> {
     s.pattern = next;
     s.piano.dirty = true;
     Some(next)
+}
+
+/// One undo step includes newly created channels/patterns as well as clip references.
+fn snapshot_unique(s: &mut State) {
+    use crate::history::{Snap,Tail};
+    let extra=Snap::Several(vec![Snap::Tail(Box::new(Tail::now(s,s.project.channels.len()))),
+        Snap::Patterns{patterns:s.project.patterns.clone(),current:s.pattern}]);
+    snapshot_with(s,"Make Unique",extra);
 }
 
 /// First track at or below `from` with no clips overlapping `[a, b)`.
@@ -2506,7 +2562,7 @@ pub fn options_menu(s: &State, x: f32, y: f32) -> Popup {
         PItem::sep(),
         PItem::new("Reset empty playlist tracks", Cmd::ResetEmptyTracks),
     ];
-    Popup { x, y, items, sub: None, scroll: [0; 2] }
+    Popup { x, y, items, sub: None, scroll: [0; 2], cascade: Vec::new() }
 }
 
 /// The ▸ menu's Time markers submenu (§7a), in FL's order. FL's Ctrl+T for Add auto is not bound: in Lemon Studio
@@ -2544,7 +2600,7 @@ fn snap_items(s: &State) -> Vec<PItem> {
 }
 
 pub fn snap_menu(s: &State, x: f32, y: f32) -> Popup {
-    Popup { x, y, items: snap_items(s), sub: None, scroll: [0; 2] }
+    Popup { x, y, items: snap_items(s), sub: None, scroll: [0; 2], cascade: Vec::new() }
 }
 
 pub fn clip_menu(s: &State, i: usize, x: f32, y: f32) -> Popup {
@@ -2571,6 +2627,8 @@ pub fn clip_menu(s: &State, i: usize, x: f32, y: f32) -> Popup {
             items.push(if s.playlist.range.is_some() { item } else { item.off() });
             items.push(PItem::sep());
         }
+        items.push(PItem::new("Send to mixer track...", Cmd::ClipRoute(i)));
+        items.push(PItem::new("Stem separation...", Cmd::SeparateStems(i)));
         use crate::loop_fit::Fit;
         items.push(PItem::new("Make it fit", Cmd::FitLoop(i, Fit::Auto)));
         let mut fitting = vec![
@@ -2593,11 +2651,13 @@ pub fn clip_menu(s: &State, i: usize, x: f32, y: f32) -> Popup {
     }
     if let ClipSource::Pattern(_) = c.source {
         items.push(PItem::new("Edit pattern", Cmd::ClipEditSource(i)));
-        items.push(PItem::new("Make unique", Cmd::ClipUnique(i)));
+    }
+    if matches!(source_kind(s,c.source),PickKind::Pattern|PickKind::Audio) {
+        items.push(PItem::new("Make Unique", Cmd::ClipUnique(i)));
     }
     items.push(PItem::new("Select all similar clips", Cmd::ClipSelectSimilar(i)));
     items.push(PItem::new("Delete", Cmd::ClipDelete(i)));
-    Popup { x, y, items, sub: None, scroll: [0; 2] }
+    Popup { x, y, items, sub: None, scroll: [0; 2], cascade: Vec::new() }
 }
 
 /// The commands of a picker item's menu (§10a).
@@ -2640,7 +2700,7 @@ pub fn pick_menu(s: &State, ch: u16, x: f32, y: f32) -> Popup {
         items.push(it("Clone with links", PickCmd::Clone));
     }
     items.push(it("Delete...", PickCmd::Delete));
-    Popup { x, y, items, sub: None, scroll: [0; 2] }
+    Popup { x, y, items, sub: None, scroll: [0; 2], cascade: Vec::new() }
 }
 
 /// Runs a picker item's command on the channel with index `ch` (§10a).
@@ -2710,7 +2770,7 @@ pub fn point_menu(s: &State, ch: u16, i: usize, x: f32, y: f32) -> Popup {
     });
     items.push(if s.value_clip.is_some() { PItem::new(paste_label(s), Cmd::PointPaste(ch, i)) } else { PItem::new("Paste value", Cmd::Nothing).off() });
     items.push(PItem::new("Type in value...", Cmd::PointValue(ch, i)));
-    Popup { x, y, items, sub: None, scroll: [0; 2] }
+    Popup { x, y, items, sub: None, scroll: [0; 2], cascade: Vec::new() }
 }
 
 /// "Paste value" with the copied value as a percentage, as FL writes it ("Paste value (23%)").
@@ -2737,6 +2797,9 @@ pub fn track_menu(s: &State, t: u16, x: f32, y: f32) -> Popup {
     .collect();
     let items = vec![
         PItem::head("Track"),
+        if track_info(s,t).is_some_and(|t|t.frozen.is_some()) { PItem::new("Unfreeze track (resume editing)", Cmd::UnfreezeTrack(t)) } else { PItem::new("Freeze track (save CPU)", Cmd::FreezeTrack(t)) },
+        PItem::new("Bounce track", Cmd::BounceTrack(t)),
+        PItem::sep(),
         PItem::new("Create take lanes / comp", Cmd::CompTrack(t)),
         PItem::new("Rename...", Cmd::TrackRename(t)),
         PItem::sub("Color", colors),
@@ -2755,7 +2818,7 @@ pub fn track_menu(s: &State, t: u16, x: f32, y: f32) -> Popup {
         PItem::new("Move up", Cmd::TrackUp(t)),
         PItem::new("Move down", Cmd::TrackDown(t)),
     ];
-    Popup { x, y, items, sub: None, scroll: [0; 2] }
+    Popup { x, y, items, sub: None, scroll: [0; 2], cascade: Vec::new() }
 }
 
 /// The actions a time marker can take, as its menu lists them (§7a), with their kinds (spec: flp/events/playlist.md
@@ -2782,7 +2845,7 @@ fn lane_items(tick: u32) -> Vec<PItem> {
 }
 
 pub fn lane_menu(tick: u32, x: f32, y: f32) -> Popup {
-    Popup { x, y, items: lane_items(tick), sub: None, scroll: [0; 2] }
+    Popup { x, y, items: lane_items(tick), sub: None, scroll: [0; 2], cascade: Vec::new() }
 }
 
 /// Marker `i`'s menu (§7a): the row's items at `tick`, a header "<name> at <bar>:<step>:<tick>", Delete, Rename...,
@@ -2801,7 +2864,7 @@ pub fn marker_menu(s: &State, i: usize, tick: u32, x: f32, y: f32) -> Popup {
         PItem::head("Action"),
     ]);
     items.extend(MARKER_ACTIONS.iter().map(|&(l, k)| PItem::new(l, Cmd::MarkerAction(i, k)).mark(Mark::Radio(m.kind == k))));
-    Popup { x, y, items, sub: None, scroll: [0; 2] }
+    Popup { x, y, items, sub: None, scroll: [0; 2], cascade: Vec::new() }
 }
 
 /// The short right-click menu of the toolbar's and the mixer's knobs, faders and the tempo: "Reset" for a knob or fader,
@@ -2832,7 +2895,7 @@ pub fn knob_menu(s: &State, auto: Option<(u32, String, f64)>, typein: Option<cra
     if let Some(t) = typein {
         items.extend([PItem::head("Value"), PItem::new("Type in value...", Cmd::TypeIn(t))]);
     }
-    Popup { x, y, items, sub: None, scroll: [0; 2] }
+    Popup { x, y, items, sub: None, scroll: [0; 2], cascade: Vec::new() }
 }
 
 // ---------------------------------------------------------------------------------------------------------
@@ -3793,7 +3856,7 @@ pub fn arrangement_menu(s: &State, x: f32, y: f32) -> Popup {
     items.push(if others.is_empty() { PItem::new("Merge with...", Cmd::Nothing).off() } else { PItem::sub("Merge with...", others) });
     items.push(PItem::sep());
     items.push(PItem::new("Add one...", Cmd::ArrAdd));
-    Popup { x, y, items, sub: None, scroll: [0; 2] }
+    Popup { x, y, items, sub: None, scroll: [0; 2], cascade: Vec::new() }
 }
 
 /// Collapses or expands the group led by track `t` or by `t`'s group track (§6a); no-op for an ungrouped track
@@ -4070,7 +4133,7 @@ pub fn run(app: &mut App, cmd: Cmd) -> Option<String> {
         }
         Cmd::MarkerEveryMenu => {
             let (x, y) = app.mouse;
-            app.state.playlist.popup = Some(Popup { x, y, items: every_items(), sub: None, scroll: [0; 2] });
+            app.state.playlist.popup = Some(Popup { x, y, items: every_items(), sub: None, scroll: [0; 2], cascade: Vec::new() });
             app.invalidate();
             return None;
         }
@@ -4224,6 +4287,11 @@ pub fn run(app: &mut App, cmd: Cmd) -> Option<String> {
             app.invalidate();
             return None;
         }
+        Cmd::FreezeTrack(t) | Cmd::BounceTrack(t) => {
+            app.render_track(t, matches!(cmd, Cmd::FreezeTrack(_)));
+            return None;
+        }
+        Cmd::UnfreezeTrack(t) => { return Some(crate::track_render::unfreeze(&mut app.state,t)); }
         Cmd::Consolidate => {
             let m = consolidate(app);
             app.invalidate();
@@ -4245,6 +4313,13 @@ pub fn run(app: &mut App, cmd: Cmd) -> Option<String> {
             app.invalidate();
             return None;
         }
+        Cmd::ClipRoute(i) => {
+            if let Some(c)=clips(&app.state).get(i) {if let ClipSource::Channel(ch)=c.source {
+                if let Some(row)=app.state.project.channels.iter().position(|c|c.index==ch){crate::route_picker::open(app,row);}
+            }}
+            return None;
+        }
+        Cmd::SeparateStems(i) => { crate::stem_separation::request(app, i); return None; }
         Cmd::FitLoop(i, cmd) => return crate::loop_fit::run(app, i, cmd),
         Cmd::Vari(i) => return crate::vari::open(app, i),
         Cmd::KeyMatch(i, cmd) => {
@@ -4354,9 +4429,9 @@ pub fn run(app: &mut App, cmd: Cmd) -> Option<String> {
         }
         Cmd::MakeUnique => {
             let sel = s.playlist.sel.clone();
-            snapshot(s);
+            snapshot_unique(s);
             let made: Vec<u16> = sel.iter().filter_map(|&i| make_unique(s, i)).collect();
-            if made.is_empty() { Some("Make unique: select a pattern clip".into()) } else { None }
+            if made.is_empty() { Some("Make Unique: select an audio or pattern clip".into()) } else { None }
         }
         Cmd::InsertSpace => {
             snapshot(s);
@@ -4392,7 +4467,7 @@ pub fn run(app: &mut App, cmd: Cmd) -> Option<String> {
             snapshot(s);
             (!delete_space(s)).then(|| "Delete space: make a time selection first (right-drag the ruler)".into())
         }
-        Cmd::Consolidate | Cmd::ExportTracks | Cmd::QuantizeStarts | Cmd::PointValue(..) | Cmd::ClipPreview(_) | Cmd::FitLoop(..) | Cmd::KeyMatch(..) | Cmd::Vari(_) | Cmd::TypeIn(_) | Cmd::Reset(_) | Cmd::Remote(_) | Cmd::PeakLink(_) | Cmd::MidiExt(_) => None,
+        Cmd::FreezeTrack(_) | Cmd::UnfreezeTrack(_) | Cmd::BounceTrack(_) | Cmd::Consolidate | Cmd::ExportTracks | Cmd::QuantizeStarts | Cmd::PointValue(..) | Cmd::ClipRoute(_) | Cmd::ClipPreview(_) | Cmd::SeparateStems(_) | Cmd::FitLoop(..) | Cmd::KeyMatch(..) | Cmd::Vari(_) | Cmd::TypeIn(_) | Cmd::Reset(_) | Cmd::Remote(_) | Cmd::PeakLink(_) | Cmd::MidiExt(_) => None,
         Cmd::StretchMode => {
             s.playlist.stretch = !s.playlist.stretch;
             if s.playlist.stretch { crate::playlist_tools::select(s, PlTool::Paint); }
@@ -4536,8 +4611,8 @@ pub fn run(app: &mut App, cmd: Cmd) -> Option<String> {
             None
         }
         Cmd::ClipUnique(i) => {
-            snapshot(s);
-            make_unique(s, i).map(|n| format!("Made unique: pattern {n}"))
+            snapshot_unique(s);
+            make_unique(s, i).map(|_| "Made clip unique".into())
         }
         Cmd::ClipEditSource(i) => {
             if let Some(ClipSource::Pattern(n)) = clips(s).get(i).map(|c| c.source) {
@@ -5079,13 +5154,12 @@ pub fn key(app: &mut App, key: &winit::keyboard::Key, ctrl: bool, alt: bool) -> 
             app.invalidate();
             return true;
         }
-        Key::Named(NamedKey::Enter) if ctrl => {
-            // Play from the song start.
-            app.state.song_mode = true;
-            app.state.playlist.pos = 0;
-            app.play_song_from(0);
+        Key::Named(NamedKey::Home) if !ctrl && !alt => {
+            app.state.playlist.pos=0;
+            if app.state.song_mode {app.set_song_pos(0,true);}
             return true;
         }
+        Key::Named(NamedKey::Enter) if ctrl && !alt && !shift => Cmd::SelectTime,
         Key::Named(NamedKey::Escape) => {
             // Also closes menus and the picker (the global Escape).
             run(app, Cmd::Deselect);
@@ -5149,7 +5223,7 @@ pub fn plugin_window_menu(row: usize, detached: bool, x: f32, y: f32) -> Popup {
         PItem::sep(),
         PItem::new("Route to free mixer track", Cmd::Rack(crate::rack::RCmd::AssignFree(row))).key("Ctrl+L"),
     ];
-    Popup { x, y, items, sub: None, scroll: [0; 2] }
+    Popup { x, y, items, sub: None, scroll: [0; 2], cascade: Vec::new() }
 }
 
 /// Parameter chooser above each track's mute switch. Selecting a source projects its
@@ -5187,7 +5261,7 @@ pub fn automation_menu(s: &mut State, row: u16, at: (f32, f32)) {
     }
     let available=track_automation_controls(s,row);
     if !available.is_empty() {items.push(PItem::sub("Create automation",available));}
-    s.playlist.popup = Some(Popup { x: at.0, y: at.1, items, sub: None, scroll: [0; 2] });
+    s.playlist.popup = Some(Popup { x: at.0, y: at.1, items, sub: None, scroll: [0; 2], cascade: Vec::new() });
 }
 
 fn clip_channels(s:&State,c:&Clip)->Vec<u16> {
@@ -5225,4 +5299,59 @@ fn track_automation_controls(s:&State,row:u16)->Vec<PItem> {
         for (b,label) in ["Low","Mid","High"].iter().enumerate() {for (f,param,suffix) in [(0,target::EQ_GAIN,"gain"),(1,target::EQ_FREQ,"frequency"),(2,target::EQ_WIDTH,"width")] {add(format!("{label} {suffix}"),target::mixer(m,param+b as u8),f64::from(s.knob(K::Eq(m,b as u8,f))));}}
     }
     out
+}
+
+#[cfg(test)]
+mod unique_audio_tests {
+    use super::*;
+    #[test]
+    fn make_unique_audio_slice_preserves_trim_and_isolates_settings() {
+        let mut app=App::new(None);app.state.project=crate::app::test_project();
+        let s=&mut app.state;
+        let mut ch=s.project.channels[0].clone();
+        ch.index=0;ch.kind=os_model::ChannelKind::AudioClip;
+        ch.name=Some("Chopped loop".into());ch.sample_path=Some("loop.wav".into());
+        ch.mixer_track=6;
+        s.project.channels=vec![ch.clone()];
+        let mut slice=Clip::new(384,120,4,ClipSource::Channel(0));
+        slice.window=Some((125.0,750.0));
+        arr_mut(s).clips=vec![slice,slice];
+        assert!(clip_menu(s,1,0.0,0.0).items.iter().any(|p|p.label=="Make Unique"&&p.cmd==Cmd::ClipUnique(1)));
+        let before=s.project.clone();
+        run(&mut app,Cmd::ClipUnique(1));
+        let s=&mut app.state;
+        let next=s.project.channels.last().unwrap();
+        assert_eq!(next.index,1);assert_eq!(next.name.as_deref(),Some("Chopped loop #2"));
+        let mut expected=ch.clone();expected.index=1;expected.name=next.name.clone();
+        assert_eq!(next,&expected);
+        assert_eq!(clips(s)[0],slice);
+        let mut unique=slice;unique.source=ClipSource::Channel(1);
+        assert_eq!(clips(s)[1],unique);
+        let after=s.project.clone();
+        crate::history::undo(s);
+        assert_eq!(s.project.channels,before.channels);assert_eq!(s.project.arrangements,before.arrangements);
+        crate::history::redo(s);
+        assert_eq!(s.project.channels,after.channels);assert_eq!(s.project.arrangements,after.arrangements);
+        s.project.channels[1].mixer_track=9;
+        s.project.channels[1].sample_path=Some("replacement.wav".into());
+        assert_eq!(s.project.channels[0],ch);
+        let saved=os_flp::project::create(&s.project).unwrap();
+        let back=os_flp::project::load(&os_flp::FlpFile::parse(&saved.to_bytes().unwrap()).unwrap()).unwrap();
+        assert_eq!(back.channels.len(),2);
+        assert_ne!(back.arrangements[0].clips[0].source,back.arrangements[0].clips[1].source);
+        assert_eq!(back.arrangements[0].clips[1].window,slice.window);
+    }
+
+    #[test]
+    fn make_unique_pattern_still_clones_and_undo_removes_clone() {
+        let mut app=App::new(None);app.state.project=crate::app::test_project();
+        arr_mut(&mut app.state).clips=vec![Clip::new(0,384,0,ClipSource::Pattern(1))];
+        let patterns=app.state.project.patterns.clone();
+        run(&mut app,Cmd::ClipUnique(0));
+        assert_ne!(clips(&app.state)[0].source,ClipSource::Pattern(1));
+        assert_eq!(app.state.project.patterns.len(),patterns.len()+1);
+        crate::history::undo(&mut app.state);
+        assert_eq!(app.state.project.patterns,patterns);
+        assert_eq!(clips(&app.state)[0].source,ClipSource::Pattern(1));
+    }
 }

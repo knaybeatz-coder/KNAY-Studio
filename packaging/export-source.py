@@ -2,6 +2,9 @@
 from pathlib import Path
 import subprocess, sys, zipfile
 
+from private_build import private_source
+public = "--public" in sys.argv[2:]
+
 root = Path(__file__).resolve().parents[1]
 out = Path(sys.argv[1]).resolve()
 if root == out or root in out.parents:
@@ -14,6 +17,7 @@ names = set(names) | {'crates/os-app/assets/startup.wav', 'crates/os-app/assets/
 out.parent.mkdir(parents=True, exist_ok=True)
 with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as z:
     for name in sorted(names):
+        if public and private_source(name): continue
         p = root / name
         if not name or not p.is_file(): continue
         if any(part.startswith('target') or part == '.git' for part in Path(name).parts): continue

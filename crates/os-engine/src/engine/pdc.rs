@@ -161,10 +161,10 @@ pub(super) struct Pdc {
     /// What the pads were last worked out with, for the automation waits: per track `leaving`, per slot `arriving`
     /// plus the delays of the slots above it that ran; and per track whether a slot was on (the master always counts).
     leaving: Vec<i64>,
-    slot_late: Vec<[i64; 11]>,
+    slot_late: Vec<[i64; 64]>,
     any_on: Vec<bool>,
     /// Slots that were off when the project was loaded: values for them never wait.
-    off_at_load: Vec<[bool; 11]>,
+    off_at_load: Vec<[bool; 64]>,
     /// The longest a sound takes through the pads, and the frames a live engine still plays after its last sound.
     reach: u64,
     pub drain: u64,
@@ -198,7 +198,7 @@ pub(super) struct Pdc {
 
 impl Pdc {
     /// For an engine with `channels` channels whose tracks have `slot_on` switches as loaded.
-    pub fn new(channels: usize, slot_on: impl Iterator<Item = [bool; 11]>) -> Pdc {
+    pub fn new(channels: usize, slot_on: impl Iterator<Item = [bool; 64]>) -> Pdc {
         Pdc {
             chan_delay: vec![0; channels],
             chan_pad: vec![Pad::default(); channels],
@@ -331,7 +331,7 @@ impl Engine {
             .map(|t| {
                 let m = &self.tracks[t];
                 let slots = m.effects.iter().filter(|f| f.on && (f.slot == 10 || self.slots_run(t))).map(|f| u64::from(f.delay)).sum::<u64>();
-                TrackIn { out: m.latency.0, inp: m.latency.1, sends: m.routes.iter().map(|r| r.dest).collect(), chan: 0, slots: slots + if m.custom_strip {m.tune.as_ref().map_or(0,|t|u64::from(t.latency()))}else{0} }
+                TrackIn { out: m.latency.0, inp: m.latency.1, sends: m.routes.iter().map(|r| r.dest).collect(), chan: 0, slots: slots + if m.custom_strip && !m.strip_bypassed {m.tune.as_ref().map_or(0,|t|u64::from(t.latency()))}else{0} }
             })
             .collect();
         // Engine voices report none; a plugin channel counts also while it is switched off.
@@ -344,7 +344,7 @@ impl Engine {
         let l = lateness(&ins, &self.order, self.rate);
         let runs: Vec<bool> = (0..n).map(|t| self.slots_run(t)).collect();
         let on: Vec<bool> = (0..n).map(|t| self.slots_on(t)).collect();
-        self.pdc.slot_late = vec![[0; 11]; n];
+        self.pdc.slot_late = vec![[0; 64]; n];
         for (t, m) in self.tracks.iter_mut().enumerate() {
             // What the engine plays into the track itself (sampler voices, the metronome) reports no delay.
             m.pad.set_len(l.channel_pad(t, 0));
@@ -355,9 +355,9 @@ impl Engine {
             for fx in &mut m.effects {
                 fx.dry_pad.set_len(fx.delay as usize);
             }
-            let mut late = l.arriving[t] + if m.custom_strip {m.tune.as_ref().map_or(0,|t|i64::from(t.latency()))}else{0};
-            let mut order:Vec<usize>=(0..11).collect();
-            order.sort_by_key(|&k| if k==10 && m.parametric_pre {0} else {k+1});
+            let mut late = l.arriving[t] + if m.custom_strip && !m.strip_bypassed {m.tune.as_ref().map_or(0,|t|i64::from(t.latency()))}else{0};
+            let mut order:Vec<usize>=(0..64).collect();
+            order.sort_by_key(|&k| if k==10 {if m.parametric_pre {0}else{65}} else {k+1});
             for k in order {
                 self.pdc.slot_late[t][k] = late;
                 if k == 10 || runs[t] {

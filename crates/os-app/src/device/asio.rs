@@ -98,6 +98,7 @@ pub(crate) fn open(name: &str, rate: Option<u32>, buffer: Option<u32>, mut mix: 
     if now < 1.0 {
         return Err("the driver has no sample rate".into());
     }
+    mix.headphones.set_rate(now.round() as u32);
     let counts = driver.channels().map_err(|e| e.to_string())?;
     let outs = counts.outs;
     if outs < 1 {
@@ -173,8 +174,8 @@ pub(crate) fn open(name: &str, rate: Option<u32>, buffer: Option<u32>, mut mix: 
             let on = started.load(Ordering::Acquire);
             match e {
                 // The messages this host takes besides the ones asio-sys answers for itself.
-                sys::AsioDriverEvent::Message { selector: kAsioSelectorSupported, value } => value == kAsioOverload as i32,
-                sys::AsioDriverEvent::Message { selector: kAsioResetRequest, .. } if on => {
+                sys::AsioDriverEvent::Message { selector: kAsioSelectorSupported, value } => value == kAsioOverload as i32 || value == kAsioBufferSizeChange as i32,
+                sys::AsioDriverEvent::Message { selector: kAsioResetRequest | kAsioBufferSizeChange, .. } if on => {
                     errors.fail("the driver asked to be reset".into());
                     true
                 }

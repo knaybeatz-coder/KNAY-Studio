@@ -264,6 +264,7 @@ impl Project {
         }
         for a in &mut self.arrangements {
             a.clips.iter_mut().for_each(|c| c.rescale(from, to));
+            for clips in a.tracks.iter_mut().filter_map(|t|t.frozen.as_mut()) {clips.iter_mut().for_each(|c|c.rescale(from,to));}
             a.markers.iter_mut().for_each(|m| m.rescale(from, to));
         }
         if let Some(v) = &mut self.playlist_view {
@@ -508,7 +509,8 @@ impl Project {
         self.automations.extend(clones);
         self.automations.sort_by_key(|a| a.channel);
         for arr in &mut self.arrangements {
-            arr.clips.retain_mut(|c| match c.source {
+            for clips in std::iter::once(&mut arr.clips).chain(arr.tracks.iter_mut().filter_map(|t| t.frozen.as_mut())) {
+            clips.retain_mut(|c| match c.source {
                 ClipSource::Channel(ch) => m(ch)
                     .map(|n| {
                         c.source = ClipSource::Channel(n);
@@ -518,6 +520,7 @@ impl Project {
                     .is_some(),
                 ClipSource::Pattern(_) => true,
             });
+            }
         }
     }
 }
@@ -1318,8 +1321,8 @@ pub struct MixerTrack {
     pub name: Option<String>,
     pub color: Option<Rgb>,
     pub enabled: bool,
-    /// Ten user effect slots plus the dedicated parametric EQ at index 10.
-    pub slots: [Option<SlotPlugin>; 11],
+    /// Up to 63 user effects; physical index 10 is reserved for the dedicated parametric EQ.
+    pub slots: [Option<SlotPlugin>; 64],
     /// Destination tracks this track sends to.
     pub routes: Vec<u16>,
     /// Explicit send levels `(destination, level 0..=1)`; routes without an entry send at unity
@@ -1339,8 +1342,8 @@ pub struct MixerTrack {
     /// Draw a group separator before this track (FL event 236, flag 0x400).
     pub separator: bool,
     /// Per slot: enabled (the slot LED) and mix level 0..=1 (spec: ui/mixer.md §7).
-    pub slot_on: [bool; 11],
-    pub slot_mix: [f64; 11],
+    pub slot_on: [bool; 64],
+    pub slot_mix: [f64; 64],
     /// The three-band equaliser as stored, per band `[gain, frequency, width]`: gain -1800..=1800 in 0.01 dB,
     /// frequency and width 0..=65536 (spec: audio/mixer.md "Equaliser"). Band 1 low shelf, 2 peaking, 3 high shelf.
     pub eq: [[i32; 3]; 3],
@@ -1357,6 +1360,8 @@ pub struct MixerTrack {
     pub tune_learn: u32,
     /// 0 Standard, 1 Custom, 2 Vox. Travels with the channel.
     pub channel_layout: u8,
+    /// Bypass native knobs without changing their values or plugin-slot switches.
+    pub strip_bypassed: bool,
     /// The track's output and input latency settings in milliseconds, either sign, 0 = none (event 236; spec:
     /// flp/layouts.md "A mixer track's record", audio/delay-compensation.md "Settings").
     pub latency_out: f32,
@@ -1399,6 +1404,7 @@ impl PartialEq for MixerTrack {
             tune_enabled,
             tune_learn: _,
             channel_layout,
+            strip_bypassed,
             latency_out,
             latency_in,
             icon,
@@ -1425,6 +1431,7 @@ impl PartialEq for MixerTrack {
             && *tune == o.tune
             && *tune_enabled == o.tune_enabled
             && *channel_layout == o.channel_layout
+            && *strip_bypassed == o.strip_bypassed
             && *parametric_pre == o.parametric_pre
             && *eq == o.eq
             && *latency_out == o.latency_out
@@ -1454,7 +1461,7 @@ impl MixerTrack {
             name: None,
             color: None,
             enabled: true,
-            slots: Default::default(),
+            slots: std::array::from_fn(|_|None),
             routes: if index == 0 { Vec::new() } else { vec![0] },
             send_levels: Vec::new(),
             volume: Some(0.8),
@@ -1464,8 +1471,8 @@ impl MixerTrack {
             swap: false,
             slots_enabled: true,
             separator: false,
-            slot_on: [true; 11],
-            slot_mix: [1.0; 11],
+            slot_on: [true; 64],
+            slot_mix: [1.0; 64],
             eq: EQ_DEFAULT,
             parametric_pre: false,
             strip: [0; 7],
@@ -1474,6 +1481,7 @@ impl MixerTrack {
             tune_enabled: false,
             tune_learn: 0,
             channel_layout: 1,
+            strip_bypassed: false,
             latency_out: 0.0,
             latency_in: 0.0,
             icon: None,
@@ -1765,6 +1773,8 @@ impl TimeMarker {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PlaylistTrack {
+    /// Original clips retained for reversible instrument freezing. Mixer processing stays live.
+    pub frozen: Option<Vec<Clip>>,
     /// Comp group leader: associated mixer insert. Children are muted source take lanes.
     pub comp: Option<u16>,
     /// 1-based.
@@ -1784,7 +1794,7 @@ pub struct PlaylistTrack {
 impl PlaylistTrack {
     /// Track `number` as a new project has it: unnamed, default colour, on, not grouped.
     pub fn new(number: u32) -> Self {
-        PlaylistTrack { comp: None, number, name: None, color: None, enabled: true, grouped: false, collapsed: false, locked: false }
+        PlaylistTrack { frozen: None, comp: None, number, name: None, color: None, enabled: true, grouped: false, collapsed: false, locked: false }
     }
 }
 
@@ -2029,15 +2039,13 @@ pub mod target {
         if (0x6000..0x6080).contains(&hi) && (lo <= 4 || lo == 7 || lo == 8) { return Target::MixerStrip(hi-0x6000,lo as u8); }
         if (0x7000..0x7000 + 128 * 64).contains(&hi) && lo >= PLUGIN_PARAM {
             let loc = hi - 0x7000;
-            if loc % 64 < 10 {
-                return Target::SlotParam(loc / 64, (loc % 64) as u8, lo - PLUGIN_PARAM);
-            }
+            return Target::SlotParam(loc / 64, (loc % 64) as u8, lo - PLUGIN_PARAM);
         }
         if hi < 0x4000 && lo >= PLUGIN_PARAM {
             return Target::ChannelParam(hi, lo - PLUGIN_PARAM);
         }
         // Mixer places from FL 24.2 on (spec: flp/layouts.md "Mixer places", "Parameter ids in an automation link").
-        if (0x7000..0x7000 + 127 * 64).contains(&hi) && (hi - 0x7000) % 64 < 10 {
+        if (0x7000..0x7000 + 127 * 64).contains(&hi) {
             let (track, slot) = ((hi - 0x7000) / 64, ((hi - 0x7000) % 64) as u8);
             let id = lo as u8;
             return match lo >> 8 {
@@ -2292,5 +2300,31 @@ mod fade_tests {
                 assert!((sum - 1.0).abs() < 1e-12, "t {t} x {x}: {sum}");
             }
         }
+    }
+}
+
+impl Project {
+    /// Channels addressed by clips, including layer children. IDs (not rack positions).
+    pub fn clip_channels(&self, clips: &[Clip]) -> std::collections::BTreeSet<u16> {
+        let mut ids = std::collections::BTreeSet::new();
+        for c in clips.iter().filter(|c|!c.muted) { match c.source {
+            ClipSource::Channel(ch) => {ids.insert(ch);},
+            ClipSource::Pattern(n) => if let Some(p)=self.pattern(n) {ids.extend(p.notes.iter().map(|n|n.channel));},
+        }}
+        loop {
+            let old=ids.len();
+            for c in &self.channels { if ids.contains(&c.index) { ids.extend(c.layer_children.iter().copied()); } }
+            if old==ids.len() {break;}
+        }
+        ids
+    }
+    pub fn frozen_instrument_rows(&self) -> Vec<usize> {
+        let Some(a)=self.arrangement() else {return vec![];};
+        let original: Vec<_>=a.tracks.iter().filter_map(|t|t.frozen.as_ref()).flatten().copied().collect();
+        let frozen=self.clip_channels(&original);
+        // Even muted material on another row retains its generator for audition/unmute.
+        let mut clips=a.clips.clone(); for c in &mut clips {c.muted=false;}
+        let used=self.clip_channels(&clips);
+        self.channels.iter().enumerate().filter(|(_,c)|frozen.contains(&c.index)&&!used.contains(&c.index)).map(|(r,_)|r).collect()
     }
 }

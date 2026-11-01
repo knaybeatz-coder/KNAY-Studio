@@ -153,6 +153,7 @@ pub enum Request {
     Track(usize, u16),
     ShowTrack(usize),
     TrackDrop(usize,i32,i32),
+    PickTrack(usize),
     /// A preview note from a Lemon plugin's own keyboard (host link): row, key, velocity, on.
     Note(usize, u8, u8, bool),
     /// "Create automation clip" from a Lemon plugin's own parameter menu (host link): row, parameter index.
@@ -188,7 +189,7 @@ pub enum Request {
     Stopped(usize, String),
 }
 
-/// Keys from here up are mixer slots, not rack rows: `FX_KEY + track * 16 + slot` (spec: ui/mixer.md §7).
+/// Keys from here up are mixer slots, not rack rows: `FX_KEY + track * 64 + slot` (spec: ui/mixer.md §7).
 pub const FX_KEY: usize = 1 << 24;
 
 /// Plugin editor windows open at once under "Limit the number of open plugin editors" (FL's hint: 25; spec:
@@ -205,12 +206,12 @@ fn earliest_over(open: impl Iterator<Item = (usize, u64)>, max: usize) -> Option
 
 /// The `hosted` key of mixer track `track`'s slot `slot`.
 pub fn fx_key(track: u16, slot: u8) -> usize {
-    FX_KEY + usize::from(track) * 16 + usize::from(slot)
+    FX_KEY + usize::from(track) * 64 + usize::from(slot)
 }
 
 /// The mixer (track, slot) of a `hosted` key, `None` for rack rows.
 pub fn fx_of(key: usize) -> Option<(u16, u8)> {
-    (key >= FX_KEY).then(|| (((key - FX_KEY) / 16) as u16, ((key - FX_KEY) % 16) as u8))
+    (key >= FX_KEY).then(|| (((key - FX_KEY) / 64) as u16, ((key - FX_KEY) % 64) as u8))
 }
 
 #[derive(Default)]
@@ -359,7 +360,9 @@ impl Plugins {
     /// The built-in plugins only (what the app knows before the scan cache is read).
     pub fn builtins() -> Plugins {
         let native_checks = (!cfg!(test)).then(|| os_native::check::Checks::load(os_paths::user_file(NATIVE_CHECKS)));
-        Plugins { available: builtin(), effects: builtin_effects(), scale: 1.0, native_checks, ..Plugins::default() }
+        let mut effects = builtin_effects();
+        effects.extend(crate::master_assistant::available());
+        Plugins { available: builtin(), effects, scale: 1.0, native_checks, ..Plugins::default() }
     }
 
     /// Takes a scan's results (spec: ui/plugin-manager.md §4, "Results"): plugins new to this run are appended, so the
@@ -367,7 +370,7 @@ impl Plugins {
     /// lazily loaded library; plugins no longer found are marked missing (not listed). The first file wins for a
     /// plugin id. Built-in plugins are never replaced.
     pub fn merge(&mut self, cache: &crate::plugin_db::Cache) {
-        let builtin: HashSet<String> = self.available.iter().chain(&self.effects).filter(|a| crate::project_plugins::is_builtin(&a.desc)).map(|a| a.desc.uid()).collect();
+        let builtin: HashSet<String> = self.available.iter().chain(&self.effects).filter(|a| crate::project_plugins::is_builtin(&a.desc) || crate::master_assistant::is_bundled(&a.desc)).map(|a| a.desc.uid()).collect();
         let mut seen: HashSet<String> = builtin.clone();
         for f in cache.files.iter().filter(|f| f.status == crate::plugin_db::Status::Ok) {
             let Some(format) = os_host::Format::parse(&f.format) else { continue };
@@ -1168,6 +1171,7 @@ impl Plugins {
                         FrameEvent::Track(t) => Request::Track(row, t),
                         FrameEvent::ShowTrack => Request::ShowTrack(row),
                         FrameEvent::TrackDrop(x,y) => Request::TrackDrop(row,x,y),
+                        FrameEvent::PickTrack => Request::PickTrack(row),
                         FrameEvent::Raise => Request::Raise(row),
                         FrameEvent::Menu(x, y) => Request::Menu(row, x, y),
                         FrameEvent::Presets(x, y) => Request::Presets(row, x, y),

@@ -137,9 +137,9 @@ def permitted(rel,scope):
     p=PurePosixPath(rel)
     if p.is_absolute() or '..' in p.parts or '\\' in rel: return False
     if scope=='windows-linux':
-        return bool(re.fullmatch(r'(?:downloads|linux|updates)/\d+/[^/]+',rel) or rel in ('platforms/windows.json','platforms/linux.json','updates/stable.json'))
+        return bool(re.fullmatch(r'(?:downloads|linux|updates)/\d+/[^/]+',rel) or re.fullmatch(r'updates/linux-x64/\d+/[^/]+',rel) or rel in ('platforms/windows.json','platforms/linux.json','updates/stable.json','updates/linux-x64/stable.json'))
     if scope in ('mac-arm64','mac-x86_64'):
-        return bool(re.fullmatch(r'mac/\d+/[^/]+',rel) or rel==f'platforms/{scope}.json')
+        return bool(re.fullmatch(r'mac/\d+/[^/]+',rel) or re.fullmatch(r'mac/updates/'+scope[4:]+r'/\d+/(?:signed.json|Contents/(?:MacOS/lemonstudio|Info.plist|PkgInfo|Resources/(?:Assets.car|lemonstudio.icns)|_CodeSignature/CodeResources))',rel) or rel in (f'platforms/{scope}.json',f'mac/updates/{scope[4:]}/stable.json'))
     return False
 
 def verify_remote(rel,p):
@@ -205,6 +205,10 @@ def publish(plan_path):
     for e in entries:
         p=(plan_path.parent/e['local']).resolve()
         if plan_path.parent not in p.parents or digest(p)!=e['sha256']: raise RuntimeError('Staged artifact changed or is outside package')
+    import importlib.util
+    spec=importlib.util.spec_from_file_location('private_build',Path(__file__).resolve().parents[1]/'private_build.py')
+    boundary=importlib.util.module_from_spec(spec);spec.loader.exec_module(boundary)
+    for e in entries: boundary.require_public_artifact(plan_path.parent/e['local'])
     cfg=read_config()
     if cfg.get('publish_via_ssh'):
         relay_publish(cfg,plan_path,plan);return
@@ -213,14 +217,17 @@ def publish(plan_path):
     lock='.publish-'+scope+'.lock'
     ftp.mkd(lock)
     try:
-        for e in sorted(entries,key=lambda x: x['path'].startswith('platforms/') or x['path']=='updates/stable.json'):
-            rel=e['path'];p=plan_path.parent/e['local'];mutable=rel.startswith('platforms/') or rel=='updates/stable.json'
-            if mutable and rel.startswith('platforms/'):
+        for e in sorted(entries,key=lambda x: x['path'].startswith('platforms/') or x['path'].endswith('/stable.json')):
+            rel=e['path'];p=plan_path.parent/e['local'];mutable=rel.startswith('platforms/') or rel.endswith('/stable.json')
+            if mutable:
                 old=bytearray()
                 try: ftp.retrbinary('RETR '+rel,old.extend)
                 except ftplib.error_perm as ex:
                     if not str(ex).startswith('550'): raise
-                if old and json.loads(old).get('version',0)>plan['version']: raise RuntimeError('Refusing to replace a newer platform release')
+                if old:
+                    previous=json.loads(old)
+                    if 'payload' in previous:previous=json.loads(previous['payload'])
+                    if previous.get('version',0)>plan['version']:raise RuntimeError('Refusing to replace a newer platform release')
             if not mutable:
                 old=hashlib.sha256();exists=True
                 try: ftp.retrbinary('RETR '+rel,old.update)
@@ -270,7 +277,7 @@ def build_windows(out,cfg):
     site=out/'lemon-studio';v=str(version());payload=out/'payload';payload.mkdir()
     for name in ('lemonstudio.exe','Lemon Studio Source.zip','LICENSE','THIRD-PARTY-NOTICES.txt'):shutil.copy2(site/'updates'/v/name,payload/name)
     shutil.copytree(cfg['runtime'],payload/'runtime')
-    shutil.copy2(ROOT/'crates/os-app/assets/templates/Lemon Starter.flp',payload/'Lemon Starter.flp')
+    shutil.copy2(ROOT/'crates/os-app/assets/templates/Lemon Starter.flp',payload/'Lemon Starter.lmn')
     (payload/'READ ME.txt').write_text('Lemon Studio - Michael Lane edition\nDownloads and matching editable source: '+BASE+'\n')
     label=f'{v[:4]}.{v[4:6]}.{v[6:8]}.{int(v[8:])}'
     installer=site/'downloads'/v/f'Lemon-Studio-Windows-Setup-{label}.exe';installer.parent.mkdir(parents=True)
@@ -292,6 +299,7 @@ def build_windows(out,cfg):
     (site/'platforms').mkdir(exist_ok=True)
     for scope,label,p in [('windows','Windows',installer),('linux','Linux',linux)]:
         (site/'platforms'/f'{scope}.json').write_text(json.dumps(dict(version=version(),label=label,url=p.relative_to(site).as_posix(),source=f'updates/{v}/Lemon Studio Source.zip',sha256=digest(p))))
+    run(sys.executable,ROOT/'packaging/prepare-unix-update.py','--platform','linux-x64','--site',site,'--app',ROOT/'target/x86_64-unknown-linux-gnu/release/lemonstudio')
     return write_plan(site,out,'windows-linux')
 
 def build(publish_now):
@@ -318,6 +326,7 @@ def build(publish_now):
         for rel in (m['url'],m['source']):
             p=site/rel;p.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(out/Path(rel).name,p)
         shutil.copy2(out/f'mac-{arch}.json',site/'platforms'/f'mac-{arch}.json')
+        run(sys.executable,ROOT/'packaging/prepare-unix-update.py','--platform',f'mac-{arch}','--site',site,'--app',Path.home()/'.cache/lemon-studio-remote-target/bundled/Lemon Studio.app')
         plan=write_plan(site,out,f'mac-{arch}')
     else:raise RuntimeError('Use the Windows desktop or MacBook for this release workflow.')
     # Archive the concrete publication plan and artifacts on the home server too.

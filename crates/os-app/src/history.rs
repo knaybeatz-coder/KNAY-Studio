@@ -67,6 +67,7 @@ pub enum Snap {
     Effects(u16, bool, bool),
     AllEffects(bool),
     StripProfile(u16,u16),
+    StripBypass(u16,bool),
     DriveType(u16,u16),
     EqPosition(u16,bool),
     ChannelLayout(u16,u8),
@@ -353,6 +354,7 @@ impl Snap {
             Snap::Tune(t,_) => crate::mixer::track(s,*t).map_or_else(||self.clone(),|m|Snap::Tune(*t,m.tune)),
             Snap::EqPosition(t,_) => crate::mixer::track(s,*t).map_or_else(||self.clone(),|m|Snap::EqPosition(*t,m.parametric_pre)),
             Snap::DriveType(t,_) => crate::mixer::track(s,*t).map_or_else(||self.clone(),|m|Snap::DriveType(*t,m.strip[6])),
+            Snap::StripBypass(t,_) => crate::mixer::track(s,*t).map_or_else(||self.clone(),|m|Snap::StripBypass(*t,m.strip_bypassed)),
             Snap::StripProfile(t,_) => crate::mixer::track(s,*t).map_or_else(||self.clone(),|m|Snap::StripProfile(*t,m.strip[5])),
             Snap::AllEffects(_) => Snap::AllEffects(s.mixer.all_fx_bypassed),
             Snap::Effects(t, _, _) => crate::mixer::track(s, *t).map_or_else(|| self.clone(), |m| Snap::Effects(*t, m.slots_enabled, s.mixer.all_fx_bypassed)),
@@ -400,6 +402,7 @@ impl Snap {
             }
             Snap::Playlist(p) => {
                 p.0.iter_mut().for_each(|c| c.rescale(from, to));
+                for clips in p.2.iter_mut().filter_map(|t|t.frozen.as_mut()) {clips.iter_mut().for_each(|c|c.rescale(from,to));}
                 p.1.iter_mut().for_each(|m| m.rescale(from, to));
             }
             Snap::Patterns { patterns, .. } => {
@@ -418,6 +421,7 @@ impl Snap {
             | Snap::ChannelRoute(..)
             | Snap::Fader(..)
             | Snap::MixerChannel(..)
+            | Snap::StripBypass(..)
             | Snap::StripProfile(..)
             | Snap::ChannelLayout(..)
             | Snap::Tune(..)
@@ -447,6 +451,7 @@ impl Snap {
                 }
                 for a in &mut r.arrangements {
                     a.clips.iter_mut().for_each(|c| c.rescale(from, to));
+                    for clips in a.tracks.iter_mut().filter_map(|t|t.frozen.as_mut()) {clips.iter_mut().for_each(|c|c.rescale(from,to));}
                     a.markers.iter_mut().for_each(|m| m.rescale(from, to));
                 }
             }
@@ -481,6 +486,7 @@ impl Snap {
             Snap::Tune(t,p) => {if let Some(m)=s.project.mixer.iter_mut().find(|m|m.index==t){m.tune=p;m.tune_learn=0;}},
             Snap::EqPosition(t,p) => {if let Some(m)=crate::mixer::track_mut(s,t){m.parametric_pre=p;}},
             Snap::DriveType(t,p) => {if let Some(m)=s.project.mixer.iter_mut().find(|m|m.index==t){m.strip[6]=p;}},
+            Snap::StripBypass(t,b) => {if let Some(m)=s.project.mixer.iter_mut().find(|m|m.index==t){m.strip_bypassed=b;}},
             Snap::StripProfile(t,p) => {if let Some(m)=s.project.mixer.iter_mut().find(|m|m.index==t){m.strip[5]=p;}},
             Snap::AllEffects(bypassed) => s.mixer.all_fx_bypassed = bypassed,
             Snap::Effects(t, enabled, global) => {

@@ -12,11 +12,11 @@ pub struct Smart {
     pub origin:Option<u32>,
     pub last_tick:u32,
 }
-/// An assigned instrument's playlist row and dedicated recording pattern in this arrangement.
+/// An assigned instrument's playlist row and the pattern the user currently selected.
 pub(crate) fn instrument_lane(s:&crate::app::State)->Option<(u16,u16)> {
     let ch=s.project.channels.get(s.selected_channel)?.index;
     let arr=s.project.arrangement()?.number;
-    s.project.instrument_lanes.iter().find(|v|v.0==ch&&v.1==arr&&s.project.pattern(v.3).is_some()).map(|v|(v.2,v.3))
+    s.project.instrument_lanes.iter().find(|v|v.0==ch&&v.1==arr).map(|v|(v.2,s.pattern.max(1)))
 }
 
 impl App {
@@ -31,17 +31,15 @@ impl App {
             !pl::clips(s).iter().any(|c|c.track==*t) && !s.project.instrument_lanes.iter().any(|v|v.1==arr&&v.2==*t)));
         let Some(lane)=lane else {s.message=Some("No empty playlist track available".into());return true;};
         let snap=Snap::Several(vec![Snap::ChannelRoute(row,ch.mixer_track),Snap::Playlist(Box::new(pl::capture(s))),
-            Snap::Patterns{patterns:s.project.patterns.clone(),current:s.pattern},Snap::InstrumentLanes(s.project.instrument_lanes.clone())]);
+            Snap::InstrumentLanes(s.project.instrument_lanes.clone())]);
         history::record(s,"Assign instrument to mixer and playlist",snap);
-        let pattern=old.map(|v|v.3).unwrap_or_else(|| {
-            let n=s.project.patterns.iter().map(|p|p.number).max().unwrap_or(0)+1;
-            s.project.patterns.push(os_model::Pattern{number:n,name:ch.name.clone(),color:ch.color,..Default::default()});
-            s.project.instrument_lanes.push((ch.index,arr,lane,n));n
-        });
+        // Routing must not create or name the next pattern, or change the user's selection.
+        // Keep the legacy tuple field for project compatibility; recording uses the current pattern.
+        if old.is_none() {s.project.instrument_lanes.push((ch.index,arr,lane,s.pattern.max(1)));}
         let name=crate::mixer::name(s,mixer);let color=crate::mixer::track(s,mixer).and_then(|m|m.color);
         if let Some(t)=pl::arr_mut(s).tracks.get_mut(lane as usize){t.name=Some(name);t.color=color;}
         s.project.channels[row].mixer_track=mixer;s.selected_channel=row;s.selected_mixer=mixer;
-        s.pattern=pattern;s.project.current_pattern=Some(pattern);s.playlist.track=lane;
+        s.playlist.track=lane;
         s.piano.dirty=true;
         self.transport.update(&crate::rack::play_project(&self.state));self.invalidate();true
     }
@@ -117,6 +115,32 @@ impl App {
 mod tests {
     use super::*;
     #[test]
+    fn routing_instruments_preserves_selected_pattern_and_names() {
+        let mut app=App::new(None);app.state.project=crate::app::test_project();
+        let mut second=app.state.project.channels[0].clone();second.index=1;
+        app.state.project.channels=vec![app.state.project.channels[0].clone(),second];
+        app.state.project.patterns=vec![os_model::Pattern{number:1,..Default::default()},os_model::Pattern{number:2,..Default::default()}];
+        for (row,name,pat) in [(0,"Diva",1),(1,"Vital",2)] {
+            app.state.project.channels[row].kind=os_model::ChannelKind::Plugin;
+            app.state.project.channels[row].name=Some(name.into());
+            app.state.pattern=pat;app.state.project.current_pattern=Some(pat);
+            assert!(app.route_instrument_lane(row,10+row as u16));
+            assert_eq!(app.state.pattern,pat);
+            assert_eq!(app.state.project.current_pattern,Some(pat));
+            assert_eq!(instrument_lane(&app.state).unwrap().1,pat);
+            assert_eq!(app.state.project.patterns.len(),2);
+            assert!(app.state.project.patterns.iter().all(|p|p.name.is_none()));
+        }
+        // An old saved lane association cannot redirect a newly chosen pattern.
+        app.state.pattern=1;
+        app.state.project.patterns[0].name=Some("My verse".into());
+        assert!(app.route_instrument_lane(1,12));
+        assert_eq!(instrument_lane(&app.state).unwrap().1,1);
+        assert_eq!(app.state.project.patterns[0].name.as_deref(),Some("My verse"));
+        assert_eq!(app.state.project.patterns.len(),2);
+    }
+
+    #[test]
     fn instrument_lane_records_midi_and_roundtrips() {
         use crate::{playlist as pl,record::{Opt,Extra},step_edit::Src};
         let mut app=App::new(None);app.state.project=crate::app::test_project();
@@ -124,7 +148,7 @@ mod tests {
         app.state.project.channels[0].name=Some("Citrus".into());
         app.state.project.channels[0].plugin=Some("Sytrus".into());
         pl::arr_mut(&mut app.state).clips.clear();
-        pl::arr_mut(&mut app.state).clips.push(os_model::Clip::new(0,384,0,ClipSource::Pattern(1)));
+        pl::arr_mut(&mut app.state).clips.push(os_model::Clip::new(0,384,0,ClipSource::Pattern(99)));
         assert!(app.route_instrument_lane(0,10));
         let (lane,pat)=instrument_lane(&app.state).unwrap();assert_eq!(lane,1);
         assert_eq!(app.state.project.channels[0].mixer_track,10);

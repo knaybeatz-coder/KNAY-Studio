@@ -117,6 +117,7 @@ pub struct Shared {
     tracks: Mutex<TrackPeaks>,
     /// Device blocks the queue could not fill since the program started.
     underruns: AtomicU64,
+    underrun_baseline: AtomicU64,
     /// How far the playback and live streams render ahead of the device.
     ahead: AheadStats,
     /// Time spent rendering per second of audio (f32 bits), over the last quarter second of playback.
@@ -866,6 +867,15 @@ impl Transport {
         self.shared.underruns.load(Ordering::Relaxed)
     }
 
+    pub fn visible_underruns(&self) -> u64 {
+        self.underruns().saturating_sub(self.shared.underrun_baseline.load(Ordering::Relaxed))
+    }
+
+    pub fn reset_underruns(&self) {
+        crate::input_monitor::reset_dropouts();
+        self.shared.underrun_baseline.store(self.underruns(), Ordering::Relaxed);
+    }
+
     /// Time the engine spends rendering per second of audio, 0..1 (more than 1: it cannot keep up), over the last
     /// quarter second of playback or live notes.
     pub fn load(&self) -> f32 {
@@ -1268,7 +1278,13 @@ fn engine(project: &Project, library: &mut SampleLibrary, rate: u32, mode: PlayM
 // spec: audio/export.md
 fn export(project: &Project, mode: PlayMode, rate: u32, job: &crate::export::Job, library: &mut SampleLibrary, inst: &Instruments, shared: &Shared) -> Result<(f64, Vec<PathBuf>), String> {
     let o = &job.options;
-    let mut e = engine(project, library, rate, mode, inst, true);
+    let mut e = if let Some(rows) = &job.instrument_rows {
+        let (mut list, fx) = inst.lock().map(|l|(l.inst.clone(),l.fx.clone())).unwrap_or_default();
+        list.retain(|(row,_)|rows.contains(row));
+        let mut e = Engine::with_instruments(project,library,rate,mode,&list);
+        crate::project_plugins::attach_effects(&mut e,project,fx);
+        e
+    } else { engine(project, library, rate, mode, inst, true) };
     e.set_interpolation(o.points);
     e.set_effects(o.insert_fx, o.master_fx);
     match job.span {
@@ -1277,6 +1293,7 @@ fn export(project: &Project, mode: PlayMode, rate: u32, job: &crate::export::Job
         None if mode == PlayMode::Song => e.follow_markers(),
         None => {}
     }
+    e.set_capture_tracks(job.capture_tracks.clone());
     e.set_track_capture(o.split);
     let len = e.frames_left().max(1);
     // Cut needs nothing past the song's end.
@@ -2289,6 +2306,7 @@ mod tests {
         let m = crate::input_monitor::monitor();
         m.start(1, &crate::capture::Input { device: "Synthetic".into(), asio: true, first: 0, stereo: true });
         let mut p = Project::default();
+        p.ppq = 96;
         p.mixer = (0..4).map(os_model::MixerTrack::new).collect();
         p.mixer[1].routes = vec![2]; p.mixer[2].routes = vec![3]; p.mixer[3].routes = vec![0];
         let mut e = Engine::new(&p, &mut SampleLibrary::default(), 48000, PlayMode::Song);
@@ -2413,7 +2431,90 @@ mod tests {
         assert_eq!(shared.underruns.load(Ordering::Relaxed), 0);
     }
 
-    /// A feeder that cannot keep up shows as underruns, never as a stall of the callback.
+    /// Device-sized input bursts must survive whole-tick render-ahead without
+    /// periodic silence, duplicated samples or dropped samples after startup.
+    #[test]
+    fn monitoring_small_callbacks_remains_continuous() {
+        let _lock = crate::capture::TEST_RECORDING.lock().unwrap_or_else(|e| e.into_inner());
+        let m = crate::input_monitor::monitor();
+        for rate in [44100, 48000, 96000] {
+            for (ppq, tempo) in [(96, 140.), (24, 90.)] {
+                for block in [64, 128, 192, 256, 384, 512, 1024, 2048] {
+                    m.start(1, &crate::capture::Input { device: "Synthetic".into(), asio: true, first: 0, stereo: true });
+                    let mut p = Project::default();
+                    p.ppq = ppq; p.tempo = Some(tempo);
+                    p.mixer = (0..2).map(os_model::MixerTrack::new).collect();
+                    let mut e = Engine::new(&p, &mut SampleLibrary::default(), rate, PlayMode::Song);
+                    e.clear_schedule(); e.set_awake(true);
+                    let (mut r, ctl, shared) = renderer(e);
+                    ctl.report.store(false, Ordering::Relaxed);
+                    r.inline.as_mut().unwrap().rate = rate;
+                    r.inline.as_ref().unwrap().engine.lock().unwrap().set_mixer_input(Box::new(DeviceInput { shared, ctl, kind: Kind::Live, owner: 1 }));
+                    let mut output = vec![0.; block * 2];
+                    let mut last: Option<f32> = None;
+                    let mut error = 0f32;
+                    for n in 0..600 {
+                        m.push(true, rate, block, |ch, f| {
+                            let v = 0.1 + (n * block + f) as f32 * 0.0000001;
+                            if ch == 0 { v } else { -v }
+                        });
+                        r.play(&mut output);
+                        if n > 100 {
+                            for f in output.chunks_exact(2) {
+                                if let Some(old) = last { error = error.max((f[0] - old - 0.0000001f32).abs()); }
+                                error = error.max((f[0] + f[1]).abs());
+                                if f[0] < 0.099 { error = 1.; }
+                                last = Some(f[0]);
+                            }
+                        }
+                    }
+                    m.stop();
+                    assert!(error < 0.00000003, "{rate} Hz, {ppq} PPQ, {block} frames: continuity error {error}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn monitoring_tiny_callbacks_survives_worker_batches() {
+        let _lock=crate::capture::TEST_RECORDING.lock().unwrap_or_else(|e|e.into_inner());
+        let m=crate::input_monitor::monitor();
+        for rate in [44100,48000,96000] { for (ppq,tempo) in [(96,140.),(24,90.)] {for block in [16,32] { for batch in [0,1,2,4] {
+            m.start(1,&crate::capture::Input{device:"Synthetic".into(),asio:true,first:0,stereo:true});
+            let mut p=Project::default();p.ppq=ppq;p.tempo=Some(tempo);p.mixer=(0..2).map(os_model::MixerTrack::new).collect();
+            let mut e=Engine::new(&p,&mut SampleLibrary::default(),rate,PlayMode::Song);e.clear_schedule();e.set_awake(true);
+            let (mut r,ctl,shared)=renderer(e);ctl.report.store(false,Ordering::Relaxed);r.inline.as_mut().unwrap().rate=rate;
+            r.inline.as_ref().unwrap().engine.lock().unwrap().set_mixer_input(Box::new(DeviceInput{shared:shared.clone(),ctl,kind:Kind::Live,owner:1}));
+            let mut feeder=if batch>0 {r.inline.take()} else {None};
+            if let Some(f)=&mut feeder {f.fill(PREFILL_FRAMES);}
+            let mut out=vec![0.;block*2];let mut last=None::<f32>;let mut error=0f32;let mut silent=0;let mut frames=0;
+            let count=4*rate as usize/block;
+            for n in 0..count {
+                m.push(true,rate,block,|ch,f| {let x=0.2+((n*block+f) as f32)*0.0000001;if ch==0{x}else{-x}});
+                r.play(&mut out);
+                if let Some(f)=&mut feeder {if (n+1)%batch==0 {f.fill(0);}}
+                if n>rate as usize/block {for f in out.chunks_exact(2){if let Some(v)=last{error=error.max((f[0]-v-0.0000001).abs());}if f[0].abs()<0.01{silent+=1;}last=Some(f[0]);frames+=1;}}
+            }
+            m.stop();
+            assert_eq!(silent, 0, "{rate}Hz {ppq}PPQ {block}frames batch{batch}: {silent}/{frames} gaps");
+            assert!(error < 0.00000003, "{rate}Hz {ppq}PPQ {block}frames batch{batch}: error {error}");
+            assert_eq!(shared.underruns.load(Ordering::Relaxed), 0);
+        }}}}
+    }
+
+    #[test]
+    fn reset_underruns_preserves_lifetime_diagnostics() {
+        let (tx, _) = mpsc::channel();
+        let tp = Transport { tx, latest: Arc::new(Mutex::new(None)), instruments: Arc::new(Mutex::new(Hosts::default())), shared: Arc::new(Shared::default()), thread: None };
+        tp.shared.underruns.store(7, Ordering::Relaxed);
+        assert_eq!(tp.visible_underruns(), 7);
+        tp.reset_underruns();
+        assert_eq!(tp.visible_underruns(), 0);
+        assert_eq!(tp.underruns(), 7);
+        tp.shared.underruns.fetch_add(2, Ordering::Relaxed);
+        assert_eq!(tp.visible_underruns(), 2);
+    }
+
     #[test]
     fn an_empty_queue_counts_an_underrun() {
         let (e, _) = looping_engine();
@@ -2438,7 +2539,9 @@ mod tests {
                 }
             }
         }
-        let (_, project) = looping_engine();
+        let (_, mut project) = looping_engine();
+        // New templates bypass effect groups until explicitly enabled.
+        project.mixer[0].slots_enabled = true;
         let entered = Arc::new(AtomicBool::new(false));
         let fx: SharedEffect = Arc::new(Mutex::new(Slow(entered.clone())));
         let t = Transport::new(None);
@@ -2867,7 +2970,7 @@ mod tests {
         assert!(crate::device::opens() > opens, "opened anew");
         assert!(t.playing() && t.seconds() > before + 0.2, "goes on from {before}: {}", t.seconds());
         assert_eq!(t.take_error(), None, "the same driver: nothing to say");
-        // Another buffer length it takes, chosen on the Audio page: it opens at that length, and then at its own again.
+        // Legacy requests for another length must not override the driver panel.
         let o = t.opened().expect("opened");
         eprintln!("{name}: {} Hz, {:?} frames; takes {:?} Hz and {:?} frames", o.rate, o.fixed, o.rates, o.sizes);
         assert!(o.rates.contains(&o.rate) || !crate::audio_cfg::RATES.contains(&o.rate), "its rate is among those it takes: {o:?}");
@@ -2877,7 +2980,7 @@ mod tests {
             }
             AudioCfg::current().with(Set::Buffer(b)).apply();
             t.reopen();
-            let (want, start) = (b.or(o.fixed), Instant::now());
+            let (want, start) = (o.fixed, Instant::now());
             while t.opened().and_then(|o| o.fixed) != want && start.elapsed() < Duration::from_secs(3) {
                 std::thread::sleep(Duration::from_millis(20));
             }

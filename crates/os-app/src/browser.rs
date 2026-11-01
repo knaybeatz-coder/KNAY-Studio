@@ -24,7 +24,7 @@ impl App {
         let enabled=s.show_browser && view::opt(s,view::OPT_AUTOHIDE);
         let width=s.browser_w.min(s.screen.0/2.).max(crate::views::BROWSER_W);
         let hidden=if !enabled {false} else if s.browser_auto_hidden {!(x<=8. && y>=crate::views::work_y(s))}
-            else {s.browser_hovered && x>width && s.playlist.popup.is_none() && !s.browser_search_focus && self.drag.is_none()};
+            else {s.browser_hovered && x>width && s.playlist.popup.is_none() && !s.browser_search_focus && !s.feature_votes.focus && self.drag.is_none()};
         if x<=width && y>=crate::views::work_y(s) {s.browser_hovered=true;}
         if hidden {s.browser_hovered=false;}
         if hidden!=s.browser_auto_hidden {s.browser_auto_hidden=hidden;self.invalidate();}
@@ -36,10 +36,13 @@ impl App {
             self.browser_split_press();
             return true;
         }
+        if let Action::FeatureVote(i,cmd)=*a {crate::feature_votes::act(self,i,cmd);return true;}
+        if let Action::StarterPack(cmd)=*a {crate::starter_pack::act(self,cmd);return true;}
+        if let Action::PluginDownload(i,cmd)=*a {crate::plugin_downloads::act(self,i,cmd);return true;}
         let s = &mut self.state;
         match *a {
             Action::BrowserTab(i) => {
-                s.browser_tab = if i <= 4 { i } else { 0 };
+                s.browser_tab = if i <= 6 { i } else { 0 };
                 s.browser_auto_hidden=false;
                 if let Some(label)=match i {1=>Some("Current project"),2=>Some("Plugin database"),4=>Some("Plugin presets"),_=>None} {s.browser_open.insert(format!("{i}:{label}"));}
                 s.browser_search.clear();
@@ -56,7 +59,7 @@ impl App {
             Action::BrowserMenu => {
                 let (x, y) = view::menu_at(s);
                 let open = s.playlist.popup.as_ref().is_some_and(|p| p.x == x && p.y == y);
-                s.playlist.popup = if open { None } else { Some(Popup { x, y, items: options_menu(s), sub: None, scroll: [0; 2] }) };
+                s.playlist.popup = if open { None } else { Some(Popup { x, y, items: options_menu(s), sub: None, scroll: [0; 2], cascade: Vec::new() }) };
             }
             Action::BrowserSearch => s.browser_search_focus = true,
             Action::BrowserRow(i) => {
@@ -81,7 +84,8 @@ impl App {
                 }
                 let s = &mut self.state;
                 s.browser_scroll = s.browser_scroll.min(view::max_scroll(s));
-                if !matches!(row.item, Item::None | Item::File(_) | Item::History(_)) {
+                let midi=matches!(&row.item,Item::File(path) if crate::midi_file::is_midi_path(std::path::Path::new(path)));
+                if midi || !matches!(row.item, Item::None | Item::File(_) | Item::History(_)) {
                     self.drag = Some(Drag::Browser { item: row.item, label: row.label, m0: self.mouse, started: false });
                 }
             }
@@ -105,6 +109,7 @@ impl App {
         self.invalidate();
         let s = &mut self.state;
         match c {
+            BCmd::StarterPack => crate::starter_pack::act(self,1),
             BCmd::AddFolder => {let row=s.browser_folders.len();self.search_folder_pick(row);}
             BCmd::ConfigureFolders => self.open_settings(crate::views::settings::FILE),
             BCmd::Find(dir) => return find(s, dir),
@@ -243,6 +248,7 @@ impl App {
                 }
                 Key::Named(NamedKey::Space) => s.browser_search.push(' '),
                 Key::Character(c) if !ctrl && !alt => s.browser_search.push_str(c),
+                _ if ctrl || alt => return true,
                 _ => return false,
             }
             s.browser_scroll = 0.0;
@@ -306,7 +312,8 @@ impl App {
     /// Wheel over the browser list.
     pub(crate) fn browser_wheel(&mut self, dy: f32) {
         let s = &mut self.state;
-        s.browser_scroll = (s.browser_scroll - dy * 3.0 * view::ROW_H).clamp(0.0, view::max_scroll(s));
+        s.catalog_hover=None; s.catalog_tooltip=None;
+        s.browser_scroll = (s.browser_scroll - dy * 3.0 * view::row_h(s)).clamp(0.0, view::max_scroll(s));
         self.invalidate();
     }
 
@@ -332,6 +339,10 @@ impl App {
         self.invalidate();
         if !started {
             return;
+        }
+        // MIDI files use the same destination-aware import as external drops.
+        if let Item::File(path)=&item {
+            if crate::midi_file::is_midi_path(std::path::Path::new(path)) { return self.drop_file(path.into()); }
         }
         // A preset goes into the plugin under the mouse, or a new instance of its plugin (spec: plugins/presets.md).
         if let Item::Preset(path) = &item {
@@ -454,7 +465,7 @@ impl App {
         let s = &mut self.state;
         let Some(row) = view::rows(s).into_iter().nth(i) else { return false };
         select(s, &row.key);
-        s.playlist.popup = Some(Popup { x, y, items: row_menu(s, &row), sub: None, scroll: [0; 2] });
+        s.playlist.popup = Some(Popup { x, y, items: row_menu(s, &row), sub: None, scroll: [0; 2], cascade: Vec::new() });
         self.invalidate();
         true
     }
@@ -661,6 +672,7 @@ impl Jump {
 pub enum BCmd {
     /// Find previous (-1) / next (1).
     AddFolder,
+    StarterPack,
     ConfigureFolders,
     Find(isize),
     Toggle(&'static str),
@@ -823,6 +835,7 @@ pub fn options_menu(s: &crate::app::State) -> Vec<PItem> {
         b("Reread structure", BCmd::Reread).key("Ctrl+R"),
         PItem::head("Content"),
         b("Add sample folder...", BCmd::AddFolder),
+        b(if crate::starter_pack::busy() {"Cancel Starter Pack download"} else {"Download Lemon Studio Starter Pack"}, BCmd::StarterPack),
         b("Configure extra folders", BCmd::ConfigureFolders),
         b("Refresh plugin list (fast scan)", BCmd::Rescan),
     ]
@@ -865,12 +878,12 @@ pub(crate) fn show_history(s: &mut crate::app::State) {
 pub(crate) fn reveal(s: &mut crate::app::State) {
     let rows = view::rows(s);
     let Some(i) = rows.iter().position(|r| Some(&r.key) == s.browser_sel.as_ref()) else { return };
-    let y = i as f32 * view::ROW_H;
+    let y = i as f32 * view::row_h(s);
     let h = view::list_h(s);
     if y < s.browser_scroll {
         s.browser_scroll = y;
-    } else if y + view::ROW_H > s.browser_scroll + h {
-        s.browser_scroll = y + view::ROW_H - h;
+    } else if y + view::row_h(s) > s.browser_scroll + h {
+        s.browser_scroll = y + view::row_h(s) - h;
     }
     s.browser_scroll = s.browser_scroll.clamp(0.0, view::max_scroll(s));
 }
@@ -1009,13 +1022,13 @@ mod favorite_tests {
     fn browser_menu_restores_tabs_and_auto_hide() {
         let mut app=App::new(None);
         app.state.show_browser=true;
-        assert_eq!(view::tabs(&app.state).len(),2);
+        assert_eq!(view::tabs(&app.state).len(),4);
         app.browser_act(&Action::BrowserMenu);
         assert!(app.state.playlist.popup.is_some());
         for key in [view::OPT_PROJECT,view::OPT_PLUGINS,view::OPT_PRESETS] {app.browser_cmd(BCmd::Toggle(key));}
-        assert_eq!(view::tabs(&app.state).len(),5);
+        assert_eq!(view::tabs(&app.state).len(),7);
         let restarted=App::new(None);
-        assert_eq!(view::tabs(&restarted.state).len(),5);
+        assert_eq!(view::tabs(&restarted.state).len(),7);
         for (tab,label) in [(1,"Current project"),(2,"Plugin database"),(4,"Plugin presets")] {
             app.browser_act(&Action::BrowserTab(tab));
             assert!(view::rows(&app.state).iter().any(|r|r.label==label && r.open==Some(true)));
@@ -1046,7 +1059,7 @@ mod favorite_tests {
         let mut c=os_ui::Canvas::new(1280,900,1.25).unwrap();
         app.state.show_browser=true;app.paint(&mut c,None);
         let tabs:Vec<_>=app.hits.iter().filter_map(|h|if let Action::BrowserTab(i)=h.action {Some(i)}else{None}).collect();
-        assert_eq!(tabs,vec![0,3]);
+        assert_eq!(tabs,vec![0,3,5,6]);
         app.state.browser_search="nothing".into();app.browser_act(&Action::BrowserTab(0));
         assert!(app.state.browser_search.is_empty());
         if let Some(dir)=std::env::var_os("OS_SHOT_DIR") {app.paint(&mut c,None);c.pixmap.save_png(std::path::PathBuf::from(dir).join("samples-browser.png")).unwrap();}

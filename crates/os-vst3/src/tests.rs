@@ -1192,3 +1192,45 @@ mod window {
         }
     }
 }
+
+/// Offline synthetic note test: no editor, audio device, MIDI hardware or microphone.
+#[test]
+#[ignore = "requires an installed instrument with a short default release via OS_VST3_PLUGIN"]
+fn installed_instrument_releases_notes_without_editor() {
+    let path=std::env::var_os("OS_VST3_PLUGIN").expect("instrument path");
+    let m=Module::load(Path::new(&path)).expect("load");
+    let d=m.plugins().iter().find(|d|d.is_instrument()).expect("instrument");
+    let shared=m.clone().create(&d.id).expect("create");
+    let mut p=shared.lock().unwrap();assert!(p.activate(48000));
+    let (mut l,mut r)=(vec![0.;480],vec![0.;480]);
+    for key in [60,64,60] {
+        p.note_on(0,key,0.8);let mut sounding=0.0f32;
+        for _ in 0..50 {l.fill(0.);r.fill(0.);p.process(48000,&mut l,&mut r);sounding=sounding.max(peak(&l)).max(peak(&r));}
+        p.note_off(0,key);let mut tail=0.0f32;
+        for block in 0..300 {l.fill(0.);r.fill(0.);p.process(48000,&mut l,&mut r);if block>=250{tail=tail.max(peak(&l)).max(peak(&r));}}
+        eprintln!("{} key={key}: held peak {sounding}, released peak {tail}",d.name);
+        assert!(sounding>0.001,"instrument must actually sound");
+        assert!(tail<0.0001,"note keeps sounding after key release");
+    }
+}
+
+#[test]
+fn released_notes_keep_their_matching_ids() {
+    let mut ids=NoteIds{ids:[-1;128],next:0,active:Vec::with_capacity(128)};
+    let note=|kind,key|Note{time:17,kind,key,velocity:0.8};
+    let a=ids.event(note(NoteKind::On,60)).unwrap();
+    let b=ids.event(note(NoteKind::On,60)).unwrap();
+    let c=ids.event(note(NoteKind::On,64)).unwrap();
+    let (a,b,c)=unsafe{(a.event.note_on.note_id,b.event.note_on.note_id,c.event.note_on.note_id)};
+    assert_ne!(a,b);
+    let tune=ids.event(note(NoteKind::Tune,60)).unwrap();
+    assert_eq!(unsafe{tune.event.note_expression_value.note_id},b);
+    let mut ended=Vec::new();
+    while let Some(e)=ids.event(note(NoteKind::Off,60)){assert_eq!(e.sample_offset,17);ended.push(unsafe{e.event.note_off.note_id});}
+    ended.sort();assert_eq!(ended,vec![a,b]);
+    assert!(ids.event(note(NoteKind::Tune,60)).is_none());
+    let other=ids.event(note(NoteKind::Off,64)).unwrap();assert_eq!(unsafe{other.event.note_off.note_id},c);
+    assert!(ids.active.is_empty());
+    let d=ids.event(note(NoteKind::On,60)).unwrap();let off=ids.event(note(NoteKind::Off,60)).unwrap();
+    assert_eq!(unsafe{d.event.note_on.note_id},unsafe{off.event.note_off.note_id});
+}

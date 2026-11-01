@@ -225,7 +225,8 @@ fn renumber(s: &mut State, map: impl Fn(u16) -> Option<u16>) {
     pats.sort_by_key(|p| p.number);
     s.project.patterns = pats;
     if let Some(a) = s.project.arrangement_mut() {
-        a.clips.retain_mut(|c| match c.source {
+        for clips in std::iter::once(&mut a.clips).chain(a.tracks.iter_mut().filter_map(|t|t.frozen.as_mut())) {
+        clips.retain_mut(|c| match c.source {
             ClipSource::Pattern(n) => match map(n) {
                 Some(m) => {
                     c.source = ClipSource::Pattern(m);
@@ -235,6 +236,7 @@ fn renumber(s: &mut State, map: impl Fn(u16) -> Option<u16>) {
             },
             _ => true,
         });
+        }
     }
     s.playlist.sel.clear();
     s.playlist.hover_clip = None;

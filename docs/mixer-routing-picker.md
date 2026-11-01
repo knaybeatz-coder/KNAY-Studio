@@ -1,0 +1,9 @@
+# Miniature mixer routing picker
+
+A single click and release on a sample/channel window's TRACK box opens a miniature mixer destination selector. Dragging more than four logical pixels is a drag, including a drag that returns to its start; external drops keep their existing routing behavior. Capture cancellation does nothing. The wheel still changes the TRACK number. The channel rack mixer box also opens the same selector on a single click.
+
+Playlist audio-clip menu: Send to mixer track... opens that same view. Each tile shows the track number above a miniature strip, mixer color, fader position and up to two lines of the track name (full label on hover). Master 0 is included, the engine's hidden final track is excluded. Up to48 tiles are visible; mouse wheel and Previous/Next reach every visible mixer track. Search filters names and numbers. The current route is highlighted and brought into view. Click a tile to apply and close; Esc/X cancels without edits. No metering or audio processing runs in the selector.
+
+Both entry points use the same routing path as mixer drag/drop. Playlist lane name/color behavior is preserved, plugin instruments retain their existing instrument-lane assignment behavior, and changes are undoable and stored in projects. Routing belongs to the sample channel: other clips sharing it follow the change; Make Unique gives independent routing. The UI explains this.
+
+Native window requests share the channel host event queue. Docked editors are clipped under the dialog; detached editors use the existing lifted overlay above the native window. The Windows lifted overlay forwards wheel input; selector requests focus the main window for text input. No plugin-window GUI automation tests were used. Hands-on docked/detached routing and Mac/Linux runtime verification remain for the user.

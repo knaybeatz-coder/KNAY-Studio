@@ -485,7 +485,7 @@ pub fn menu(s: &State, which: u8, x: f32, y: f32) -> Popup {
         y,
         items,
         sub: None,
-        scroll: [0; 2],
+        scroll: [0; 2], cascade: Vec::new(),
     }
 }
 pub fn run(app: &mut App, cmd: HCmd) {

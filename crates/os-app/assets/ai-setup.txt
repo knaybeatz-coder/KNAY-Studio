@@ -1,0 +1,12 @@
+LEMON STUDIO AI CONTROL
+
+1. Open Lemon Studio, click AI on the top bar, and enable AI control.
+2. Import the adjacent MCP JSON into an assistant that supports local stdio MCP servers (or copy its command and args into that assistant's MCP configuration).
+3. Connect from the assistant. Lemon Studio asks you to approve the named assistant. Choose Remember only for an assistant you trust.
+4. Tell the assistant what you want to do in the open project. Turn AI off to revoke all active sessions.
+
+AI control is OFF at every DAW launch. Remembered assistants reconnect without another approval only after you enable it. A remembered connection is identified by its client name and possession of your private local connection key. Anyone with access to your Windows/macOS/Linux account can read that key: only configure assistants you trust. Forget assistant revokes that key.
+
+Personal and Development profiles have separate setup files. The adapter reads the current local endpoint on each request, so no fixed network port is required. Restart the assistant connection after disabling/re-enabling AI or restarting Lemon Studio.
+
+No AI model, subscription, chatbot or cloud service is bundled. This is the control connection for a compatible assistant. Nothing is sent to a cloud by Lemon Studio; your chosen assistant may send project information to its model provider. Third-party plugin controls are available where the plugin exposes them to the host. Secret keys are not included in these setup files.

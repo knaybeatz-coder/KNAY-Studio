@@ -57,6 +57,9 @@ fn switch(on: bool) -> f32 {
 
 /// The windows inside the main window back where `save` left them; one not kept (or unreadable) stays as it is.
 pub fn restore(s: &mut State) {
+    s.startup_layout_pending = get("window_playlist").is_none() && get("window_mixer").is_none()
+        && !["window_playlist_detached", "window_mixer_detached"].iter().any(|k|get(k).as_deref()==Some("1"));
+    crate::mixer::set_layout(s,if get("mixer_view").as_deref()==Some("compact"){crate::mixer::COMPACT}else{crate::mixer::WIDE});
     s.native_detached=WINS.iter().filter(|(_,k)|get(&format!("{k}_detached")).as_deref()==Some("1")).map(|(w,_)|*w).collect();
     for (w,k) in WINS {if s.native_detached.contains(&w)&&get(&format!("{k}_detached_open")).as_deref()==Some("1"){s.raise(w);}}
     for (w, key) in WINS {
@@ -79,9 +82,27 @@ pub fn restore(s: &mut State) {
     }
 }
 
+/// First-run default only; defer until the main canvas supplies the actual display size.
+pub fn apply_startup_layout(s: &mut State) {
+    if !s.startup_layout_pending || s.native_view.is_some() { return; }
+    let work=s.work_rect();
+    if work.w<=0. || work.h<=0. { return; }
+    s.startup_layout_pending=false;
+    let min_mix=Win::Mixer.min_size().1;
+    let min_playlist=Win::Playlist.min_size().1;
+    let height=work.h.max(min_mix+min_playlist);
+    let mix_h=(height*0.62).round().clamp(min_mix,height-min_playlist);
+    s.wins[Win::Mixer.slot().unwrap()]=WinState {rect:Rect::new(work.x,work.y,work.w,mix_h),maxed:false,mini:false};
+    s.wins[Win::Playlist.slot().unwrap()]=WinState {rect:Rect::new(work.x,work.y+mix_h,work.w,height-mix_h),maxed:false,mini:false};
+    s.hide(Win::ChannelRack);s.hide(Win::PianoRoll);
+    s.raise(Win::Playlist);s.raise(Win::Mixer);
+    s.dock_work=Some(work);
+}
+
 /// Keeps where the windows inside the main window are, for the next start. The monitor, tapper and touch controller only
 /// once they have a place (opened in this run or an earlier one).
 pub fn save(s: &State) {
+    write("mixer_view",if s.mixer.layout==crate::mixer::COMPACT {"compact"} else {"full"});
     for (w,k) in WINS {write(&format!("{k}_detached"),if s.native_detached.contains(&w){"1"}else{"0"});write(&format!("{k}_detached_open"),if s.shown(w){"1"}else{"0"});}
     for (w, key) in WINS {
         if let Some(i) = w.slot() {
@@ -132,6 +153,26 @@ mod tests {
     use super::*;
     use crate::app::App;
 
+    #[test]
+    fn first_run_layout_mixer_above_playlist_and_saved_layout_wins() {
+        for (w,h) in [(1280,720),(1920,1080),(2560,1440)] {
+            let mut a=App::new(None);restore(&mut a.state);
+            assert!(a.state.startup_layout_pending);
+            let mut c=os_ui::Canvas::new(w,h,1.).unwrap();a.paint(&mut c,None);
+            let work=a.state.work_rect();let m=a.state.win_rect(Win::Mixer);let p=a.state.win_rect(Win::Playlist);
+            assert_eq!((m.x,m.y,m.w),(work.x,work.y,work.w));
+            assert_eq!((p.x,p.y,p.w,p.bottom()),(work.x,m.bottom(),work.w,work.bottom()));
+            assert!(m.h>=Win::Mixer.min_size().1 && p.h>=Win::Playlist.min_size().1);
+            assert!(a.state.shown(Win::Mixer)&&a.state.shown(Win::Playlist));
+            assert!(!a.state.shown(Win::ChannelRack)&&!a.state.shown(Win::PianoRoll));
+            assert!(!a.state.startup_layout_pending);
+            if w==1920 {if let Ok(path)=std::env::var("LEMON_STARTUP_LAYOUT_SHOT"){c.pixmap.save_png(std::path::Path::new(&path)).unwrap();}}
+        }
+        let mut a=App::new(None);a.state.wins[1]=WinState{rect:Rect::new(350.,150.,900.,700.),maxed:false,mini:false};save(&a.state);
+        let mut b=App::new(None);restore(&mut b.state);assert!(!b.state.startup_layout_pending);
+        let kept=b.state.wins[1];let mut c=os_ui::Canvas::new(1920,1080,1.).unwrap();b.paint(&mut c,None);assert_eq!(b.state.wins[1].rect,kept.rect);
+    }
+
     /// Moved, resized, maximized and collapsed windows come back as they were at the next start; the monitor, tapper and
     /// touch controller open where they were left instead of centred.
     #[test]
@@ -147,12 +188,14 @@ mod tests {
         s.perf.placed = true;
         s.tapper.pos = (700.0, 420.0);
         s.tapper.placed = true;
+        s.mixer.layout=crate::mixer::COMPACT;
         save(&app.state);
 
         let mut next = App::new(None);
         assert!(next.state.wins.iter().all(|w| w.maxed), "a new App starts with the defaults");
         restore(&mut next.state);
         let (a, b) = (&app.state, &next.state);
+        assert_eq!(b.mixer.layout,crate::mixer::COMPACT);
         for i in 0..3 {
             assert_eq!((b.wins[i].rect, b.wins[i].maxed, b.wins[i].mini), (a.wins[i].rect, a.wins[i].maxed, a.wins[i].mini), "window {i}");
         }
@@ -202,5 +245,39 @@ mod tests {
         let gone = MainWin { pos: (-2500, 100), size: (2400, 1300), max: true };
         assert_eq!(on_screens(gone, &screens), MainWin { pos: (0, 100), size: (1920, 1080), max: true });
         assert_eq!(on_screens(gone, &[]), gone, "no screens known: as it was");
+    }
+}
+
+/// Local maintenance: execute in the same process/profile context as the Development app.
+/// No project, plugin, audio or UI initialization is needed.
+pub fn reset_preview_layout() -> Result<String,String> {
+    let root=os_paths::user_dir().ok_or("No profile folder")?;
+    if root.file_name().and_then(|s|s.to_str())!=Some("Lemon Studio Public Preview") {
+        return Err("Layout reset is restricted to the public preview profile".into());
+    }
+    let file=root.join("settings.txt");
+    let text=std::fs::read_to_string(&file).map_err(|e|e.to_string())?;
+    let kept=without_window_layout(&text);
+    let stamp=std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_err(|e|e.to_string())?.as_nanos();
+    let backup=root.join(format!("settings-before-window-reset-{stamp}.txt"));
+    std::fs::write(&backup,&text).map_err(|e|e.to_string())?;
+    if std::fs::read_to_string(&backup).map_err(|e|e.to_string())?!=text {return Err("Backup verification failed".into());}
+    std::fs::write(&file,&kept).map_err(|e|e.to_string())?;
+    if std::fs::read_to_string(&file).map_err(|e|e.to_string())?!=kept {return Err("Reset verification failed".into());}
+    Ok(format!("Preview layout reset verified. Removed {} saved layout entries. Backup: {}",text.lines().count().saturating_sub(kept.lines().count()),backup.display()))
+}
+fn without_window_layout(text:&str)->String {
+    text.lines().filter(|line|!matches!(line.split('=').next().unwrap_or("").trim(),
+        "window_playlist"|"window_mixer"|"window_piano_roll"|"window_channel_rack"|
+        "window_playlist_detached"|"window_mixer_detached"|"window_piano_roll_detached"|
+        "window_playlist_detached_open"|"window_mixer_detached_open"|"window_piano_roll_detached_open"))
+        .map(|line|format!("{line}\n")).collect()
+}
+#[cfg(test)]
+mod preview_reset_tests {
+    #[test]
+    fn preview_reset_keeps_other_settings() {
+        let text="default_template=Lemon Studio/Lemon Starter\nwindow_mixer=1,2,3,4,0,0\nwindow_playlist_detached=1\nbrowser_favorites=[x]\nwindow_main=1,2,3,4,0\nheadphones_on=true\n";
+        assert_eq!(super::without_window_layout(text),"default_template=Lemon Studio/Lemon Starter\nbrowser_favorites=[x]\nwindow_main=1,2,3,4,0\nheadphones_on=true\n");
     }
 }

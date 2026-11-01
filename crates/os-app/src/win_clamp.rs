@@ -462,9 +462,9 @@ mod tests {
         for w in [Win::PianoRoll,Win::Mixer] {let r=app.state.win_rect(w);assert_eq!(r.x,work.x+800.0);assert_eq!(r.w,800.0);}
         app.paint(&mut canvas,None);
         let (x,y)=(work.x+1200.0,work.y+400.0);app.mouse_move(x,y);assert_eq!(app.cursor(),Cursor::NsResize);
-        app.mouse_down();app.mouse_move(x,y+100.0);app.mouse_up();
+        app.mouse_down();app.mouse_move(x,y+400.0);app.mouse_up();
         let p=app.state.win_rect(Win::PianoRoll);let m=app.state.win_rect(Win::Mixer);
-        assert_eq!(p.h,450.0);assert_eq!(m.h,650.0);assert_eq!(p.bottom(),m.y);assert_eq!(m.bottom(),work.y+1100.0);
+        assert_eq!(p.h,665.0);assert_eq!(m.h,435.0);assert_eq!(p.bottom(),m.y);assert_eq!(m.bottom(),work.y+1100.0);
         assert_eq!(app.state.win_rect(Win::Playlist).h,1100.0);
         app.state.hide(Win::Mixer);
         assert_eq!(divider(&resize_layout(&app.state),Win::PianoRoll,EDGE_B).len(),1);

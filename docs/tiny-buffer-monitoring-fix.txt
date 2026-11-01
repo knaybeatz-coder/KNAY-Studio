@@ -1,0 +1,11 @@
+Lemon Studio local audio update — 1 November 2026
+
+Fixed the reproduced live-monitoring gaps at 16/32-frame driver buffers. Input backlog correction now allows an engine render tick plus the feeder's maximum 6 ms scheduling margin (or the input callback size, whichever is larger), with hysteresis before discarding stale input. This is a maximum backlog allowance, not an added mandatory delay. Session handover still clears stale input promptly; monitoring remains independent of the disk recorder.
+
+Audio settings now show Monitor dropouts separately from Underruns. The monitor count tracks interruption starts after valid input and backlog corrections; normal startup and deliberate ownership handover are excluded. Reset underruns resets both displays. Multiple monitored inputs contribute separate events, so this is not a count of unique audible incidents across the whole device. It does not claim to detect every driver or hardware fault.
+
+Verification: 8 input-monitor tests and 23 transport tests passed; 13 existing interactive/hardware/benchmark tests ignored. The new sample-continuity regression covers 48 configurations at 16/32 frames, 44.1/48/96 kHz, two musical tick configurations and immediate/one/two/four-callback worker servicing. Each runs four seconds with one second of warmup. All had zero near-silent frames, continuous ramp samples and zero output underruns. Existing 48 larger-buffer configurations also passed, alongside bounded backlog, session transition, resampling, independent recording and counter tests.
+
+These are synthetic tests; no microphone or GUI was controlled. They confirm the reproduced defect is corrected, not a guarantee that every project/plugin will run at 16 frames. User verification remains: compare ordinary playback with recording inputs disarmed, live monitoring, and a recorded take at 16/32/64 frames using the same sample rate/project. Watch both counters. Check transitions into/out of recording and driver-panel buffer changes.
+
+Local Windows update only; no public release. Master Assistant remains private. Public version remains 2026110105.

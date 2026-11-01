@@ -1,0 +1,425 @@
+LEMON STUDIO STARTER PACK v1
+Curated CC0 sounds. Free to use in commercial music. Original samples retained unchanged.
+Sources: https://github.com/stargatedaw/stargate-sample-pack and https://github.com/sgossner/VCSL
+The Lemon name identifies this selection, not authorship of the recordings.
+Loop tempo/key and instrument pitch are retained where supplied; no guessed labels. Instrument hits are individual samples, not complete mapped instruments.
+
+LICENSE
+CC0 1.0 Universal
+
+CREATIVE COMMONS CORPORATION IS NOT A LAW FIRM AND DOES NOT PROVIDE LEGAL
+SERVICES. DISTRIBUTION OF THIS DOCUMENT DOES NOT CREATE AN ATTORNEY-CLIENT
+RELATIONSHIP. CREATIVE COMMONS PROVIDES THIS INFORMATION ON AN "AS-IS" BASIS.
+CREATIVE COMMONS MAKES NO WARRANTIES REGARDING THE USE OF THIS DOCUMENT OR THE
+INFORMATION OR WORKS PROVIDED HEREUNDER, AND DISCLAIMS LIABILITY FOR DAMAGES
+RESULTING FROM THE USE OF THIS DOCUMENT OR THE INFORMATION OR WORKS PROVIDED
+HEREUNDER.  Statement of Purpose The laws of most jurisdictions throughout the
+world automatically confer exclusive Copyright and Related Rights (defined
+below) upon the creator and subsequent owner(s) (each and all, an "owner") of
+an original work of authorship and/or a database (each, a "Work").
+
+Certain owners wish to permanently relinquish those rights to a Work for the
+purpose of contributing to a commons of creative, cultural and scientific works
+("Commons") that the public can reliably and without fear of later claims of
+infringement build upon, modify, incorporate in other works, reuse and
+redistribute as freely as possible in any form whatsoever and for any purposes,
+including without limitation commercial purposes. These owners may contribute
+to the Commons to promote the ideal of a free culture and the further
+production of creative, cultural and scientific works, or to gain reputation or
+greater distribution for their Work in part through the use and efforts of
+others.
+
+For these and/or other purposes and motivations, and without any expectation of
+additional consideration or compensation, the person associating CC0 with a
+Work (the "Affirmer"), to the extent that he or she is an owner of Copyright
+and Related Rights in the Work, voluntarily elects to apply CC0 to the Work and
+publicly distribute the Work under its terms, with knowledge of his or her
+Copyright and Related Rights in the Work and the meaning and intended legal
+effect of CC0 on those rights.
+
+1. Copyright and Related Rights. A Work made available under CC0 may be
+protected by copyright and related or neighboring rights ("Copyright and
+Related Rights"). Copyright and Related Rights include, but are not limited to,
+the following:
+
+the right to reproduce, adapt, distribute, perform, display, communicate, and
+translate a Work; moral rights retained by the original author(s) and/or
+performer(s); publicity and privacy rights pertaining to a person's image or
+likeness depicted in a Work; rights protecting against unfair competition in
+regards to a Work, subject to the limitations in paragraph 4(a), below; rights
+protecting the extraction, dissemination, use and reuse of data in a Work;
+database rights (such as those arising under Directive 96/9/EC of the European
+Parliament and of the Council of 11 March 1996 on the legal protection of
+databases, and under any national implementation thereof, including any amended
+or successor version of such directive); and other similar, equivalent or
+corresponding rights throughout the world based on applicable law or treaty,
+and any national implementations thereof.  2. Waiver. To the greatest extent
+permitted by, but not in contravention of, applicable law, Affirmer hereby
+overtly, fully, permanently, irrevocably and unconditionally waives, abandons,
+and surrenders all of Affirmer's Copyright and Related Rights and associated
+claims and causes of action, whether now known or unknown (including existing
+as well as future claims and causes of action), in the Work (i) in all
+territories worldwide, (ii) for the maximum duration provided by applicable law
+or treaty (including future time extensions), (iii) in any current or future
+medium and for any number of copies, and (iv) for any purpose whatsoever,
+including without limitation commercial, advertising or promotional purposes
+(the "Waiver"). Affirmer makes the Waiver for the benefit of each member of the
+public at large and to the detriment of Affirmer's heirs and successors, fully
+intending that such Waiver shall not be subject to revocation, rescission,
+cancellation, termination, or any other legal or equitable action to disrupt
+the quiet enjoyment of the Work by the public as contemplated by Affirmer's
+express Statement of Purpose.
+
+3. Public License Fallback. Should any part of the Waiver for any reason be
+judged legally invalid or ineffective under applicable law, then the Waiver
+shall be preserved to the maximum extent permitted taking into account
+Affirmer's express Statement of Purpose. In addition, to the extent the Waiver
+is so judged Affirmer hereby grants to each affected person a royalty-free, non
+transferable, non sublicensable, non exclusive, irrevocable and unconditional
+license to exercise Affirmer's Copyright and Related Rights in the Work (i) in
+all territories worldwide, (ii) for the maximum duration provided by applicable
+law or treaty (including future time extensions), (iii) in any current or
+future medium and for any number of copies, and (iv) for any purpose
+whatsoever, including without limitation commercial, advertising or promotional
+purposes (the "License"). The License shall be deemed effective as of the date
+CC0 was applied by Affirmer to the Work. Should any part of the License for any
+reason be judged legally invalid or ineffective under applicable law, such
+partial invalidity or ineffectiveness shall not invalidate the remainder of the
+License, and in such case Affirmer hereby affirms that he or she will not (i)
+exercise any of his or her remaining Copyright and Related Rights in the Work
+or (ii) assert any associated claims and causes of action with respect to the
+Work, in either case contrary to Affirmer's express Statement of Purpose.
+
+4. Limitations and Disclaimers.
+
+No trademark or patent rights held by Affirmer are waived, abandoned,
+surrendered, licensed or otherwise affected by this document.  Affirmer offers
+the Work as-is and makes no representations or warranties of any kind
+concerning the Work, express, implied, statutory or otherwise, including
+without limitation warranties of title, merchantability, fitness for a
+particular purpose, non infringement, or the absence of latent or other
+defects, accuracy, or the present or absence of errors, whether or not
+discoverable, all to the greatest extent permissible under applicable law.
+Affirmer disclaims responsibility for clearing rights of other persons that may
+apply to the Work or any use thereof, including without limitation any person's
+Copyright and Related Rights in the Work. Further, Affirmer disclaims
+responsibility for obtaining any necessary consents, permissions or other
+rights required for any use of the Work.  Affirmer understands and acknowledges
+that Creative Commons is not a party to this document and has no duty or
+obligation with respect to this CC0 or use of the Work.
+
+
+
+README.md
+# stargate-sample-pack
+[DOWNLOAD THE LATEST](
+  https://github.com/stargatedaw/stargate-sample-pack/archive/refs/heads/main.zip
+)
+
+A properly open source, crowd sourced, free, royalty-free, attribution-free
+sample pack, optimized for the common use-cases and a relatively small download
+size.
+
+[Stargate DAW](https://github.com/stargateaudio/stargate) projects bundle the
+samples they use, but nearly all sample packs either do not allow
+redistributing samples, or have vague licensing that makes distributing samples
+questionable or difficult.  This sample pack aims to create high quality
+samples, for free, that can be used by anybody for any purpose, without
+restriction.
+
+# Other Sample Packs We Like
+We encourage you to check out these fine public domain sample packs too:
+- [https://github.com/sgossner/VSCO-2-CE](
+    https://github.com/sgossner/VSCO-2-CE)
+- [https://github.com/sgossner/VCSL](https://github.com/sgossner/VCSL)
+
+# SFZ instruments
+[See this link](./sfz_instruments.md)
+
+# Contributing
+You can synthesize, record and process samples in Stargate DAW or any
+other software, as long as it is not playing samples.  For example, you cannot
+render the samples directly out of a proprietary sampler plugin with
+proprietary sample libraries.
+
+Guidelines:
+- Please trim the excess space from the beginning and end of the samples to
+  keep the file size to a minimum.  Once you have a collection of samples,
+  create a subfolder in the following format:
+- Avoid the use of whitespace in file or folder names, dashes are preferred,
+  underscores are also acceptable
+- Do not sample from copyrighted songs, TV or any other copyrighted work
+- Please keep the quality high, take the extra time to EQ, trim and process
+  the samples as many times as needed to get the desired sound.  Considering
+  filtering off excessive low and high frequencies if that makes sense on
+  the particular sample.
+- Github has a file size limit of 100MB, but generally samples should be much
+  smaller than this
+
+### Creating the folder structure
+```
+stargate-sample-pack/your-artist-name/your-sample-pack-name
+
+# containing organized subfolders like
+kick-drums/
+snares/
+claps/
+loops/
+hihats/
+violin/
+synth-bass/
+bass-guitar/
+
+# You can create a README.md in your artist name and sample pack name folders
+# to describe the sample pack, give yourself attribution, promote your
+# website or pages
+```
+
+Create a pull request from this.  If you do not know how to create a pull
+request, you can create an issue tracker and attach the samples as a zip file
+ or link to them using a service like Google Drive or wormhole.app.
+
+
+
+stargate-sample-pack/freesound/README.md
+# Freesound
+Samples scraped from freesound.org.  All of the provided samples are licensed
+under the `Creative Commons Zero` public domain license.
+
+The original names of the files are preserved to allow you to find the creator
+on freesound.org.
+
+
+stargate-sample-pack/fugue-state-audio/readme.md
+
+Fugue State Audio - Stargate DAW Sample Pack
+--------------------------------------------
+
+A selection of completely free, public domain sounds from Fugue State Audio for inclusion with the Stargate DAW sample pack.
+
+/drums
+
+There are 5 kits in the drums folder, broken into drum types as per the Stargate DAW standard. These are all electronic sounds generated via synthesis (as opposed to acoustic, recorded sounds). The kit that a given sound belongs to is given in the filename, though one should also feel free to mix and match as they see fit.
+
+
+/found-sounds
+
+These are sounds from various household objects (and in one instance, nature), recorded with microphones.
+
+
+/guitar-fx
+
+These are sounds recorded from an Ibanez 7-string electric guitar, processed with virtual effects and amp sims. Though the source is mono, these are layered stereo sounds. In the case of tuned sounds, note names are given.
+
+
+/loops
+
+A small collection of (mostly percussive) loops, with BPM in the name.
+
+
+/synth-fx
+
+A few synthetic sound effects.
+
+
+More free stuff is available from the FSA website, linked below. Cheers!
+
+- Kevin B.
+
+Fugue State Audio
+fstateaudio.com
+
+stargate-sample-pack/karoryfer/readme.md
+Drum samples selected from various Karoryfer Samples releases: Big Rusty Drums, Unruly Drums and Swirly Drums.
+
+
+stargate-sample-pack/microlag/README.md
+Hello.
+
+i hope you enjoy these samples.
+
+https://linktr.ee/microlag
+
+
+stargate-sample-pack/sgossner/README.md
+# sgossner
+
+This sample pack is a teaser from the excellent CC0 licensed sample packs
+available [HERE](https://github.com/sgossner).
+
+You are encouraged to download the full sample pack from the original author,
+it is well worth your bandwidth.
+
+See also [Versil Studio Community](
+  https://vis.versilstudios.com/vsco-community.html
+)
+
+
+stargate-sample-pack/stargate/README.md
+# Stargate DAW
+
+Samples synthesized in Stargate DAW, by the Stargate DAW team.
+
+
+VCSL LICENSE
+Creative Commons Legal Code
+
+CC0 1.0 Universal
+
+    CREATIVE COMMONS CORPORATION IS NOT A LAW FIRM AND DOES NOT PROVIDE
+    LEGAL SERVICES. DISTRIBUTION OF THIS DOCUMENT DOES NOT CREATE AN
+    ATTORNEY-CLIENT RELATIONSHIP. CREATIVE COMMONS PROVIDES THIS
+    INFORMATION ON AN "AS-IS" BASIS. CREATIVE COMMONS MAKES NO WARRANTIES
+    REGARDING THE USE OF THIS DOCUMENT OR THE INFORMATION OR WORKS
+    PROVIDED HEREUNDER, AND DISCLAIMS LIABILITY FOR DAMAGES RESULTING FROM
+    THE USE OF THIS DOCUMENT OR THE INFORMATION OR WORKS PROVIDED
+    HEREUNDER.
+
+Statement of Purpose
+
+The laws of most jurisdictions throughout the world automatically confer
+exclusive Copyright and Related Rights (defined below) upon the creator
+and subsequent owner(s) (each and all, an "owner") of an original work of
+authorship and/or a database (each, a "Work").
+
+Certain owners wish to permanently relinquish those rights to a Work for
+the purpose of contributing to a commons of creative, cultural and
+scientific works ("Commons") that the public can reliably and without fear
+of later claims of infringement build upon, modify, incorporate in other
+works, reuse and redistribute as freely as possible in any form whatsoever
+and for any purposes, including without limitation commercial purposes.
+These owners may contribute to the Commons to promote the ideal of a free
+culture and the further production of creative, cultural and scientific
+works, or to gain reputation or greater distribution for their Work in
+part through the use and efforts of others.
+
+For these and/or other purposes and motivations, and without any
+expectation of additional consideration or compensation, the person
+associating CC0 with a Work (the "Affirmer"), to the extent that he or she
+is an owner of Copyright and Related Rights in the Work, voluntarily
+elects to apply CC0 to the Work and publicly distribute the Work under its
+terms, with knowledge of his or her Copyright and Related Rights in the
+Work and the meaning and intended legal effect of CC0 on those rights.
+
+1. Copyright and Related Rights. A Work made available under CC0 may be
+protected by copyright and related or neighboring rights ("Copyright and
+Related Rights"). Copyright and Related Rights include, but are not
+limited to, the following:
+
+  i. the right to reproduce, adapt, distribute, perform, display,
+     communicate, and translate a Work;
+ ii. moral rights retained by the original author(s) and/or performer(s);
+iii. publicity and privacy rights pertaining to a person's image or
+     likeness depicted in a Work;
+ iv. rights protecting against unfair competition in regards to a Work,
+     subject to the limitations in paragraph 4(a), below;
+  v. rights protecting the extraction, dissemination, use and reuse of data
+     in a Work;
+ vi. database rights (such as those arising under Directive 96/9/EC of the
+     European Parliament and of the Council of 11 March 1996 on the legal
+     protection of databases, and under any national implementation
+     thereof, including any amended or successor version of such
+     directive); and
+vii. other similar, equivalent or corresponding rights throughout the
+     world based on applicable law or treaty, and any national
+     implementations thereof.
+
+2. Waiver. To the greatest extent permitted by, but not in contravention
+of, applicable law, Affirmer hereby overtly, fully, permanently,
+irrevocably and unconditionally waives, abandons, and surrenders all of
+Affirmer's Copyright and Related Rights and associated claims and causes
+of action, whether now known or unknown (including existing as well as
+future claims and causes of action), in the Work (i) in all territories
+worldwide, (ii) for the maximum duration provided by applicable law or
+treaty (including future time extensions), (iii) in any current or future
+medium and for any number of copies, and (iv) for any purpose whatsoever,
+including without limitation commercial, advertising or promotional
+purposes (the "Waiver"). Affirmer makes the Waiver for the benefit of each
+member of the public at large and to the detriment of Affirmer's heirs and
+successors, fully intending that such Waiver shall not be subject to
+revocation, rescission, cancellation, termination, or any other legal or
+equitable action to disrupt the quiet enjoyment of the Work by the public
+as contemplated by Affirmer's express Statement of Purpose.
+
+3. Public License Fallback. Should any part of the Waiver for any reason
+be judged legally invalid or ineffective under applicable law, then the
+Waiver shall be preserved to the maximum extent permitted taking into
+account Affirmer's express Statement of Purpose. In addition, to the
+extent the Waiver is so judged Affirmer hereby grants to each affected
+person a royalty-free, non transferable, non sublicensable, non exclusive,
+irrevocable and unconditional license to exercise Affirmer's Copyright and
+Related Rights in the Work (i) in all territories worldwide, (ii) for the
+maximum duration provided by applicable law or treaty (including future
+time extensions), (iii) in any current or future medium and for any number
+of copies, and (iv) for any purpose whatsoever, including without
+limitation commercial, advertising or promotional purposes (the
+"License"). The License shall be deemed effective as of the date CC0 was
+applied by Affirmer to the Work. Should any part of the License for any
+reason be judged legally invalid or ineffective under applicable law, such
+partial invalidity or ineffectiveness shall not invalidate the remainder
+of the License, and in such case Affirmer hereby affirms that he or she
+will not (i) exercise any of his or her remaining Copyright and Related
+Rights in the Work or (ii) assert any associated claims and causes of
+action with respect to the Work, in either case contrary to Affirmer's
+express Statement of Purpose.
+
+4. Limitations and Disclaimers.
+
+ a. No trademark or patent rights held by Affirmer are waived, abandoned,
+    surrendered, licensed or otherwise affected by this document.
+ b. Affirmer offers the Work as-is and makes no representations or
+    warranties of any kind concerning the Work, express, implied,
+    statutory or otherwise, including without limitation warranties of
+    title, merchantability, fitness for a particular purpose, non
+    infringement, or the absence of latent or other defects, accuracy, or
+    the present or absence of errors, whether or not discoverable, all to
+    the greatest extent permissible under applicable law.
+ c. Affirmer disclaims responsibility for clearing rights of other persons
+    that may apply to the Work or any use thereof, including without
+    limitation any person's Copyright and Related Rights in the Work.
+    Further, Affirmer disclaims responsibility for obtaining any necessary
+    consents, permissions or other rights required for any use of the
+    Work.
+ d. Affirmer understands and acknowledges that Creative Commons is not a
+    party to this document and has no duty or obligation with respect to
+    this CC0 or use of the Work.
+
+
+VCSL README.md
+# VCSL
+![logo](https://github.com/sgossner/VCSL/raw/master/Assets/VCSL_Color_128x128.png "VCSL Logo")
+
+The Versilian Community Sample Library is an open CC0 general-purpose sample library created by Versilian Studios LLC for the purpose of introducing a set of quality, publicly available samples suitable for use in software and media of all kinds. This library is intended to be a broader expansion to the VSCO 2 CE sample set.
+
+This collection is under a Creative Commons 0 license. Essentially it's Public Domain- you can do whatever you want with these sounds (even make commercial software), no royalties, no credit, no special terms.
+
+The easiest way to keep up to date is to set up a local copy of the repository with Github Desktop, then just 'Fetch origin' whenever something new comes out. Install Github Desktop, then back on the VCSL main branch page click 'Clone or Download' then 'Open in Desktop'.
+
+Want to stay updated? Join the mailing list and we'll send you an e-mail every time the project is updated-
+http://www.versilstudios.com/sendy/subscription?f=hFEXWRmWQcWyn8jkwdpYe0pGxonOozLxaZO89255eH7kEMUXqSZDHWMwe25T8falDW2DILY763eUa2x763UBwa892n33kQ
+
+# SFZ Version
+You can download the SFZ version from the latest release here:
+
+https://github.com/sgossner/VCSL/releases/
+
+Huge thanks to Peter Eastman for creating a fantastic Python utility that auto-generates SFZ files- it's included as CC0 as part of the download!
+
+# Design Philosophy
+The selection of samples for VCSL is designed specifically to suit lightweight sample library creation. A greater emphasis is placed on pitch fidelity (with most being wholetone sampled if possible) and consistency, but less on more 'professional' features such as many round robins or velocity layers, except where warranted (e.g. percussion). As such, most articulations only have a single round robin and two to three velocity layers, although like all things in life, there are exceptions to that. On average, this means each instrument weighs about 20-75 MB in raw .wav format, a small but comfortable size for adequate reproduction.
+
+This goal of this set is to provide a consistently-recorded and convenient starting place for factory libraries, sound designers, and hobbyist developers to work from.
+
+# Inclusion of Previous Works
+This set shall include the bulk of the VSCO 2 CE sample set, including some reworked and re-curated selections to better fit the design philosophy. It also shall include many instruments not featured in the CE sample set, but found in other products or the larger VSCO 2 Pro sample set. Lastly, new recordings will be produced ongoing throughout the next few years to continually add and update content in this sample set. Content added to the set will not be removed; new content will simply be added on in the form of new instrument options.
+
+# 3rd Party Contributions
+3rd party developers are welcome to make additions to the sample set. The following standards are highly recommended:
+- Samples shall be named in a human-readable format. The recommended syntax is- `[Instrument]_[Articulation]_[Mic]_vl[Velocity]_rr[RR].wav.`
+- Samples shall be made available at 44.1 or 48 kHz sample rate, and either 16 or 24-bit depth, as uncompressed .wav files.
+- Samples shall be recorded in stereo if possible, unless (1) idiomatic (e.g. harmonicas, solo vox) or (2) impractical to do so. Most of the sample set is recorded with spaced pair or NOS, but other arrays are acceptable so long as the stereo image is reasonable.
+- Samples shall preferably be recorded in a clean, 'mid-close' position, typically 0.5-3 meters from the performer(s), in an acoustically neutral space with as little background noise as possible. These recordings shall not be processed with the exception of (1) tuning, (2) mild eq'ing to fix microphone problems, and (3) noise reduction (if necessary).
+- Samples shall be organized in folders, one per instrument, preferably with sub-folders, one per articulation, if there are many samples.
+- Any metadata relating to the samples should be included (brand/model, performer, mics, space) if possible, but not necessary.
+
+Contributions may be made by creating a fork, and then requesting that fork to be merged back into the main set. In addition, forks that go off and do their 'own thing' are welcome as well (such as a 3rd party SFZ conversion).

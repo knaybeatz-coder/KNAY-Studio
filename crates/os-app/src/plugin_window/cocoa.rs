@@ -68,6 +68,16 @@ thread_local! {
     static MONITOR: Cell<bool> = const { Cell::new(false) };
 }
 
+/// Return keyboard input to the main canvas when opening its routing selector.
+pub fn focus_main() {
+    let Some(_mtm) = MainThreadMarker::new() else { return };
+    let Some(owner) = (unsafe { view_of(OWNER.with(Cell::get)) }) else { return };
+    if let Some(window) = owner.window() {
+        window.makeKeyAndOrderFront(None);
+        window.makeFirstResponder(Some(owner));
+    }
+}
+
 /// Keys seen since the last call (UI thread).
 pub fn take_keys() -> Vec<KeyMsg> {
     KEYS.with(|k| std::mem::take(&mut *k.borrow_mut()))

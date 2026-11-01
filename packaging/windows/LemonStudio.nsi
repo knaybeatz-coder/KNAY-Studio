@@ -53,12 +53,19 @@ Section "Lemon Studio"
   File "${PAYLOAD}\THIRD-PARTY-NOTICES.txt"
   File "${PAYLOAD}\READ ME.txt"
   File "${PAYLOAD}\Lemon Studio Source.zip"
-  File "${PAYLOAD}\Lemon Starter.flp"
+  File "${PAYLOAD}\Lemon Starter.lmn"
   File "${PAYLOAD}\runtime\*.dll"
+  WriteRegStr HKCU "Software\Classes\LemonStudio.LmnProject" "" "Lemon Studio project"
+  WriteRegStr HKCU "Software\Classes\LemonStudio.LmnProject\DefaultIcon" "" '$\"$INSTDIR\lemonstudio.exe$\",0'
+  WriteRegStr HKCU "Software\Classes\LemonStudio.LmnProject\shell\open\command" "" '$\"$INSTDIR\lemonstudio.exe$\" $\"%1$\"'
+  WriteRegStr HKCU "Software\Classes\.lmn\OpenWithProgids" "LemonStudio.LmnProject" ""
+  ReadRegStr $0 HKCU "Software\Classes\.lmn" ""
+  StrCmp $0 "" 0 +2
+  WriteRegStr HKCU "Software\Classes\.lmn" "" "LemonStudio.LmnProject"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   CreateShortcut "${SHORTCUT}" "$INSTDIR\lemonstudio.exe"
   WriteRegStr HKCU "${REGKEY}" "DisplayName" "Lemon Studio - Michael Lane Edition"
-  WriteRegStr HKCU "${REGKEY}" "DisplayVersion" "2026.10.31.4"
+  WriteRegStr HKCU "${REGKEY}" "DisplayVersion" "2026.11.01.6"
   WriteRegStr HKCU "${REGKEY}" "Publisher" "Lemon Studio contributors / Michael Lane custom edition"
   WriteRegStr HKCU "${REGKEY}" "InstallLocation" "$INSTDIR"
   WriteRegStr HKCU "${REGKEY}" "UninstallString" '$\"$INSTDIR\Uninstall.exe$\"'
@@ -67,13 +74,21 @@ Section "Lemon Studio"
   WriteRegDWORD HKCU "${REGKEY}" "NoRepair" 1
 SectionEnd
 Section "Uninstall"
+  ReadRegStr $0 HKCU "Software\Classes\LemonStudio.LmnProject\shell\open\command" ""
+  StrCmp $0 '$\"$INSTDIR\lemonstudio.exe$\" $\"%1$\"' 0 lmn_assoc_done
+  DeleteRegKey HKCU "Software\Classes\LemonStudio.LmnProject"
+  DeleteRegValue HKCU "Software\Classes\.lmn\OpenWithProgids" "LemonStudio.LmnProject"
+  ReadRegStr $0 HKCU "Software\Classes\.lmn" ""
+  StrCmp $0 "LemonStudio.LmnProject" 0 lmn_assoc_done
+  DeleteRegValue HKCU "Software\Classes\.lmn" ""
+  lmn_assoc_done:
   Delete "${SHORTCUT}"
   Delete "$INSTDIR\lemonstudio.exe"
   Delete "$INSTDIR\LICENSE"
   Delete "$INSTDIR\THIRD-PARTY-NOTICES.txt"
   Delete "$INSTDIR\READ ME.txt"
   Delete "$INSTDIR\Lemon Studio Source.zip"
-  Delete "$INSTDIR\Lemon Starter.flp"
+  Delete "$INSTDIR\Lemon Starter.lmn"
   Delete "$INSTDIR\concrt140.dll"
   Delete "$INSTDIR\msvcp140.dll"
   Delete "$INSTDIR\msvcp140_1.dll"

@@ -473,6 +473,8 @@ impl App {
         };
         let tracks = s.project.mixer.iter().map(|m| m.index).max().unwrap_or(0);
         ex::Job {
+        instrument_rows: None,
+        capture_tracks: None,
             options: o,
             folder: f.folder.clone(),
             name: f.name.text.trim().to_string(),

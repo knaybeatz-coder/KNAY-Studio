@@ -5,8 +5,8 @@
 //! Audio device settings (Settings > Audio): the output device, sample rate and buffer length. They are kept in the
 //! user folder (`audio.txt`) and every stream the transport opens uses them; a device that is gone, a rate it does not
 //! offer or a buffer length it refuses falls back to the system's default device and that device's own rate and buffer.
-//! The device is a Windows (ALSA, Core Audio) one or, on Windows, an ASIO driver (`asio`): for a driver, `None` and a
-//! rate or buffer length it does not take mean the driver's own (its buffer length is set in its own panel). A Windows
+//! The device is a Windows (ALSA, Core Audio) one or, on Windows, an ASIO driver (`asio`). For ASIO, an unspecified
+//! or unsupported rate means the driver's own. Its buffer size is set in its panel; legacy overrides are ignored. A Windows
 //! device plays in shared mode, or in exclusive mode (`exclusive`, `device::wasapi`) with the device to itself. On
 //! Linux shared mode plays through the sound server (PulseAudio, or PipeWire through pipewire-pulse) as other programs
 //! do, and exclusive mode opens an ALSA device directly, the sound server's hold on it or not (`host`).
@@ -82,7 +82,10 @@ impl AudioCfg {
 
     pub fn with(mut self, s: Set) -> AudioCfg {
         match s {
-            Set::Device(d) => (self.asio, self.device) = (false, d),
+            Set::Device(d) => {
+                if self.asio { self.buffer = DEFAULT_BUFFER; }
+                (self.asio, self.device) = (false, d);
+            },
             Set::Asio(d) => (self.asio, self.device) = (true, Some(d)),
             Set::Rate(r) => self.rate = r,
             Set::Buffer(b) => self.buffer = b,
@@ -94,6 +97,7 @@ impl AudioCfg {
                 self.exclusive = on;
             }
         }
+        if self.asio { self.buffer = None; }
         self
     }
 
@@ -125,6 +129,7 @@ impl AudioCfg {
                 _ => {}
             }
         }
+        if c.asio { c.buffer = None; }
         c
     }
 
@@ -337,8 +342,17 @@ pub fn rate() -> Option<u32> {
 mod tests {
     use super::*;
 
-    /// A stream through the sound server never asks for no length (the server would buffer about two seconds); elsewhere
-    /// "Smallest" and the device's own ask for none, and a chosen length is asked for.
+    /// Legacy fixed buffers cannot override the ASIO control panel.
+    #[test]
+    fn asio_buffer_is_always_driver_owned() {
+        let c = AudioCfg::parse("host=asio\ndevice=AudioBox ASIO\nbuffer=64\nrate=48000\n");
+        assert_eq!(c.buffer, None);
+        assert_eq!(c.rate, Some(48000));
+        assert_eq!(c.clone().with(Set::Buffer(Some(128))).buffer, None);
+        assert_eq!(AudioCfg::default().with(Set::Buffer(Some(256))).with(Set::Asio("AudioBox ASIO".into())).buffer, None);
+        assert_eq!(c.with(Set::Device(None)).with(Set::Buffer(Some(256))).buffer, Some(256));
+    }
+
     #[test]
     fn a_stream_through_the_sound_server_asks_for_a_length() {
         let default = DEFAULT_BUFFER.or(Some(512));

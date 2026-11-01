@@ -41,7 +41,7 @@ pub use x11::{
 #[cfg(target_os = "macos")]
 mod cocoa;
 #[cfg(target_os = "macos")]
-pub use cocoa::{default_position, lift_hide, lift_show, pointer, row_window_at, screen_to_main, stack, take_exposed, take_keys, take_lift_input, FrameWindow};
+pub use cocoa::{focus_main, default_position, lift_hide, lift_show, pointer, row_window_at, screen_to_main, stack, take_exposed, take_keys, take_lift_input, FrameWindow};
 
 /// Where a detached window opening for the first time goes: where a new window opens. Only Windows places it by
 /// monitor (Settings "Open detached plugins with the main window"; spec: ui/settings-choices.md "Miscellaneous:
@@ -198,6 +198,7 @@ pub enum FrameEvent {
     /// The TRACK box was double-clicked: the app shows the mixer at the channel's track.
     ShowTrack,
     TrackDrop(i32,i32),
+    PickTrack,
     /// The window was clicked: it comes to the front of the app's window stack (docked windows, Windows).
     #[cfg_attr(not(windows), allow(dead_code))]
     Raise,
@@ -294,7 +295,7 @@ struct State {
     /// double-click restores from it.
     maxed_at_press: Option<((i32, i32), (f32, f32))>,
     events: Vec<FrameEvent>,
-    track_drag: Option<(i32,i32,f32,f32)>,
+    track_drag: Option<(i32,i32,f32,f32,f32,f32,bool)>,
     drag: Option<(Knob, f32, f32)>,
     /// Title-bar move in progress: cursor and window position (screen px) at the press. Done by hand: the system's
     /// move loop (HTCAPTION) blocks the UI thread, which would freeze all drawing while a window moves.
@@ -386,7 +387,7 @@ impl State {
     fn box_text(&self, k: Knob) -> String {
         match k {
             Knob::Range => format!("Pitch range: \u{b1}{} semitones", self.info.range),
-            _ => format!("Target mixer track: {}  (double-click)", track_name(self.info.track)),
+            _ => format!("Target mixer track: {}  (click to choose; drag to route; wheel to change)", track_name(self.info.track)),
         }
     }
     fn size(&self) -> (f32, f32) {
@@ -910,7 +911,7 @@ impl State {
             }
             Some(Part::Track) => {
                 let (sx,sy)=screen(0.0,0.0);let (ex,ey)=screen(100.0,100.0);
-                self.track_drag=Some((sx,sy,(ex-sx) as f32/100.0,(ey-sy) as f32/100.0));
+                self.track_drag=Some((sx,sy,(ex-sx) as f32/100.0,(ey-sy) as f32/100.0,x,y,false));
                 Reply::Capture
             }
             Some(Part::Range) => {
@@ -996,7 +997,7 @@ impl State {
             }
             return Reply::None;
         }
-        if self.track_drag.is_some() {return Reply::None;}
+        if let Some((_,_,_,_,x0,y0,moved))=self.track_drag.as_mut() {*moved |= (x-*x0).hypot(y-*y0)>4.;return Reply::None;}
         let mut hover = false;
         if self.misc {
             if self.misc_ui.bar_drag.is_some() {
@@ -1064,9 +1065,10 @@ impl State {
     /// The left button was released at (x, y): an armed title-bar button acts if the mouse is still over it, then
     /// everything a release ends ends (`release`).
     fn left_up(&mut self, x: f32, y: f32) -> Reply {
-        if let Some((sx,sy,kx,ky))=self.track_drag.take() {
+        if let Some((sx,sy,kx,ky,x0,y0,moved))=self.track_drag.take() {
             let (w,h)=self.size();
             if x<0.0 || y<0.0 || x>=w || y>=h {self.events.push(FrameEvent::TrackDrop(sx+(x*kx).round() as i32,sy+(y*ky).round() as i32));}
+            else if !moved && (x-x0).hypot(y-y0)<=4. && part_at(self,x,y)==Some(Part::Track) {self.events.push(FrameEvent::PickTrack);}
             os_clap::wake();
         }
         let armed = self.armed.take();
@@ -1449,6 +1451,21 @@ mod tests {
 
     /// RANGE and TRACK: a held drag steps one per 10 px (up = higher) within their limits, the wheel one per notch,
     /// a narrower range pulls the pitch knob in, middle click resets the range, a double click on TRACK shows the mixer.
+    #[test]
+    fn route_picker_single_click_and_drag_are_distinct(){
+        let screen=|x:f32,y:f32|(x as i32,y as i32);
+        let mut st=state(true,"Master");let (w,_)=st.size();let x=537.+w-STRIP_RIGHT;let y=47.;
+        st.left_down(x,y,false,&screen);st.motion(x+1.,y+1.,false);st.left_up(x+1.,y+1.);
+        assert_eq!(st.events,vec![FrameEvent::PickTrack]);st.events.clear();
+        st.left_down(x,y,false,&screen);st.motion(x+20.,y,false);st.motion(x,y,false);st.left_up(x,y);
+        assert!(st.events.is_empty(),"a drag returning to its start is not a click");
+        st.left_down(x,y,false,&screen);st.motion(x,-100.,false);st.left_up(x,-100.);
+        assert_eq!(st.events,vec![FrameEvent::TrackDrop(x as i32,-100)]);st.events.clear();
+        st.left_down(x,y,false,&screen);st.release();st.left_up(x,y);assert!(st.events.is_empty());
+        st.left_down(x,y,true,&screen);st.left_up(x,y);assert_eq!(st.events,vec![FrameEvent::ShowTrack]);
+        range_and_track_boxes_edit_the_channel();
+    }
+
     #[test]
     fn range_and_track_boxes_edit_the_channel() {
         let screen = |x: f32, y: f32| (x as i32, y as i32);

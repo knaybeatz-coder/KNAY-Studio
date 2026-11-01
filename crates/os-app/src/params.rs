@@ -286,7 +286,7 @@ fn parameter_items(s: &State, param: Option<(usize, usize)>, create: Option<(u32
 /// The menu of a parameter row (browser right-click, spec §6).
 pub fn param_menu(s: &State, key: usize, index: usize, x: f32, y: f32) -> Option<Popup> {
     let create = automation(s, key, index)?;
-    Some(Popup { x, y, items: parameter_items(s, Some((key, index)), Some(create)), sub: None, scroll: [0; 2] })
+    Some(Popup { x, y, items: parameter_items(s, Some((key, index)), Some(create)), sub: None, scroll: [0; 2], cascade: Vec::new() })
 }
 
 /// The browser node key of instance `key` (spec §6): Generators ▸ channel, Effects ▸ "<track> - <slot>".
@@ -477,7 +477,7 @@ impl App {
         let mut items = vec![PItem { head: true, ..PItem::new(head, Cmd::Nothing) }, PItem::head("Automation")];
         items.extend(parameter_items(&self.state, param, create));
         items.extend([PItem::sep(), PItem::not_yet("Override volatile link...")]);
-        self.state.playlist.popup = Some(Popup { x, y, items, sub: None, scroll: [0; 2] });
+        self.state.playlist.popup = Some(Popup { x, y, items, sub: None, scroll: [0; 2], cascade: Vec::new() });
         self.invalidate();
         None
     }

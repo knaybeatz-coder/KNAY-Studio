@@ -139,7 +139,7 @@ impl Control {
 /// The right-click menu of a control with nothing to offer but its default: "Reset".
 pub fn reset_menu(c: Control, x: f32, y: f32) -> crate::playlist::Popup {
     use crate::playlist::{Cmd, PItem, Popup};
-    Popup { x, y, items: vec![PItem::new("Reset", Cmd::Reset(c))], sub: None, scroll: [0; 2] }
+    Popup { x, y, items: vec![PItem::new("Reset", Cmd::Reset(c))], sub: None, scroll: [0; 2], cascade: Vec::new() }
 }
 
 /// "Centered", "38% right", "2% left".

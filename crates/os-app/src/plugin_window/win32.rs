@@ -1111,6 +1111,9 @@ unsafe extern "system" fn lift_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM
                 EndPaint(hwnd, &ps);
                 0
             }
+            WM_MOUSEWHEEL => {
+                let main=l.main;drop(g);PostMessageW(main,msg,wp,lp);0
+            }
             WM_MOUSEMOVE | WM_LBUTTONDOWN | WM_LBUTTONUP | WM_RBUTTONDOWN | WM_RBUTTONUP | WM_MBUTTONDOWN | WM_MBUTTONUP => {
                 let x = (lp & 0xffff) as u16 as i16 as i32 + l.origin.0;
                 let y = ((lp >> 16) & 0xffff) as u16 as i16 as i32 + l.origin.1;

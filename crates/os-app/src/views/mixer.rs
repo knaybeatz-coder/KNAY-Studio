@@ -18,6 +18,14 @@ use crate::mixer::{self as mx, MHit};
 use crate::icons::{self, Icon};
 
 pub const STRIP_W: f32 = 84.0;
+pub const COMPACT_W: f32 = 42.0;
+pub fn strip_width(s: &State) -> f32 {if s.mixer.layout == mx::COMPACT {COMPACT_W} else {STRIP_W}}
+fn compact_travel(height: f32) -> f32 {(height - 270.0).max(30.0)}
+pub fn fader_per_px(s: &State) -> f64 {
+    let r=super::frame_rects(s,Win::Mixer,s.win_rect(Win::Mixer)).0;
+    if s.mixer.layout == mx::COMPACT {1.0 / f64::from(compact_travel(r.h))}
+    else {FADER_PER_PX / f64::from(fader_scale(r))}
+}
 /// Shorter channel-strip fader travel: 0.8 is unity, zero lands at reference y=970.
 pub const FADER_PER_PX: f64 = 1.0 / 274.0;
 /// Fader change per wheel notch: 4 px of drag. Fitted to the one measurement (spec: ui/mixer.md §4): three notches up
@@ -113,6 +121,7 @@ pub fn fader_db_text(v: f64) -> String {
 
 
 pub fn paint(ui: &mut Ui, s: &State, r: Rect, f: &FrameInfo) {
+    let width = strip_width(s);
     let panel_w = 221.0;
     window_body(ui, r);
     let outer = r;
@@ -123,7 +132,7 @@ pub fn paint(ui: &mut Ui, s: &State, r: Rect, f: &FrameInfo) {
     let inspector = Rect::new(if left { r.x } else { r.right() - panel_w }, r.y, panel_w, r.h);
     let r = if left { Rect::new(r.x + panel_w, r.y, r.w, r.h) } else { r };
     let client = super::window_frame_ex(ui, Win::Mixer, Rect::new(r.x, r.y, r.w - panel_w, r.h), "", 0.0, false, inner.is_some());
-    title_tools(ui, r);
+    title_tools(ui, s, r);
     if r.h < 2.0 * TITLE_H {
         // Collapsed to the title bar: only the slot panel's title with the window buttons.
         s.cables.borrow_mut().clear();
@@ -140,24 +149,24 @@ pub fn paint(ui: &mut Ui, s: &State, r: Rect, f: &FrameInfo) {
     let bottom = r.bottom();
 
     // Fixed master strip; inserts scroll immediately beside it.
-    ui.c.fill_rect(Rect::new(r.x, ly.y(HEAD_Y0), STRIP_W, HEAD_Y1 - HEAD_Y0 + 1.0), ui.t.s(0x2b2e30));
-    ui.c.text_center(Font::new(17), Rect::new(r.x, ly.y(HEAD_Y0), STRIP_W, 21.0), ui.t.s(0x6d7275), "M");
+    ui.c.fill_rect(Rect::new(r.x, ly.y(HEAD_Y0), width, HEAD_Y1 - HEAD_Y0 + 1.0), ui.t.s(0x2b2e30));
+    ui.c.text_center(Font::new(17), Rect::new(r.x, ly.y(HEAD_Y0), width, 21.0), ui.t.s(0x6d7275), "M");
     let lemon = super::lemon(ui);
-    let area = Rect::new(r.x + 9.0 + STRIP_W, client.y, strips.w - 9.0 - STRIP_W, client.h);
-    ui.c.fill_rect(Rect::new(r.x + STRIP_W, client.y, 9.0, client.h), ui.t.s(0x1a1e20));
+    let area = Rect::new(r.x + 9.0 + width, client.y, strips.w - 9.0 - width, client.h);
+    ui.c.fill_rect(Rect::new(r.x + width, client.y, 9.0, client.h), ui.t.s(0x1a1e20));
     for k in 0..3 {
-        ui.c.fill_rect(Rect::new(r.x + 4.0 + STRIP_W, ly.y(497.0 + 3.0 * k as f32), 1.0, 1.0), ui.t.s(0x3a3e41));
+        ui.c.fill_rect(Rect::new(r.x + 4.0 + width, ly.y(497.0 + 3.0 * k as f32), 1.0, 1.0), ui.t.s(0x3a3e41));
     }
     ui.c.push_clip(area);
-    let first = (s.mixer_scroll / STRIP_W) as usize;
-    let count = (area.w / STRIP_W).ceil() as usize + 2;
+    let first = (s.mixer_scroll / width) as usize;
+    let count = (area.w / width).ceil() as usize + 2;
     for n in (first + 1..first + 1 + count).filter(|n| *n <= usize::from(inserts)) {
-        let left = area.x + STRIP_W * (n - 1) as f32 - s.mixer_scroll;
+        let left = area.x + width * (n - 1) as f32 - s.mixer_scroll;
         strip(ui, s, n as u16, left, bottom, f, &ly);
     }
     // Narrow boundary targets reveal an insertion button only while hovered.
     for n in (first+1..first+1+count).filter(|n|*n<=usize::from(inserts)) {
-        let x=area.x+STRIP_W*(n-1) as f32-s.mixer_scroll;
+        let x=area.x+width*(n-1) as f32-s.mixer_scroll;
         if x<area.x || x>area.right()-10.0 {continue;}
         let lane=Rect::new(x-4.0,client.y,8.0,client.h-52.0);
         let action=Action::Mix(MHit::InsertBefore(n as u16));
@@ -171,7 +180,7 @@ pub fn paint(ui: &mut Ui, s: &State, r: Rect, f: &FrameInfo) {
         }
     }
     // "+" after the last strip, at the fader handle's height (spec: ui/mixer.md §1).
-    let px = area.x + STRIP_W * f32::from(inserts) - s.mixer_scroll + 14.0;
+    let px = area.x + width * f32::from(inserts) - s.mixer_scroll + 14.0;
     let pb = Rect::new(px - 9.0, ly.y(HANDLE_0DB) - 9.0, 18.0, 18.0);
     if px < area.right() + 10.0 {
         let hov = ui.hit(pb, Action::Mix(MHit::Add), "Add more tracks");
@@ -187,7 +196,7 @@ pub fn paint(ui: &mut Ui, s: &State, r: Rect, f: &FrameInfo) {
 
     // Horizontal scroll bar under the strips.
     let sb = Rect::new(area.x + 13.0, bottom - 14.0, area.w - 20.0, 9.0);
-    super::scrollbar(ui, sb, false, s.mixer_scroll, area.w, (f32::from(inserts) + 1.0) * STRIP_W, crate::app::Scroll::MixerX);
+    super::scrollbar(ui, sb, false, s.mixer_scroll, area.w, (f32::from(inserts) + 1.0) * width, crate::app::Scroll::MixerX);
     chevron(ui, area.x + 5.0, bottom - 9.5, false, ui.t.s(0x5d6366));
     cables(ui, s, strips, area, bottom);
 
@@ -199,9 +208,10 @@ pub fn paint(ui: &mut Ui, s: &State, r: Rect, f: &FrameInfo) {
 /// The routing cables (spec: ui/mixer.md §5): one from the current track's ⬇ into each of its send knobs, sagging
 /// and swinging (crate::cable). Sockets on strips scrolled out of view still hold their cable's end.
 fn cables(ui: &mut Ui, s: &State, strips: Rect, area: Rect, bottom: f32) {
+    let width = strip_width(s);
     let socket_x = |n: u16| match n {
-        0 => strips.x + STRIP_W / 2.0,
-        n => area.x + STRIP_W * f32::from(n - 1) - s.mixer_scroll + STRIP_W / 2.0,
+        0 => strips.x + width / 2.0,
+        n => area.x + width * f32::from(n - 1) - s.mixer_scroll + width / 2.0,
     };
     // Each cable is plugged in under the middle of its ⬇ and its knob, which are drawn again over the cables' ends.
     let (ay, ky) = (bottom - 38.0, bottom - 40.0);
@@ -237,7 +247,7 @@ fn cables(ui: &mut Ui, s: &State, strips: Rect, area: Rect, bottom: f32) {
     }
 }
 
-fn title_tools(ui: &mut Ui, r: Rect) {
+fn title_tools(ui: &mut Ui, s: &State, r: Rect) {
     let y = r.y + 11.5;
     let ob = Rect::new(r.x + 3.0, y - 9.0, 16.0, 18.0);
     let hov = ui.hit(ob, Action::Mix(MHit::Options), "Mixer options");
@@ -245,6 +255,20 @@ fn title_tools(ui: &mut Ui, r: Rect) {
     let pb = Rect::new(r.x + 27.0, y - 8.0, 16.0, 16.0);
     let hov = ui.hit(pb, Action::Mix(MHit::AddAfter), "Add a new track after the selected track");
     icons::draw(ui.c, Icon::Plus, pb.inset(1.0), if hov { ui.t.tx(0xffffff) } else { ui.t.tx(0xc4ccd0) });
+    for (i, mode, label) in [(0, mx::COMPACT, "Compact mixer view"), (1, mx::WIDE, "Full mixer view")] {
+        let b=Rect::new(r.x+50.0+i as f32*26.0,y-9.0,23.0,18.0);
+        let hover=ui.hit(b,Action::Mix(MHit::View(mode)),label);
+        let active=s.mixer.layout==mode;
+        ui.c.fill_rrect(b,3.0,if active {ui.t.accent} else if hover {ui.t.button_hi} else {ui.t.s(0x292f32)});
+        let ink=if active {ui.t.s(0x182024)} else {ui.t.text};
+        let count=if mode==mx::COMPACT {4} else {2};
+        let w=if mode==mx::COMPACT {3.0} else {7.0};
+        for col in 0..count {
+            let x=b.x+3.0+col as f32*(w+2.0);
+            ui.c.stroke_rrect(Rect::new(x,b.y+3.0,w,12.0),0.0,1.0,ink);
+            ui.c.fill_rect(Rect::new(x,b.y+8.0,w,2.0),ink);
+        }
+    }
 }
 
 fn mix(a: Color, b: Color, t: f32) -> Color {
@@ -375,6 +399,7 @@ fn meter_bar(ui: &mut Ui, x: f32, w: f32, bottom: f32, db: f32, hold: f32, cfg: 
 /// One strip; `left` is its left edge (44 px pitch). Columns: knobs at +22, meter / fader at +32,
 /// name and small controls at +12 (spec §7).
 fn strip(ui: &mut Ui, s: &State, n: u16, left: f32, bottom: f32, f: &FrameInfo, ly: &Ly) {
+    if s.mixer.layout == mx::COMPACT {compact_strip(ui,s,n,left,bottom,ly);return;}
     let t = ui.t;
     let track = s.project.mixer.iter().find(|m| m.index == n);
     let selected = s.selected_mixer == n;
@@ -448,13 +473,22 @@ fn strip(ui: &mut Ui, s: &State, n: u16, left: f32, bottom: f32, f: &FrameInfo, 
     ui.c.push_clip(name_rect);
     ui.c.text_center(Font::new(12), name_rect, name_c, &name);
     ui.c.pop_clip();
-    channel_controls(ui, s, n, Rect::new(left + 4.0, meter.bottom() + 36.0, STRIP_W - 8.0, (ly.y(LED_Y) - 16.0 - meter.bottom() - 36.0).max(0.0)));
+    if n==0 {
+        let y=(meter.bottom()+28.).min(ly.y(LED_Y)-95.);
+        let short=ly.y(LED_Y)-y<145.;
+        headphones_controls(ui,s,Rect::new(left+8.,y,STRIP_W-16.,80.),short);
+        let below=y+if short {46.}else{90.};
+        if crate::master_assistant::AVAILABLE {master_assistant_controls(ui,s,Rect::new(left+7.,below,STRIP_W-14.,42.),false);}
+    }
+    channel_controls(ui, s, n, f.active_knob, Rect::new(left + 4.0, meter.bottom() + 36.0, STRIP_W - 8.0, (ly.y(LED_Y) - 16.0 - meter.bottom() - 36.0).max(0.0)));
+    if n!=0 && !standard {knobs_switch(ui,s,n,Rect::new(left+7.,ly.y(LED_Y)-14.,18.,44.));}
+    let control_x=if n==0 {kx}else{kx+6.};
     let enabled = track.is_none_or(|m| m.enabled);
-    ui.hit(Rect::new(kx - 7.0, ly.y(LED_Y) - 7.0, 14.0, 14.0), Action::Mix(MHit::Led(n)), "Mute / solo");
-    led(ui, kx, ly.y(LED_Y), enabled);
+    ui.hit(Rect::new(control_x - 7.0, ly.y(LED_Y) - 7.0, 14.0, 14.0), Action::Mix(MHit::Led(n)), "Mute / solo");
+    led(ui, control_x, ly.y(LED_Y), enabled);
     let pan = KnobId::MixPan(n);
-    ui.hit(Rect::new(kx - 14.0, ly.y(PAN_Y) - 14.0, 28.0, 28.0), Action::Knob(pan), s.knob_text(pan));
-    mixer_knob(ui, kx, ly.y(PAN_Y), 10.5, 15.0, s.knob(pan), Some(true));
+    ui.hit(Rect::new(control_x - 14.0, ly.y(PAN_Y) - 14.0, 28.0, 28.0), Action::Knob(pan), s.knob_text(pan));
+    mixer_knob(ui, control_x, ly.y(PAN_Y), 10.5, 15.0, s.knob(pan), Some(true));
 
     // Reverse polarity (⇕) and swap left / right (⇔) buttons, lit when on, then the separation knob (§4).
     // They keep their size and spacing below the fader's top at any mixer height (FL's short mixer stacks them the
@@ -578,6 +612,119 @@ fn strip(ui: &mut Ui, s: &State, n: u16, left: f32, bottom: f32, f: &FrameInfo, 
 
 }
 
+
+/// Narrow strips share all channel values and signal processing with the full view.
+fn compact_strip(ui:&mut Ui,s:&State,n:u16,left:f32,bottom:f32,ly:&Ly) {
+    let t=ui.t;
+    let track=mx::track(s,n);
+    let selected=s.selected_mixer==n;
+    let master=n==0;
+    let kx=left+COMPACT_W/2.0;
+    let top=ly.y(HEAD_Y0);
+    let body=Rect::new(left+1.0,top,COMPACT_W-2.0,bottom-top-16.0);
+    let base=if selected {t.s(0x343c40)} else {t.s(0x242a2d)};
+    let tint=track.and_then(|m|m.color).map(super::rgb);
+    ui.c.fill_rect(body,tint.map_or(base,|c|mix(base,c,0.15)));
+    ui.hit(body,Action::Mix(MHit::Strip(n)),mx::name(s,n));
+    ui.c.stroke_rrect(body,0.0,1.0,if selected {t.accent} else {t.s(0x464f54)});
+    let header=Rect::new(left+2.0,top,COMPACT_W-4.0,18.0);
+    ui.c.text_center(Font::new(12),header,t.text,&if master {"M".into()} else {n.to_string()});
+    let label=Rect::new(left+3.0,top+20.0,COMPACT_W-6.0,28.0);
+    ui.c.push_clip(label);
+    let name=mx::name(s,n);
+    // Two short lines keep common bus/channel names readable at narrow widths.
+    for (i,word) in name.split_whitespace().take(if master {0}else{2}).enumerate() {
+        ui.c.text_center(Font::new(10),Rect::new(label.x,label.y+i as f32*13.0,label.w,13.0),t.text,word);
+    }
+    ui.c.pop_clip();
+    let master_offset=if master && crate::master_assistant::AVAILABLE {44.}else{0.};
+    let control_x=if master {kx}else{left+30.};
+    ui.hit(Rect::new(control_x-8.0,top+52.0+master_offset,16.0,14.0),Action::Mix(MHit::Led(n)),"Mute / solo");
+    led(ui,control_x,top+59.0+master_offset,track.is_none_or(|m|m.enabled));
+    let pan=KnobId::MixPan(n);
+    ui.hit(Rect::new(control_x-10.0,top+73.0+master_offset,20.0,20.0),Action::Knob(pan),s.knob_text(pan));
+    mixer_knob(ui,control_x,top+83.0+master_offset,8.,9.5,s.knob(pan),Some(true));
+    if n!=0 {knobs_switch(ui,s,n,Rect::new(left+4.,top+50.,12.,44.));}
+    if master {
+        headphones_controls(ui,s,Rect::new(left+3.,top+21.,COMPACT_W-6.,27.),true);
+        if crate::master_assistant::AVAILABLE {master_assistant_controls(ui,s,Rect::new(left+3.,top+58.,COMPACT_W-6.,42.),true);}
+    }
+    let end=bottom-132.0;
+    let travel=compact_travel(bottom-ly.top)-if master && crate::master_assistant::AVAILABLE {10.}else{0.};
+    let start=end-travel;
+    let fx=left+14.0;
+    ui.c.fill_rrect(Rect::new(fx-2.0,start-7.0,4.0,travel+14.0),2.0,t.s(0x111719));
+    for db in [0.0,-6.0,-12.0,-18.0] {
+        let y=end-fader_value(db)*travel;
+        ui.c.line(fx-9.0,y,fx+9.0,y,1.0,t.s(0x657078));
+    }
+    let v=track.and_then(|m|m.volume).unwrap_or(0.8);
+    let hy=end-v as f32*travel;
+    let hover=ui.hit(Rect::new(left+3.0,start-9.0,24.0,travel+18.0),Action::Fader(n),mx::level_text("Volume",v));
+    fader_handle(ui,fx,hy,selected,hover);
+    let meter=Rect::new(left+29.0,start-7.0,9.0,travel+14.0);
+    ui.live(Live::Meter,meter);
+    let levels=s.mixer.meters.get(n as usize);
+    ui.c.fill_rect(meter,t.s(0x121a16));
+    for side in 0..2 {
+        let db=levels.map_or(-100.0,|m|m.db[side]);
+        let hold=levels.map_or(-100.0,|m|m.hold[side]);
+        let x=meter.x+side as f32*5.0;
+        let h=((db+60.0)/66.0).clamp(0.0,1.0)*meter.h;
+        ui.c.fill_rect(Rect::new(x,meter.bottom()-h,4.0,h),if db>=0.0 {t.meter_clip} else {t.a(0x8fba71)});
+        if hold > -60.0 {
+            let y=meter.bottom()-((hold+60.0)/66.0).clamp(0.0,1.0)*meter.h;
+            ui.c.fill_rect(Rect::new(x,y,4.0,1.0),t.h(0xe8c65c));
+        }
+    }
+    let record=Rect::new(left+5.0,bottom-111.0,32.0,18.0);
+    if master {
+        let on=!s.mixer.all_fx_bypassed;
+        ui.hit(record,Action::Mix(MHit::AllEffects),"Bypass / restore all mixer slot effects");
+        ui.c.fill_rrect(record,3.0,if on {t.a(0x50694a)} else {t.s(0x665037)});
+        ui.c.text_center(Font::new(8),record,t.text,"ALL FX");
+    } else {
+        let armed=s.mixer.recording.armed.contains(&n);
+        ui.hit(record,Action::Mix(MHit::Disk(n)),"Arm / disarm disk recording");
+        ui.c.fill_rrect(record,3.0,t.s(0x30383c));
+        ui.c.fill_circle(kx,record.cy(),4.5,if armed {t.h(0xff6868)} else {t.h(0xb85858)});
+    }
+    let b=Rect::new(left+5.0,bottom-88.0,32.0,18.0);
+    let on=!s.mixer.all_fx_bypassed&&track.is_none_or(|m|m.slots_enabled);
+    ui.hit(b,Action::Mix(MHit::Effects(n)),"Enable / bypass channel slot effects");
+    ui.c.fill_rrect(b,3.0,if on {t.a(0x465d49)} else {t.s(0x272d30)});
+    ui.c.text_center(Font::new(10),b,if on {t.text} else {t.text_dim},"FX");
+    let by=bottom;
+    // Routing (spec: ui/mixer.md §5): the current track's green ⬇ (its cables are drawn over all strips: `cables`),
+    // a send knob where the current track sends, else the ▲ "route to this track" button; an orange "^" marks tracks that receive a route.
+    let ay = by - 38.0;
+    let cur = s.selected_mixer;
+    let cur_name = mx::name(s, cur);
+    if selected {
+        down_arrow(ui, kx, ay);
+    } else if let Some(level) = mx::send(s, cur, n) {
+        // Send knob (fader law) with its arc, the green "^" that removes the route; its cable is drawn with the others.
+        let ky = by - 40.0;
+        let id = KnobId::Send(cur, n);
+        ui.hit(Rect::new(kx - 13.0, ky - 13.0, 26.0, 26.0), Action::Knob(id), s.knob_text(id));
+        send_knob(ui, s, n, kx, ky, level);
+        let ur = Rect::new(kx - 6.0, by - 61.0, 12.0, 8.0);
+        let hov = ui.hit(ur, Action::Mix(MHit::Unroute(n)), format!("Remove the send from {cur_name} to {}", mx::name(s, n)));
+        ui.c.fill_polygon(&[(kx - 4.0, by - 55.0), (kx, by - 59.0), (kx + 4.0, by - 55.0)], if hov { ui.t.tx(0xffffff) } else { t.accent });
+    } else if !(master && cur == 0) {
+        let hint = format!("Enable send from {cur_name} to {}  Ctrl/Shift", mx::name(s, n));
+        let hov = ui.hit(Rect::new(kx - 8.0, ay - 8.0, 16.0, 14.0), Action::Mix(MHit::Route(n)), hint);
+        let mut g = Glyph::new();
+        g.polygon(&[(kx - 6.5, ay + 3.0), (kx, ay - 3.5), (kx + 6.5, ay + 3.0)]);
+        ui.c.glyph(if hov { t.accent } else { ui.t.tx(0xd8e0e6) }, &g);
+        if !master && mx::receives(s, n) {
+            ui.c.fill_polygon(&[(kx - 3.5, ay - 9.0), (kx, ay - 12.5), (kx + 3.5, ay - 9.0)], ui.t.h(0xf09a28));
+        }
+    }
+
+    if mx::has_separator(s,n) {ui.c.fill_rect(Rect::new(left,top,3.0,body.h),t.s(0x919da3));}
+}
+
 /// The current track's green ⬇ (centred on `ay`): where its cables leave.
 fn down_arrow(ui: &mut Ui, kx: f32, ay: f32) {
     let a = [(kx - 3.0, ay - 6.0), (kx + 3.0, ay - 6.0), (kx + 3.0, ay - 1.0), (kx + 7.0, ay - 1.0), (kx, ay + 6.0), (kx - 7.0, ay - 1.0), (kx - 3.0, ay - 1.0)];
@@ -673,10 +820,13 @@ fn slot_panel(ui: &mut Ui, s: &State, r: Rect) {
     ui.c.fill_rect(combo,if hov{t.button}else{input_bg});
     ui.c.text_clip(Font::new(13),combo.x+4.,combo.y+3.,combo.w-20.,t.text,&label);
     chevron(ui,combo.right()-8.,combo.cy(),true,t.text);
-    // Ten effect slots.
-    for i in 0..10 {
-        let row = Rect::new(r.x + 1.0, r.y + 61.0 + 33.0 * kp * i as f32, r.w - 2.0, 28.0 * kp);
-        let k = i as u8;
+    let count=mx::slot_count(s,n);
+    let first=s.mixer.slot_scroll.get(&n).copied().unwrap_or(0).min(count.saturating_sub(10));
+    ui.hit(Rect::new(r.x,r.y+61.,r.w,330.*kp),Action::Mix(MHit::SlotScroll),"Scroll effect slots");
+    for visible in 0..10 {
+        let i=first+visible;
+        let row = Rect::new(r.x + 1.0, r.y + 61.0 + 30.0 * kp * visible as f32, r.w - 2.0, 28.0 * kp);
+        let k = mx::user_slot(i);
         let plugin = mx::slot_name(s, n, k);
         let fs = (18.0 * kp.max(0.62)).round() as u16;
         let hint = format!("FX slot {} options", i + 1);
@@ -705,8 +855,12 @@ fn slot_panel(ui: &mut Ui, s: &State, r: Rect) {
         mixer_knob(ui, row.right() - 33.0, row.cy(), 10.5 * q, 12.0 * q, s.knob(mix), Some(false));
         ui.c.stroke_circle(row.right() - 33.0, row.cy(), 11.8 * q, 1.5, ui.t.s(0x55595c));
         ui.hit(Rect::new(row.right() - 18.0, row.y, 18.0, row.h), Action::Mix(MHit::SlotLed(k)), "Mute / solo  (ctrl)0..9");
-        led(ui, row.right() - 10.0, row.cy(), track.is_none_or(|m| m.slot_on[i]));
+        led(ui, row.right() - 10.0, row.cy(), track.is_none_or(|m| m.slot_on[k as usize]));
     }
+    let add=Rect::new(r.x+3.,r.y+61.+300.*kp,r.w-6.,28.*kp);
+    let hover=ui.hit(add,Action::Mix(MHit::AddSlot),"Add another effect slot (up to 63)");
+    ui.c.fill_rect(add,if hover {t.button}else{ui.t.s(0x24292a)});
+    ui.c.text(Font::new(12),add.x+6.,add.y+2.,t.text,&format!("+  Add slot       {}–{} / {}",first+1,(first+10).min(count),count));
     let sep = r.y + 61.0 + 330.0 * kp;
     ui.c.fill_rect(Rect::new(r.x, sep, r.w, 1.0), ui.t.s(0x1f2224));
 
@@ -808,7 +962,8 @@ mod eq_label_tests {
     }
 }
 
-fn channel_controls(ui:&mut Ui,s:&State,n:u16,r:Rect) {
+fn channel_controls(ui:&mut Ui,s:&State,n:u16,active:Option<KnobId>,r:Rect) {
+    let mut readout:Option<(Rect,String,Option<&str>)>=None;
     if n==0 || r.h<80.0 || mx::track(s,n).is_some_and(|m|m.channel_layout==0) {return;}
     let vocal=mx::track(s,n).is_some_and(|t|t.is_vocal());
     let row=(r.h/if vocal {8.0}else{6.0}).min(57.0);
@@ -880,6 +1035,94 @@ fn channel_controls(ui:&mut Ui,s:&State,n:u16,r:Rect) {
                 _=>if v==0.0{"OUT".into()}else{format!("{:.0}%",v*100.0)},
             };
             if row>=50.0 {ui.c.text_center(Font::new(8),Rect::new(cx-18.0,y+row-12.0,36.0,9.0),ui.t.tx(0xd7d4c6),&text);}
+            if row<50. && active==Some(id) {
+                match id {
+                    KnobId::Eq(_,_,k) => {
+                        let label=if k==0 {format!("{:+.1} dB",(v*2.-1.)*18.)}else{text};
+                        let width=ui.c.text_width(Font::new(10).bold(),&label)+8.;
+                        readout=Some((Rect::new((cx-width/2.).clamp(r.x,r.right()-width),cy+radius+3.*scale,width,16.),label,None));
+                    }
+                    KnobId::Strip(_,0|3) => {
+                        let label=if v==0. {"OFF".into()}else if id==KnobId::Strip(n,0) {format!("{:.0}",os_dsp::channel_strip::cut_hz(v))}else{format!("{:.0}%",v*100.)};
+                        let unit=if v>0. && id==KnobId::Strip(n,0){Some("Hz")}else{None};
+                        let width=(r.w*0.46-2.*radius-2.).clamp(18.,28.);
+                        readout=Some((Rect::new(r.cx()-width/2.,cy-9.,width,18.),label,unit));
+                    }
+                    _=>{}
+                }
+            }
         }
     }
+    // Draw after all rows so the temporary value stays readable over tight row spacing.
+    // No hit target: the readout never steals the ongoing drag or changes knob geometry.
+    if let Some((box_r,label,unit))=readout {
+        ui.c.fill_rrect(box_r,3.,ui.t.s(0x10191c));
+        ui.c.stroke_rrect(box_r,3.,1.,ui.t.h(0xb5d98b));
+        if let Some(unit)=unit {
+            ui.c.text_center(Font::new(9).bold(),Rect::new(box_r.x,box_r.y,box_r.w,11.),ui.t.text,&label);
+            ui.c.text_center(Font::new(7),Rect::new(box_r.x,box_r.y+10.,box_r.w,7.),ui.t.text_dim,unit);
+        }else{ui.c.text_center(Font::new(if box_r.h==18. {9}else{10}).bold(),box_r,ui.t.text,&label);}
+    }
+}
+
+fn knobs_switch(ui:&mut Ui,s:&State,n:u16,r:Rect){
+ let bypass=mx::track(s,n).is_some_and(|m|m.strip_bypassed);
+ let hover=ui.hit(r,Action::Mix(MHit::StripBypass(n)),if bypass {"STRIP bypassed (down) — click to restore the channel knobs. Plugin slots and parametric EQ are separate."}else{"STRIP active (up) — click to bypass the channel knobs, keeping their settings. Plugin slots and parametric EQ are separate."});
+ let ink=if bypass {ui.t.h(0xe4b583)}else{ui.t.h(0xa7d994)};
+ ui.c.text_center(Font::new(if r.w<20. {7}else{8}).bold(),Rect::new(r.x-2.,r.y,r.w+4.,10.),ui.t.text,"STRIP");
+ // A two-ended rocker in a small faceplate, rather than a sliding thumb.
+ let plate=Rect::new(r.x+1.,r.y+12.,r.w-2.,23.);
+ ui.c.fill_rrect(plate.outset(1.),2.,ui.t.s(0x10181a));
+ ui.c.fill_rrect(plate,2.,if hover {ui.t.tx(0xb0b9b5)}else{ui.t.s(0x798682)});
+ let rocker=Rect::new(plate.x+2.,plate.y+2.,plate.w-4.,plate.h-4.);
+ ui.c.fill_rect(rocker,ui.t.tx(0xa7b1ac));
+ let middle=rocker.cy();
+ let (raised_y,pressed_y)=if bypass {(rocker.y,middle)}else{(middle,rocker.y)};
+ ui.c.fill_rect(Rect::new(rocker.x,pressed_y,rocker.w,rocker.h/2.),ui.t.tx(0x8d9a93));
+ ui.c.fill_rect(Rect::new(rocker.x,raised_y,rocker.w,rocker.h/2.),ui.t.tx(0xe3e6da));
+ ui.c.line(rocker.x,middle,rocker.right(),middle,1.,ui.t.s(0x65766d));
+ // The raised end casts a shallow edge; opposite end sits inside the frame.
+ let edge=if bypass {rocker.y}else{rocker.bottom()-2.};
+ ui.c.fill_rect(Rect::new(rocker.x,edge,rocker.w,2.),ui.t.tx(0xbac3b6));
+ ui.c.fill_rect(Rect::new(rocker.cx()-1.,if bypass {rocker.bottom()-5.}else{rocker.y+3.},2.,2.),ink);
+ ui.c.text_center(Font::new(7).bold(),Rect::new(r.x-2.,r.y+36.,r.w+4.,8.),ink,if bypass{"BYP"}else{"ON"});
+}
+
+
+fn headphones_controls(ui:&mut Ui,s:&State,r:Rect,compact:bool){
+ let on=s.headphones.on;
+ let icon=Rect::new(r.x, r.y,if compact{19.}else{38.},if compact{24.}else{34.});
+ let hint=if s.headphones.name.is_empty(){"Choose headphones — searchable AutoEq correction for monitoring only".into()}else{format!("{} | {} | Click to choose headphones. Monitoring only; never exported.",s.headphones.name,if on{"ON"}else{"OFF"})};
+ let hover=ui.hit(icon,Action::Mix(MHit::Headphones),hint);
+ ui.c.fill_rrect(icon,4.,if hover{ui.t.button_hi}else{ui.t.s(0x263237)});
+ let cx=icon.cx();let cy=icon.cy()-1.;let k=if compact{0.65}else{1.};let c=if on{ui.t.accent}else{ui.t.text};
+ // Draw a familiar headband with two ear cups using vector primitives.
+ let pts:Vec<_>=(0..=16).map(|i|{let a=std::f32::consts::PI+i as f32*std::f32::consts::PI/16.;(cx+a.cos()*10.*k,cy+a.sin()*10.*k)}).collect();
+ for p in pts.windows(2){ui.c.line(p[0].0,p[0].1,p[1].0,p[1].1,2.*k,c);}
+ for side in [-1.,1.]{ui.c.fill_rrect(Rect::new(cx+side*9.*k-2.5*k,cy-2.*k,5.*k,10.*k),2.*k,c);}
+ let sw=Rect::new(r.right()-if compact{13.}else{22.},r.y+1.,if compact{12.}else{20.},if compact{22.}else{31.});
+ let hover=ui.hit(sw,Action::Mix(MHit::HeadphonesToggle),if on{"Headphone correction ON (up) — click to bypass"}else{"Headphone correction OFF (down) — click to enable"});
+ ui.c.fill_rrect(sw,2.,if hover{ui.t.tx(0xb0b9b5)}else{ui.t.s(0x798682)});
+ let inner=sw.inset(2.);let half=inner.h/2.;
+ ui.c.fill_rect(Rect::new(inner.x,inner.y,inner.w,half),ui.t.tx(if on{0x8d9a93}else{0xe3e6da}));
+ ui.c.fill_rect(Rect::new(inner.x,inner.y+half,inner.w,half),ui.t.tx(if on{0xe3e6da}else{0x8d9a93}));
+ ui.c.fill_rect(Rect::new(inner.cx()-1.,if on{inner.y+3.}else{inner.bottom()-5.},2.,2.),if on{ui.t.accent}else{ui.t.s(0x3f4943)});
+ if !compact {
+  ui.c.text_center(Font::new(8).bold(),Rect::new(r.x,r.y+39.,r.w,12.),ui.t.text,if on{"PHONES ON"}else{"PHONES OFF"});
+  ui.c.text_center(Font::new(8),Rect::new(r.x,r.y+54.,r.w,12.),ui.t.text_dim,"MONITOR ONLY");
+ }
+}
+
+fn master_assistant_controls(ui:&mut Ui,s:&State,r:Rect,compact:bool) {
+    let on=crate::master_assistant::enabled(s);
+    ui.c.text_center(Font::new(if compact {7}else{8}).bold(),Rect::new(r.x,r.y,r.w,11.),ui.t.text,if compact {"MASTER"}else{"MASTER ASSIST"});
+    let power=Rect::new(r.x,r.y+14.,if compact {14.}else{23.},23.);
+    let open=Rect::new(power.right()+3.,power.y,r.right()-power.right()-3.,23.);
+    let hover=ui.hit(power,Action::Mix(MHit::MasterAssistantToggle),if on {"Master Assistant ON — click to bypass in playback and export"}else{"Master Assistant OFF — click to enable in playback and export"});
+    ui.c.fill_rrect(power,3.,if hover {ui.t.button_hi}else if on {ui.t.a(0x50694a)}else{ui.t.s(0x303b33)});
+    ui.c.text_center(Font::new(if compact {7}else{8}).bold(),power,if on {ui.t.accent}else{ui.t.text_dim},if compact {if on {"I"}else{"O"}}else if on {"ON"}else{"OFF"});
+    let hover=ui.hit(open,Action::Mix(MHit::MasterAssistant),"Open Master Assistant controls — oXygen engine; normal song exports include it when enabled");
+    ui.c.fill_rrect(open,3.,if hover {ui.t.button_hi}else{ui.t.s(0x34443a)});
+    ui.c.stroke_rrect(open,3.,1.,ui.t.s(0x65765d));
+    ui.c.text_center(Font::new(if compact {7}else{9}).bold(),open,ui.t.text,if compact {"..."}else{"OPEN"});
 }
