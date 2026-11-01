@@ -45,6 +45,8 @@ mod hold;
 mod keep_on_disk;
 mod key_detect;
 mod key_match;
+mod vari;
+mod vari_dsp;
 mod icons;
 mod init;
 mod knobs;

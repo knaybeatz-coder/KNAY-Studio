@@ -120,6 +120,13 @@ pub fn paint(ui: &mut Ui, s: &State, r: Rect, f: &FrameInfo) {
         return; // collapsed to the title bar
     }
     if s.piano.harmony.open {crate::harmony::paint(ui,s,r);return;}
+    // KNAY VariAudio: the window edits an audio clip's pitch.
+    if s.piano.vari.is_some() {
+        let head = crate::vari::playhead(s, f.playing, f.song, f.tick);
+        crate::vari::paint(ui, s, r, head);
+        resize_zones(ui, s, Win::PianoRoll, outer);
+        return;
+    }
     let l = layout(r, s.piano.split);
     let g = Geom::new(s, l.grid);
     let ch = channel.map(|c| c.index);
@@ -463,7 +470,7 @@ fn ruler(ui: &mut Ui, l: &Layout, g: &Geom, range: Option<(f32, f32)>, marker: u
     ui.c.pop_clip();
 }
 
-fn keyboard(ui: &mut Ui, l: &Layout, g: &Geom, lit: &[i32]) {
+pub(crate) fn keyboard(ui: &mut Ui, l: &Layout, g: &Geom, lit: &[i32]) {
     let t = ui.t;
     let k = l.keys;
     ui.hit(k, Action::PianoKeys, "Keyboard");

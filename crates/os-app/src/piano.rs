@@ -63,6 +63,8 @@ pub enum Overlay {
 #[derive(Debug, Clone)]
 pub struct PianoState {
     pub harmony: crate::harmony::Harmony,
+    /// KNAY VariAudio: open on an audio clip, the piano roll edits its pitch instead of notes (`crate::vari`).
+    pub vari: Option<Box<crate::vari::Session>>,
     /// Time scroll in ticks (left edge of the grid).
     pub scroll_x: f32,
     /// Key scroll in pixels from the top of the highest key's row.
@@ -124,6 +126,7 @@ impl Default for PianoState {
     fn default() -> Self {
         PianoState {
             harmony: crate::harmony::Harmony::default(),
+            vari: None,
             scroll_x: 0.0,
             scroll_y: ((TOP_KEY - 72) as f32) * ROW,
             px_per_beat: 96.0,

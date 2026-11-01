@@ -282,6 +282,8 @@ pub enum Action {
     /// Toolbar "Piano roll tools" button: the Tools menu (spec: ui/piano-roll.md §11).
     PianoToolsMenu,
     Harmony(crate::harmony::HCmd),
+    /// KNAY VariAudio's parts in the piano roll (`crate::vari`).
+    Vari(crate::vari::VAct),
     /// Toolbar magnet: the Snap menu; right-click: Stock note lengths (spec: ui/piano-snap.md §1).
     PianoSnapMenu,
     /// The channel name in the title: the channel menu; right-click: channel settings; wheel: channels with notes
@@ -836,6 +838,8 @@ const PLUGIN_POPUPS: &str = "Menus of detached plugin windows on Linux (dock the
 
 #[derive(Debug, Clone)]
 pub enum Drag {
+    /// KNAY VariAudio: segments dragged up or down.
+    Vari(crate::vari::VDrag),
     /// Settings > MIDI: a handle of the mapping curve window (0 start, 1 middle, 2 end).
     MidiCurve(u8),
     /// Settings > MIDI: a Port or offset box, a step per 8 px up or down (`steps` taken so far).
@@ -3901,6 +3905,7 @@ impl App {
     /// Periodic housekeeping; returns whether a repaint is needed.
     pub fn tick(&mut self) -> bool {
         crate::updates::tick();
+        crate::vari::tick(self);
         if crate::key_match::take_fresh() && self.state.shown(Win::Playlist) { let r = self.state.win_rect(Win::Playlist); self.damage_rect(r); }
         let (_, update_status) = crate::updates::display();
         if self.update_status != update_status { self.update_status = update_status; self.invalidate(); }
@@ -5129,6 +5134,7 @@ impl App {
                         crate::playlist::drag_move(self, d, g);
                     }
                 }
+                Drag::Vari(d) => crate::vari::drag_move(self, d),
                 Drag::BarZoom { t, m0, p0, ratio, z0, center, view } => {
                     let z = z0 * 1.012f32.powf(m0.1 - y);
                     self.zoom_set(t, z);
@@ -6423,6 +6429,11 @@ impl App {
             }
             return self.invalidate();
         }
+        if let Some(Drag::Vari(d)) = self.drag.clone() {
+            self.drag = None;
+            crate::vari::drag_end(self, d);
+            return self.invalidate();
+        }
         let had_overlay = self.state.piano.overlay.take().is_some();
         match self.drag.clone() {
             Some(Drag::Slice) => {
@@ -7003,6 +7014,9 @@ impl App {
         }
         // Piano roll (spec: ui/piano-roll.md §3a): Alt+wheel over the ruler zooms time; the keyboard takes the wheel
         // like the grid (scroll, Ctrl = time zoom); the keys zoom with Ctrl+middle-drag.
+        if let Some(Action::Vari(_)) = area {
+            return crate::vari::wheel(self, dx, dy, shift, ctrl);
+        }
         if matches!(area, Some(Action::PianoRuler)) && self.alt {
             let Some(g) = self.piano_geom() else { return None };
             piano::zoom_time(&mut self.state, &g, x, dy + dx);
@@ -7185,6 +7199,8 @@ impl App {
         if matches!(key,Key::Named(NamedKey::Escape)) && matches!(self.drag,Some(Drag::MixSelect{..})) {self.drag=None;self.pressed=None;return;}
 
         if self.state.piano.harmony.open && self.state.z.last()==Some(&Win::PianoRoll) && self.state.playlist.popup.is_none() {crate::harmony::key(self,key,ctrl,alt);return;}
+        // KNAY VariAudio takes its keys while the piano roll is in front.
+        if self.state.piano.vari.is_some() && self.state.z.last()==Some(&Win::PianoRoll) && self.state.playlist.popup.is_none() && crate::vari::key(self,key,ctrl,alt) {return;}
         // The Remote control settings box takes Esc (drops it) and Enter (accepts).
         if crate::remote::is_open(&self.state) {
             match key {
@@ -7517,6 +7533,7 @@ impl App {
             return false;
         }
         if self.state.piano.harmony.open && self.state.z.last()==Some(&Win::PianoRoll){return false;}
+        if self.state.piano.vari.is_some() && self.state.z.last()==Some(&Win::PianoRoll){return false;}
         if self.state.z.last()==Some(&Win::PianoRoll) && code==KeyCode::KeyC && self.state.playlist.popup.is_none(){return false;}
         // These playlist shortcuts take priority over the computer-keyboard piano while the playlist is frontmost.
         if self.state.z.last() == Some(&Win::Playlist) && !self.state.settings.open && self.state.menu_open.is_none() && self.state.playlist.popup.is_none()
@@ -8228,6 +8245,7 @@ impl App {
             }
             Action::PianoLaneMenu => s.lane_menu = true,
             Action::Harmony(cmd) => crate::harmony::run(self,cmd),
+            Action::Vari(a) => crate::vari::press(self, a),
             Action::PianoToolsMenu => {
                 let (x, y) = self.mouse;
                 s.playlist.popup = Some(crate::piano_tools::tools_menu(s, x - 6.0, y + 10.0));

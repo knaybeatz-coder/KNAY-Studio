@@ -290,6 +290,8 @@ pub enum Cmd {
     FitLoop(usize, crate::loop_fit::Fit),
     /// KNAY Key match commands for audio clip `usize` (`crate::key_match`).
     KeyMatch(usize, crate::key_match::KCmd),
+    /// KNAY VariAudio: open audio clip `usize` in the piano roll's pitch editor (`crate::vari`).
+    Vari(usize),
     /// A picker item's menu (§10a) on an audio or automation clip source: the command and the source's channel index.
     Pick(PickCmd, u16),
     PointDelete(u16, usize),
@@ -2584,6 +2586,9 @@ pub fn clip_menu(s: &State, i: usize, x: f32, y: f32) -> Popup {
         if let Some(k) = crate::key_match::menu(s, i) {
             items.push(k);
         }
+        if let Some(v) = crate::vari::menu_item(s, i) {
+            items.push(v);
+        }
         items.push(PItem::sep());
     }
     if let ClipSource::Pattern(_) = c.source {
@@ -4241,6 +4246,7 @@ pub fn run(app: &mut App, cmd: Cmd) -> Option<String> {
             return None;
         }
         Cmd::FitLoop(i, cmd) => return crate::loop_fit::run(app, i, cmd),
+        Cmd::Vari(i) => return crate::vari::open(app, i),
         Cmd::KeyMatch(i, cmd) => {
             let m = crate::key_match::run(app, i, cmd);
             app.invalidate();
@@ -4386,7 +4392,7 @@ pub fn run(app: &mut App, cmd: Cmd) -> Option<String> {
             snapshot(s);
             (!delete_space(s)).then(|| "Delete space: make a time selection first (right-drag the ruler)".into())
         }
-        Cmd::Consolidate | Cmd::ExportTracks | Cmd::QuantizeStarts | Cmd::PointValue(..) | Cmd::ClipPreview(_) | Cmd::FitLoop(..) | Cmd::KeyMatch(..) | Cmd::TypeIn(_) | Cmd::Reset(_) | Cmd::Remote(_) | Cmd::PeakLink(_) | Cmd::MidiExt(_) => None,
+        Cmd::Consolidate | Cmd::ExportTracks | Cmd::QuantizeStarts | Cmd::PointValue(..) | Cmd::ClipPreview(_) | Cmd::FitLoop(..) | Cmd::KeyMatch(..) | Cmd::Vari(_) | Cmd::TypeIn(_) | Cmd::Reset(_) | Cmd::Remote(_) | Cmd::PeakLink(_) | Cmd::MidiExt(_) => None,
         Cmd::StretchMode => {
             s.playlist.stretch = !s.playlist.stretch;
             if s.playlist.stretch { crate::playlist_tools::select(s, PlTool::Paint); }
