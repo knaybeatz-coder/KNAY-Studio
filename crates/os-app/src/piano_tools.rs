@@ -67,7 +67,7 @@ pub enum NoteProp {
 /// The double-click menu of note `i` (a selected note: the selection's), at (x, y).
 pub fn note_menu(s: &State, i: usize, x: f32, y: f32) -> Popup {
     let notes = piano::notes(s);
-    let Some(n) = notes.get(i).copied() else { return Popup { x, y, items: Vec::new(), sub: None, scroll: [0; 2] } };
+    let Some(n) = notes.get(i).copied() else { return Popup { x, y, items: Vec::new(), sub: None, scroll: [0; 2], cascade: Vec::new() } };
     let sel = s.piano.selection(s.pattern, Some(n.channel));
     let count = if sel.contains(&i) { sel.len() } else { 1 };
     let it = |label: String, p: NoteProp| PItem::new(label, Cmd::Piano(NCmd::NoteProp(i, p)));
@@ -99,7 +99,7 @@ pub fn note_menu(s: &State, i: usize, x: f32, y: f32) -> Popup {
         format!("Fine pitch ({fine:+} cents)"),
         [-100i16, -50, -25, -10, 0, 10, 25, 50, 100].into_iter().map(|c| it(format!("{c:+} cents"), NoteProp::Fine(c)).mark(Mark::Radio(fine == c))).collect(),
     ));
-    Popup { x, y, items, sub: None, scroll: [0; 2] }
+    Popup { x, y, items, sub: None, scroll: [0; 2], cascade: Vec::new() }
 }
 
 /// Sets property `p` on note `i` (and the rest of the selection when `i` is selected).

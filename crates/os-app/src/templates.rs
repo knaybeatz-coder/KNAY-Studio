@@ -47,9 +47,7 @@ pub(crate) fn install_factory_template() -> std::io::Result<()> {
     Ok(())
 }
 
-/// The Templates folder: in Lemon Studio's user folder; in tests, the one set in `TEST_DIR` (else none).
-pub fn root() -> Option<PathBuf> {
-    /// KNAY: every mixer track keeps its default name ("Insert N") and its sends go: an insert that was routed goes to the
+/// KNAY: every mixer track keeps its default name ("Insert N") and its sends go: an insert that was routed goes to the
 /// master only.
 pub(crate) fn clean_mixer(p: &mut os_model::Project) {
     for m in p.mixer.iter_mut().filter(|m| m.index != 0) {
@@ -61,7 +59,9 @@ pub(crate) fn clean_mixer(p: &mut os_model::Project) {
     }
 }
 
-#[cfg(test)]
+/// The Templates folder: in Lemon Studio's user folder; in tests, the one set in `TEST_DIR` (else none).
+pub fn root() -> Option<PathBuf> {
+    #[cfg(test)]
     return TEST_DIR.with(|d| d.borrow().clone());
     #[cfg(not(test))]
     os_paths::user_dir().map(|d| d.join("Templates"))
