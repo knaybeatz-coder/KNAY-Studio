@@ -50,6 +50,7 @@ mod hold;
 mod keep_on_disk;
 mod key_detect;
 mod key_match;
+mod congo_bass;
 mod vari;
 mod vari_dsp;
 mod icons;
