@@ -7971,6 +7971,13 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+Signalsmith Stretch and Signalsmith Linear (stft.h, fft.h): MIT, Copyright (c) 2022 Geraint Luff / Signalsmith Audio Ltd.
+Source kept unchanged in crates/os-dsp/vendor/signalsmith (LICENSE-stretch.txt, LICENSE-linear.txt).
+
+Giannitune (https://github.com/jonnygucci1/Giannitune), (c) 2026 Jonathan Griessl: AGPL-3.0. KNAY Studio's VariAudio
+uses a Rust port of its PitchDetector and ScaleQuantizer (crates/os-app/src/vari_dsp.rs) and renders through
+Signalsmith Stretch as Giannitune does. Licence: licenses/Giannitune-AGPL-3.0.txt and the AGPL-3.0 text below.
+
 SnapTune integration: AGPL-3.0. Corresponding integrated source: crates/os-dsp/vendor/snaptune.
                     GNU AFFERO GENERAL PUBLIC LICENSE
                        Version 3, 19 November 2007

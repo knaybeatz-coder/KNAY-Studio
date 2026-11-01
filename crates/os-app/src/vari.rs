@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // This file is part of Lemon Studio: https://github.com/ItsAlphaNeon/Lemon-Studio
 
-//! VariAudio: the piano roll's pitch-editing mode for an audio clip (a sung part), after Cubase's VariAudio. An
+//! VariAudio: the piano roll's pitch-editing mode for an audio clip (a sung part), after Cubase's VariAudio, on
+//! Giannitune's engine (https://github.com/jonnygucci1/Giannitune, AGPL-3.0): its pitch detector and auto-tune
+//! (`vari_dsp`) and Signalsmith Stretch for the pitch and formant changes (`os_dsp::signalsmith`). An
 //! audio clip's menu ▸ VariAudio opens its sample in the piano roll: each sung note is a segment (coloured by its
 //! note) at its pitch, the pitch curve drawn through it, the waveform behind. A click plays the segment; dragging it
 //! moves it by semitones while it plays (Alt: freely, in cents; with Snap pitch editing, onto the editor scale). The
@@ -58,6 +60,12 @@ pub struct Session {
     pub scale: Option<(u8, bool)>,
     pub guides: bool,
     pub snap: bool,
+    /// Giannitune: the voice type (the detector's prior), auto-tune on, its retune speed (0 hard .. 100 slow) and the
+    /// curve it tunes the take to (`vari_dsp::autotune`).
+    pub voice: dsp::Voice,
+    pub autotune: bool,
+    pub retune: f32,
+    pub tune: Option<Arc<Vec<f32>>>,
     /// What the status line says (rendering, rendered, errors).
     pub status: String,
 }
@@ -66,6 +74,37 @@ impl Session {
     /// The editor scale's pitch classes; empty (every semitone) without one.
     pub fn scale_notes(&self) -> Vec<u8> {
         self.scale.map_or_else(Vec::new, |(r, m)| dsp::scale_notes(r, m))
+    }
+
+    /// The auto-tune curve while auto-tune is on.
+    pub fn base(&self) -> Option<&[f32]> {
+        self.tune.as_deref().map(Vec::as_slice).filter(|_| self.autotune)
+    }
+
+    /// Recomputes the auto-tune curve (scale, retune speed or the take changed).
+    fn retune_curve(&mut self) {
+        self.tune = Some(Arc::new(dsp::autotune(&self.frames, &self.scale_notes(), self.retune)));
+    }
+
+    /// The sung or auto-tuned pitch of frame `f`.
+    pub fn pitch_at(&self, f: usize) -> f32 {
+        let p = self.frames.get(f).map_or(0.0, |fr| fr.pitch);
+        self.base().and_then(|b| b.get(f).copied()).filter(|b| *b > 0.0 && p > 0.0).unwrap_or(p)
+    }
+
+    /// Segment `i`'s centre as it sounds (its edit, on top of auto-tune).
+    pub fn seg_centre(&self, i: usize) -> f32 {
+        let (sg, e) = (&self.segs[i], &self.edits[i]);
+        let c = dsp::centre(sg, e, &self.scale_notes());
+        if self.base().is_none() {
+            return c;
+        }
+        let mut v: Vec<f32> = (sg.start..sg.end).map(|f| self.pitch_at(f)).filter(|p| *p > 0.0).collect();
+        if v.is_empty() {
+            return c;
+        }
+        v.sort_by(|a, b| a.total_cmp(b));
+        c + v[v.len() / 2] - sg.pitch
     }
 
     /// The selected segments, or all of them when none is.
@@ -81,6 +120,8 @@ pub enum Slider {
     Straighten,
     Formant,
     Volume,
+    /// Giannitune's retune speed (the session's, not a segment's).
+    Retune,
 }
 
 impl Slider {
@@ -92,6 +133,7 @@ impl Slider {
             Slider::Straighten => "Straighten Curve",
             Slider::Formant => "Shift Formant",
             Slider::Volume => "Volume",
+            Slider::Retune => "Retune Speed",
         }
     }
 
@@ -100,6 +142,7 @@ impl Slider {
             Slider::Correct | Slider::Straighten => (0.0, 1.0),
             Slider::Formant => (-12.0, 12.0),
             Slider::Volume => (-24.0, 12.0),
+            Slider::Retune => (0.0, 100.0),
         }
     }
 
@@ -109,6 +152,7 @@ impl Slider {
             Slider::Straighten => e.straighten,
             Slider::Formant => e.formant,
             Slider::Volume => e.gain_db,
+            Slider::Retune => 0.0,
         }
     }
 
@@ -120,6 +164,7 @@ impl Slider {
             Slider::Straighten => e.straighten = v,
             Slider::Formant => e.formant = (v * 10.0).round() / 10.0,
             Slider::Volume => e.gain_db = (v * 10.0).round() / 10.0,
+            Slider::Retune => {}
         }
     }
 
@@ -128,6 +173,7 @@ impl Slider {
             Slider::Correct | Slider::Straighten => format!("{:.0} %", v * 100.0),
             Slider::Formant => format!("{v:+.1} st"),
             Slider::Volume => format!("{v:+.1} dB"),
+            Slider::Retune => format!("{v:.0}"),
         }
     }
 }
@@ -161,6 +207,9 @@ pub enum Btn {
     Guides,
     Snap,
     DetectScale,
+    /// Giannitune: the next voice type (analyses the take again), auto-tune on / off.
+    Voice,
+    AutoTune,
     Close,
 }
 
@@ -206,6 +255,9 @@ struct Saved {
     segs: Vec<Segment>,
     edits: Vec<Edit>,
     scale: Option<(u8, bool)>,
+    voice: dsp::Voice,
+    autotune: bool,
+    retune: f32,
 }
 
 fn read_sidecar(path: &str) -> Option<Saved> {
@@ -221,10 +273,14 @@ fn read_sidecar(path: &str) -> Option<Saved> {
         edits.push(Edit { shift: g("shift"), correct: g("correct"), straighten: g("straighten"), formant: g("formant"), gain_db: g("gain_db") });
     }
     let scale = v.get("scale_root").and_then(serde_json::Value::as_u64).map(|r| ((r % 12) as u8, v.get("scale_minor").and_then(serde_json::Value::as_bool).unwrap_or(false)));
-    Some(Saved { original, segs, edits, scale })
+    let voice = dsp::Voice::ALL.into_iter().find(|x| v.get("voice").and_then(serde_json::Value::as_str) == Some(x.name())).unwrap_or_default();
+    let autotune = v.get("autotune").and_then(serde_json::Value::as_bool).unwrap_or(false);
+    let retune = v.get("retune").and_then(serde_json::Value::as_f64).unwrap_or(20.0) as f32;
+    Some(Saved { original, segs, edits, scale, voice, autotune, retune })
 }
 
-fn write_sidecar(rendered: &std::path::Path, original: &str, segs: &[Segment], edits: &[Edit], scale: Option<(u8, bool)>) -> std::io::Result<()> {
+#[allow(clippy::too_many_arguments)]
+fn write_sidecar(rendered: &std::path::Path, original: &str, segs: &[Segment], edits: &[Edit], scale: Option<(u8, bool)>, voice: dsp::Voice, autotune: bool, retune: f32) -> std::io::Result<()> {
     let segments: Vec<serde_json::Value> = segs
         .iter()
         .zip(edits)
@@ -233,7 +289,8 @@ fn write_sidecar(rendered: &std::path::Path, original: &str, segs: &[Segment], e
                 "straighten": e.straighten, "formant": e.formant, "gain_db": e.gain_db })
         })
         .collect();
-    let mut v = serde_json::json!({ "format": "KNAY VariAudio 2", "original": original, "segments": segments });
+    let mut v = serde_json::json!({ "format": "KNAY VariAudio 3 (Giannitune)", "original": original, "segments": segments,
+        "voice": voice.name(), "autotune": autotune, "retune": retune });
     if let Some((root, minor)) = scale {
         v["scale_root"] = serde_json::json!(root);
         v["scale_minor"] = serde_json::json!(minor);
@@ -245,7 +302,7 @@ fn write_sidecar(rendered: &std::path::Path, original: &str, segs: &[Segment], e
 /// goes back to the original at once.
 fn render(app: &mut App) {
     let Some(v) = app.state.piano.vari.as_deref() else { return };
-    if v.edits.iter().all(Edit::is_none) {
+    if v.edits.iter().all(Edit::is_none) && v.base().is_none() {
         let (channel, original) = (v.channel, v.original.clone());
         set_sample(app, channel, original);
         status(app, "Original take playing");
@@ -258,19 +315,20 @@ fn render(app: &mut App) {
     let dir = rendered_dir(&app.state);
     let scale_notes = v.scale_notes();
     let (channel, original, sample, frames, segs, edits, scale) = (v.channel, v.original.clone(), v.sample.clone(), v.frames.clone(), v.segs.clone(), v.edits.clone(), v.scale);
+    let (voice, autotune, retune, base) = (v.voice, v.autotune, v.retune, v.base().map(<[f32]>::to_vec));
     let stem = std::path::Path::new(&original).file_stem().map_or_else(|| "Audio".into(), |s| s.to_string_lossy().into_owned());
     std::thread::spawn(move || {
         let path = (|| -> Result<String, String> {
             std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
             let mono = dsp::mono(&sample.left, &sample.right);
-            let out = dsp::render(&[&sample.left, &sample.right], &mono, sample.rate, &frames, &segs, &edits, &scale_notes);
+            let out = dsp::render(&[&sample.left, &sample.right], &mono, sample.rate, &frames, &segs, &edits, &scale_notes, base.as_deref(), dsp::Shifter::External(&os_dsp::signalsmith::render));
             let interleaved: Vec<f32> = out[0].iter().zip(&out[1]).flat_map(|(l, r)| [*l, *r]).collect();
             let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis());
             let file = dir.join(format!("{stem} (VariAudio {stamp}).wav"));
             let mut w = std::io::BufWriter::new(std::fs::File::create(&file).map_err(|e| e.to_string())?);
             os_engine::wav::write_f32_stereo(&mut w, sample.rate, &interleaved).map_err(|e| e.to_string())?;
             drop(w);
-            write_sidecar(&file, &original, &segs, &edits, scale).map_err(|e| e.to_string())?;
+            write_sidecar(&file, &original, &segs, &edits, scale, voice, autotune, retune).map_err(|e| e.to_string())?;
             Ok(file.to_string_lossy().into_owned())
         })();
         if let Ok(mut d) = done().lock() {
@@ -330,7 +388,7 @@ static AUDITION: AtomicUsize = AtomicUsize::new(0);
 fn audition(app: &mut App, i: usize) {
     let Some(v) = app.state.piano.vari.as_deref() else { return };
     let scale = v.scale_notes();
-    let (l, r) = dsp::render_segment(&v.sample.left, &v.sample.right, v.sample.rate, &v.frames, &v.segs, &v.edits, i, &scale);
+    let (l, r) = dsp::render_segment(&v.sample.left, &v.sample.right, v.sample.rate, &v.frames, &v.segs, &v.edits, i, &scale, v.base(), dsp::Shifter::External(&os_dsp::signalsmith::render));
     if l.is_empty() {
         return;
     }
@@ -411,7 +469,9 @@ pub fn open(app: &mut App, i: usize) -> Option<String> {
         Err(e) => return Some(format!("VariAudio: could not read {original}: {e}")),
     };
     let mono = dsp::mono(&sample.left, &sample.right);
-    let frames = dsp::track(&mono, sample.rate);
+    let voice = saved.as_ref().map_or_else(dsp::Voice::default, |s| s.voice);
+    let frames = dsp::track_voice(&mono, sample.rate, voice);
+    let (autotune, retune) = saved.as_ref().map_or((false, 20.0), |s| (s.autotune, s.retune));
     let (segs, edits, scale) = match saved {
         Some(sv) if sv.segs.iter().all(|s| s.end <= frames.len()) && sv.segs.len() == sv.edits.len() => (sv.segs, sv.edits, sv.scale),
         _ => {
@@ -459,8 +519,15 @@ pub fn open(app: &mut App, i: usize) -> Option<String> {
         scale,
         guides: scale.is_some(),
         snap: false,
+        voice,
+        autotune,
+        retune,
+        tune: None,
         status: "Click a segment to hear it; drag it up or down (Alt: cents)".into(),
     }));
+    if let Some(v) = app.state.piano.vari.as_deref_mut() {
+        v.retune_curve();
+    }
     app.invalidate();
     Some(format!("VariAudio: {name}, {n} segments"))
 }
@@ -525,6 +592,28 @@ fn button(app: &mut App, b: Btn) {
             rerender = true;
             format!("Reset {} segment(s)", ts.len())
         }
+        Btn::Voice => {
+            let i = dsp::Voice::ALL.iter().position(|x| *x == v.voice).unwrap_or(0);
+            v.voice = dsp::Voice::ALL[(i + 1) % dsp::Voice::ALL.len()];
+            let mono = dsp::mono(&v.sample.left, &v.sample.right);
+            v.frames = Arc::new(dsp::track_voice(&mono, v.sample.rate, v.voice));
+            v.segs = dsp::segments(&v.frames);
+            v.edits = vec![Edit::default(); v.segs.len()];
+            v.sel.clear();
+            v.retune_curve();
+            rerender = true;
+            format!("Voice type: {} (the take was analysed again; segment edits start over)", v.voice.name())
+        }
+        Btn::AutoTune => {
+            v.autotune = !v.autotune;
+            v.retune_curve();
+            rerender = true;
+            if v.autotune {
+                format!("Giannitune auto-tune on: {} at retune speed {:.0}", scale_name(v.scale).trim_start_matches("Editor scale: "), v.retune)
+            } else {
+                "Giannitune auto-tune off".into()
+            }
+        }
         Btn::ScaleRoot => {
             v.scale = match v.scale {
                 None => Some((0, false)),
@@ -532,12 +621,14 @@ fn button(app: &mut App, b: Btn) {
                 Some((r, m)) => Some((r + 1, m)),
             };
             v.guides = v.scale.is_some() && (v.guides || v.scale == Some((0, false)));
-            rerender = v.edits.iter().any(|e| e.correct > 0.0);
+            v.retune_curve();
+            rerender = v.autotune || v.edits.iter().any(|e| e.correct > 0.0);
             scale_name(v.scale)
         }
         Btn::ScaleMode => {
             v.scale = Some(v.scale.map_or((0, true), |(r, m)| (r, !m)));
-            rerender = v.edits.iter().any(|e| e.correct > 0.0);
+            v.retune_curve();
+            rerender = v.autotune || v.edits.iter().any(|e| e.correct > 0.0);
             scale_name(v.scale)
         }
         Btn::Guides => {
@@ -554,7 +645,8 @@ fn button(app: &mut App, b: Btn) {
                 Some(d) => {
                     v.scale = Some((d.key.root, d.key.minor));
                     v.guides = true;
-                    rerender = v.edits.iter().any(|e| e.correct > 0.0);
+                    v.retune_curve();
+                    rerender = v.autotune || v.edits.iter().any(|e| e.correct > 0.0);
                     format!("Detected {}{}", d.key.name(), if d.confident() { "" } else { " (not certain)" })
                 }
                 None => "No key found in this take".into(),
@@ -606,7 +698,7 @@ pub fn press(app: &mut App, a: VAct) {
         }
         VAct::Slider(which) => {
             let Some(v) = app.state.piano.vari.as_deref() else { return };
-            let v0 = v.targets().first().map_or(0.0, |&i| which.get(&v.edits[i]));
+            let v0 = if which == Slider::Retune { v.retune } else { v.targets().first().map_or(0.0, |&i| which.get(&v.edits[i])) };
             let w = INSPECTOR_W - 24.0;
             app.drag = Some(Drag::Vari(VDrag::Slider { which, x0: x, w, v0 }));
         }
@@ -661,8 +753,13 @@ pub fn drag_move(app: &mut App, d: VDrag) {
         VDrag::Slider { which, x0, w, v0 } => {
             let (lo, hi) = which.range();
             let val = v0 + (x - x0) / w.max(1.0) * (hi - lo);
-            for i in v.targets() {
-                which.set(&mut v.edits[i], val);
+            if which == Slider::Retune {
+                v.retune = val.clamp(lo, hi).round();
+                v.retune_curve();
+            } else {
+                for i in v.targets() {
+                    which.set(&mut v.edits[i], val);
+                }
             }
             v.status = format!("{}: {}", which.label(), which.text(val.clamp(lo, hi)));
         }
@@ -855,7 +952,7 @@ pub fn paint(ui: &mut Ui, s: &State, r: Rect, playing: Option<f64>) {
         if x1 < a.grid.x || x0 > a.grid.right() {
             continue;
         }
-        let c = dsp::centre(sg, e, &scale);
+        let c = v.seg_centre(i);
         let block = Rect::new(x0, y_of(c) - row / 2.0 + 1.0, (x1 - x0).max(3.0), row - 2.0);
         let selected = v.sel.contains(&i);
         let col = note_colour(c);
@@ -877,7 +974,7 @@ pub fn paint(ui: &mut Ui, s: &State, r: Rect, playing: Option<f64>) {
         ui.hit(block, Action::Vari(VAct::Seg(i)), hint);
         let pts: Vec<(f32, f32)> = (sg.start..sg.end.min(v.frames.len()))
             .filter(|&f| v.frames[f].voiced())
-            .map(|f| (x_of(dsp::secs_of(f)), y_of(dsp::edited_pitch(v.frames[f].pitch, sg, e, &scale))))
+            .map(|f| (x_of(dsp::secs_of(f)), y_of(dsp::edited_pitch(v.pitch_at(f), sg, e, &scale))))
             .collect();
         if pts.len() > 1 {
             ui.c.polyline(&pts, 1.4, Color::rgb(0xf4f4f4).with_alpha(230));
@@ -947,6 +1044,26 @@ fn inspector(ui: &mut Ui, v: &Session, r: Rect) {
     small_button(ui, Rect::new(x, y, bw, 22.0), "Select all", false, Btn::SelectAll, "Select every segment (Ctrl+A)");
     small_button(ui, Rect::new(x + bw + 6.0, y, bw, 22.0), "Reset", false, Btn::Reset, "Back to the original take for the selected segments (R)");
     y += 34.0;
+
+    // Giannitune: voice type, auto-tune to the editor scale, retune speed.
+    head(ui, y, "Giannitune");
+    y += 28.0;
+    ui.c.text(Font::new(12), x, y + 3.0, t.text, "Voice");
+    small_button(ui, Rect::new(x + 60.0, y, w - 60.0, 22.0), v.voice.name(), false, Btn::Voice, "The singer's range, for the pitch detector: click for the next (the take is analysed again)");
+    y += 28.0;
+    small_button(ui, Rect::new(x, y, w, 22.0), if v.autotune { "Auto-Tune: On" } else { "Auto-Tune: Off" }, v.autotune, Btn::AutoTune, "Giannitune's auto-tune: every sung note to the editor scale (chromatic without one), glides left natural");
+    y += 30.0;
+    ui.c.text(Font::new(12), x, y, t.text, Slider::Retune.label());
+    let txt = if v.retune < 1.0 { "0 (hard tune)".to_string() } else { Slider::Retune.text(v.retune) };
+    let tw = ui.c.text_width(Font::new(12), &txt);
+    ui.c.text(Font::new(12), x + w - tw, y, t.text_dim, &txt);
+    y += 17.0;
+    let k = (v.retune / 100.0).clamp(0.0, 1.0);
+    ui.c.fill_rrect(Rect::new(x, y, w, 8.0), 4.0, t.text_faint.with_alpha(50));
+    ui.c.fill_rrect(Rect::new(x, y, (k * w).max(2.0), 8.0), 4.0, if v.autotune { Color::rgb(0xf0a830) } else { t.text_faint.with_alpha(120) });
+    ui.c.fill_circle(x + k * w, y + 4.0, 6.0, Color::rgb(0xe8e8e8));
+    ui.hit(Rect::new(x - 6.0, y - 6.0, w + 12.0, 20.0), Action::Vari(VAct::Slider(Slider::Retune)), "Retune Speed: 0 snaps at once (the hard-tune sound), 100 glides in slowly (natural)");
+    y += 26.0;
 
     head(ui, y, "Scale Assistant");
     y += 28.0;
@@ -1082,6 +1199,19 @@ mod tests {
         app.drag = None;
         let v = app.state.piano.vari.as_deref().unwrap();
         assert_eq!(v.segs[0].pitch.round() + v.edits[0].shift.round(), 62.0);
+        // Giannitune auto-tune: on, its curve follows the scale; the retune slider changes it.
+        button(&mut app, Btn::AutoTune);
+        let v = app.state.piano.vari.as_deref().unwrap();
+        assert!(v.autotune && v.base().is_some_and(|b| b.len() == v.frames.len()));
+        let f = (v.segs[1].start + v.segs[1].end) / 2;
+        assert!((v.pitch_at(f) - 64.0).abs() < 0.3, "E is in C major: {}", v.pitch_at(f));
+        app.mouse = (100.0, 0.0);
+        press(&mut app, VAct::Slider(Slider::Retune));
+        let Some(Drag::Vari(d)) = app.drag.clone() else { panic!("a slider drag") };
+        app.mouse = (100.0 + (INSPECTOR_W - 24.0) / 2.0, 0.0);
+        drag_move(&mut app, d);
+        app.drag = None;
+        assert!((app.state.piano.vari.as_deref().unwrap().retune - 70.0).abs() < 1.0);
         // Esc: the piano roll again.
         app.key(&winit::keyboard::Key::Named(winit::keyboard::NamedKey::Escape), false, false);
         assert!(app.state.piano.vari.is_none());
