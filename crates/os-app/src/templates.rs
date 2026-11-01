@@ -49,7 +49,19 @@ pub(crate) fn install_factory_template() -> std::io::Result<()> {
 
 /// The Templates folder: in Lemon Studio's user folder; in tests, the one set in `TEST_DIR` (else none).
 pub fn root() -> Option<PathBuf> {
-    #[cfg(test)]
+    /// KNAY: every mixer track keeps its default name ("Insert N") and its sends go: an insert that was routed goes to the
+/// master only.
+pub(crate) fn clean_mixer(p: &mut os_model::Project) {
+    for m in p.mixer.iter_mut().filter(|m| m.index != 0) {
+        m.name = None;
+        if !m.routes.is_empty() {
+            m.routes = vec![0];
+        }
+        m.send_levels.clear();
+    }
+}
+
+#[cfg(test)]
     return TEST_DIR.with(|d| d.borrow().clone());
     #[cfg(not(test))]
     os_paths::user_dir().map(|d| d.join("Templates"))
@@ -188,8 +200,15 @@ impl App {
         }
         let s = &mut self.state;
         s.path = None;
+        // KNAY: the factory starter's mixer comes clean: no track names and every insert routed to the master only
+        // (Michael Lane's personal names and routing are not ours).
+        if path.file_stem().is_some_and(|n| n == "Lemon Starter" || n == "KNAY Starter") {
+            clean_mixer(&mut s.project);
+        }
         for m in &mut s.project.mixer { m.slots_enabled = m.is_fx_return(); }
         crate::project_info::created(s);
+        // KNAY: the factory starter goes by our name.
+        let name = if name == "Lemon Starter" { "KNAY Starter" } else { name };
         if s.project.info.title.as_deref().is_none_or(str::is_empty) {
             s.project.info.title = Some(name.to_string());
         }
@@ -285,7 +304,7 @@ mod tests {
         install_factory_template().unwrap();
         let mut app = App::new(None);
         app.startup_project();
-        assert_eq!(app.title(), "[Lemon Starter]");
+        assert_eq!(app.title(), "[KNAY Starter]");
         assert_eq!(app.state.tempo, 120.0);
         assert_eq!(app.state.project.mixer.len(), 127);
         assert!(app.state.shown(crate::app::Win::Mixer));

@@ -12,7 +12,7 @@ struct Pane {
     frame:MainWin, mouse:(f32,f32), mods:ModifiersState, last:Instant, painted:Instant,
 }
 fn key(w:Win)-> &'static str {match w {Win::Mixer=>"native_mixer",Win::PianoRoll=>"native_piano",_=>"native_playlist"}}
-fn title(w:Win)-> &'static str {match w {Win::Mixer=>"Lemon Studio - Mixer",Win::PianoRoll=>"Lemon Studio - Piano roll",_=>"Lemon Studio - Playlist"}}
+fn title(w:Win)-> &'static str {match w {Win::Mixer=>"KNAY Studio - Mixer",Win::PianoRoll=>"KNAY Studio - Piano roll",_=>"KNAY Studio - Playlist"}}
 impl Windows {
     pub fn owns(&self,id:WindowId)->bool {self.panes.iter().any(|p|p.window.id()==id)}
     pub fn prepare_drag(&mut self,app:&mut App) {

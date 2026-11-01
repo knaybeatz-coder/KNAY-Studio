@@ -385,6 +385,8 @@ pub enum Cmd {
     /// FILE ▸ Recent projects ▸ More: open recent project `n` (spec: ui/recent-projects.md §2).
     OpenRecent(usize),
     OpenTapper,
+    /// KNAY: type the tempo in (the tempo box's menu, or a double-click on it).
+    TypeTempo,
     /// The Flam dialog's Options ▸ presets (spec: ui/piano-flam.md §5).
     FlamPreset(crate::flam::Preset),
     /// The Limit dialog's Key, scale and Snap ▸ menus (spec: ui/piano-limit.md §1).
@@ -553,6 +555,8 @@ pub enum EditTarget {
     ArrangementName,
     /// The value box of "Type in value..." and whether it reads normalized values (spec: ui/type-in-value.md).
     TypeIn(crate::typein::Target, bool),
+    /// KNAY: the tempo typed in (BPM).
+    Tempo,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1187,6 +1191,16 @@ pub fn audio_speed(s: &State, src: ClipSource) -> f64 {
 /// does (the stored length is not used for an audio clip): each trim point becomes ticks on its own, rounded; an
 /// untrimmed clip spans the whole sample (ui/playlist.md §9c, audio/audio-clips.md). Clips whose sample is not
 /// loaded keep their length. Returns whether a length changed. (The app's tick uses `audio_fits` + `fit_clips`.)
+/// KNAY: the tempo box's text field (Enter sets the tempo, Esc keeps it), under the tempo box.
+pub fn type_tempo(app: &mut App) {
+    let at = app.hits.iter().rev().find(|h| h.action == crate::app::Action::Tempo).map_or(app.mouse, |h| (h.rect.x, h.rect.bottom() + 2.0));
+    start_edit(&mut app.state, EditTarget::Tempo, at);
+    if let Some(e) = app.state.playlist.edit.as_mut() {
+        e.sel = true;
+    }
+    app.invalidate();
+}
+
 #[cfg(test)]
 pub fn fit_audio(s: &mut State) -> bool {
     audio_fits(s).is_some_and(|fits| fit_clips(&mut s.project.arrangements, &fits))
@@ -3118,6 +3132,28 @@ pub fn press_grid(app: &mut App, grid: Rect, right: bool) {
         app.invalidate();return;
     }
 
+    // KNAY: Alt+right-click mutes or unmutes a clip in any tool (a selected one: the selection); dragging on mutes
+    // or unmutes the clips passed over, as the Mute tool does.
+    if right && alt && !app.ctrl {
+        if let Some(i) = hit {
+            snapshot(s);
+            let on = !clips(s)[i].muted;
+            if s.playlist.sel.contains(&i) && s.playlist.sel.len() > 1 {
+                for j in s.playlist.sel.clone() {
+                    if let Some(c) = arr_mut(s).clips.get_mut(j) {
+                        c.muted = on;
+                    }
+                }
+            }
+            s.message = Some(if on { "Muted" } else { "Unmuted" }.into());
+            s.piano.dirty = true;
+            app.drag = Some(Drag::Pl(PlDrag::Mute { on }));
+            mute_at(app, grid, on);
+        }
+        app.invalidate();
+        return;
+    }
+
     // Ctrl+drag selects in any tool; Ctrl+click toggles a clip (§3).
     if app.ctrl && !right {
         match hit {
@@ -4001,6 +4037,10 @@ pub fn start_edit(s: &mut State, target: EditTarget, at: (f32, f32)) {
         }
         EditTarget::PatternName(n) => source_name(s, ClipSource::Pattern(n)),
         EditTarget::MixerName(n) => crate::mixer::name(s, n),
+        EditTarget::Tempo => {
+            let t = format!("{:.3}", s.tempo);
+            t.trim_end_matches('0').trim_end_matches('.').to_string()
+        }
         EditTarget::SlotName(t, k) => crate::mixer::slot_name(s, t, k).unwrap_or_default(),
         EditTarget::TypeIn(t, norm) => crate::typein::text(s, t, norm),
     };
@@ -4041,6 +4081,16 @@ pub fn commit_edit(s: &mut State) {
             if let Some(v) = parse_value(s, ch, &text) {
                 let beat = s.project.automation(ch).and_then(|a| a.points.get(i)).map_or(0.0, |p| p.beat);
                 move_point(s, ch, i, beat, v);
+            }
+        }
+        EditTarget::Tempo => {
+            // "98", "98.5" or "98,5"; kept in the tempo box's range.
+            if let Ok(v) = text.replace(',', ".").trim_end_matches(|c: char| c.is_alphabetic() || c == ' ').parse::<f64>() {
+                if v.is_finite() && v > 0.0 {
+                    s.tempo = ((v.clamp(10.0, 522.0)) * 1000.0).round() / 1000.0;
+                    s.piano.dirty = true;
+                    s.message = Some(format!("Tempo {:.3} BPM", s.tempo));
+                }
             }
         }
         EditTarget::MixerName(n) => {
@@ -4166,6 +4216,10 @@ pub fn run(app: &mut App, cmd: Cmd) -> Option<String> {
         }
         Cmd::OpenTapper => {
             app.open_tempo_tapper();
+            return None;
+        }
+        Cmd::TypeTempo => {
+            type_tempo(app);
             return None;
         }
         Cmd::OpenRecent(n) => {
@@ -4858,7 +4912,7 @@ pub fn run(app: &mut App, cmd: Cmd) -> Option<String> {
         Cmd::Genre(_) => None,
         Cmd::Theme(_) => None,
         Cmd::Template(_) | Cmd::NewTemplate(_) => None,
-        Cmd::Arp(_) | Cmd::MidiImport(_) | Cmd::MidiExport(_) | Cmd::OpenRecent(_) | Cmd::OpenTapper => None,
+        Cmd::Arp(_) | Cmd::MidiImport(_) | Cmd::MidiExport(_) | Cmd::OpenRecent(_) | Cmd::OpenTapper | Cmd::TypeTempo => None,
         Cmd::FlamPreset(_) => None,
         Cmd::Limit(_) => None,
         Cmd::Claw(_) => None,

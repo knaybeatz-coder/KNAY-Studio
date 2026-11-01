@@ -294,10 +294,10 @@ pub const LIVE: &[&str] = &[
 /// MIDI: lists the devices again (`App::midi_refresh`); Update MIDI scripts stays greyed with its reason.
 pub const REFRESH_MIDI: &str = "Refresh device list";
 pub const UPDATE_SCRIPTS: &str = "Update MIDI scripts";
-const NO_SCRIPTS: &str = "Lemon Studio has no MIDI scripts";
+const NO_SCRIPTS: &str = "KNAY Studio has no MIDI scripts";
 /// MIDI: Performance mode MIDI channel stays greyed with its reason.
 pub const PERFORMANCE_CHANNEL: &str = "Performance mode MIDI channel";
-const NO_PERFORMANCE: &str = "Lemon Studio has no playlist performance mode";
+const NO_PERFORMANCE: &str = "KNAY Studio has no playlist performance mode";
 
 /// `LIVE`, and the checks declared in `crate::prefs`.
 fn live(key: &str) -> bool {
@@ -318,7 +318,7 @@ pub const BUFFER_LENGTH: &str = "Buffer length";
 pub const MODE: &str = "Mode";
 pub const MODE_SHARED: &str = "Shared (other programs play too)";
 #[cfg(not(target_os = "linux"))]
-pub const MODE_EXCLUSIVE: &str = "Exclusive (Lemon Studio alone, smaller buffers)";
+pub const MODE_EXCLUSIVE: &str = "Exclusive (KNAY Studio alone, smaller buffers)";
 #[cfg(target_os = "linux")]
 pub const MODE_EXCLUSIVE: &str = "Exclusive (ALSA directly, past the sound server)";
 const MODE_ASIO: &str = "Mode: for Windows devices (an ASIO driver plays on its own terms)";
@@ -625,9 +625,9 @@ pub fn page(tab: usize, s: &State) -> Vec<Group> {
                         let device = st.audio.device.as_deref().unwrap_or("the default device");
                         let alone = exclusive.then(|| {
                             let line = if cfg!(windows) {
-                                format!("Other programs can't play on {device} while Lemon Studio has it open.")
+                                format!("Other programs can't play on {device} while KNAY Studio has it open.")
                             } else {
-                                format!("Other programs can't play on {device} while Lemon Studio has it open through ALSA (it lets go once nothing plays).")
+                                format!("Other programs can't play on {device} while KNAY Studio has it open through ALSA (it lets go once nothing plays).")
                             };
                             Text(line, true)
                         });
@@ -899,7 +899,7 @@ pub fn page(tab: usize, s: &State) -> Vec<Group> {
         }
         DEBUG => {
             let mut lines = vec![
-                format!("Lemon Studio {}", env!("CARGO_PKG_VERSION")),
+                format!("KNAY Studio {}", env!("CARGO_PKG_VERSION")),
                 format!("Project: {}", s.path.as_ref().map_or("(new project)".into(), |p| p.display().to_string())),
                 format!("Saved by: {}", s.project.saved_by),
                 format!("PPQ {}, tempo {:.3}", s.project.ppq, s.tempo),
@@ -921,7 +921,7 @@ pub fn page(tab: usize, s: &State) -> Vec<Group> {
             g("", [
                 vec![
                     Gap(20.0),
-                    Big(format!("Lemon Studio {}", env!("CARGO_PKG_VERSION"))),
+                    Big(format!("KNAY Studio {}", env!("CARGO_PKG_VERSION"))),
                     txt("A digital audio workstation written in Rust."),
                     txt("Copyright (C) 2026 ItsAlphaNeon and the Lemon Studio contributors."),
                     Gap(10.0),
@@ -942,7 +942,7 @@ pub fn page(tab: usize, s: &State) -> Vec<Group> {
             .flatten()
             .collect()),
             g("Licence", vec![
-                Big("Lemon Studio needs no account.".into()),
+                Big("KNAY Studio needs no account.".into()),
                 txt("It is free software: you can redistribute it and/or modify it under the terms"),
                 txt("of the GNU General Public License, version 3 or (at your option) any later version."),
                 txt("It comes with ABSOLUTELY NO WARRANTY. Licence: https://www.gnu.org/licenses/"),

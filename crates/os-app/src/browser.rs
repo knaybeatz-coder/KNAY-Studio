@@ -835,7 +835,7 @@ pub fn options_menu(s: &crate::app::State) -> Vec<PItem> {
         b("Reread structure", BCmd::Reread).key("Ctrl+R"),
         PItem::head("Content"),
         b("Add sample folder...", BCmd::AddFolder),
-        b(if crate::starter_pack::busy() {"Cancel Starter Pack download"} else {"Download Lemon Studio Starter Pack"}, BCmd::StarterPack),
+        b(if crate::starter_pack::busy() {"Cancel Starter Pack download"} else {"Download KNAY Studio Starter Pack"}, BCmd::StarterPack),
         b("Configure extra folders", BCmd::ConfigureFolders),
         b("Refresh plugin list (fast scan)", BCmd::Rescan),
     ]

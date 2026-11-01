@@ -1648,7 +1648,7 @@ impl App {
                  Studio does not read yet.\n\nOpen the project in version 24.2 or later, save it again, then open the new copy \
                  here."
             );
-            self.tell(crate::dialog::Kind::Info, "Project not supported yet", crate::dialog::spans(&["Lemon Studio cannot open ", &name, &rest]));
+            self.tell(crate::dialog::Kind::Info, "Project not supported yet", crate::dialog::spans(&["KNAY Studio cannot open ", &name, &rest]));
         }
         match result {
             Ok((file, project)) => {
@@ -1733,7 +1733,7 @@ impl App {
         let path = self.state.path.clone();
         let name = path.as_ref().map(|p|p.with_extension("lmn")).as_ref().and_then(|p| p.file_name()).map_or_else(|| "Untitled.lmn".to_string(), |n| n.to_string_lossy().into_owned());
         let dlg = FileDlg::new(Mode::Save, "Save project as", "project", crate::dialog::Then::SaveProject(next))
-            .filter("Lemon Studio project", &["lmn"])
+            .filter("KNAY Studio project", &["lmn"])
             .start(path.as_deref().and_then(|p| p.parent()))
             .name(&name);
         self.file_dialog(dlg);
@@ -2254,7 +2254,7 @@ impl App {
     fn open_dialog(&mut self) {
         let start = self.state.path.as_ref().and_then(|p| p.parent().map(std::path::Path::to_path_buf));
         let dlg = crate::filedlg::FileDlg::new(crate::filedlg::Mode::Open, "Open project", "project", crate::dialog::Then::OpenProject)
-            .filter("Lemon Studio / legacy projects", &["lmn", "flp", "zip"])
+            .filter("KNAY Studio / legacy projects", &["lmn", "flp", "zip"])
             .start(start.as_deref());
         self.file_dialog(dlg);
     }
@@ -6371,7 +6371,8 @@ impl App {
                 let mut menu = crate::playlist::knob_menu(&self.state, auto, typein, x, y);
                 if *a == Action::Tempo {
                     menu.items.insert(0, crate::playlist::PItem::new("Tap tempo", crate::playlist::Cmd::OpenTapper));
-                    menu.items.insert(1, crate::playlist::PItem::sep());
+                    menu.items.insert(1, crate::playlist::PItem::new("Type in tempo...", crate::playlist::Cmd::TypeTempo));
+                    menu.items.insert(2, crate::playlist::PItem::sep());
                 }
                 self.state.playlist.popup = Some(menu);
                 return self.invalidate();
@@ -6411,6 +6412,26 @@ impl App {
             self.drag = Some(Drag::ControlErase { last_x: x });
             self.erase_control_points(x, x);
             return;
+        }
+        // KNAY: Alt+right-click mutes or unmutes a note (a selected one: the selection).
+        if let Some(Action::PianoNote(i)) = action
+            && self.alt
+            && !self.ctrl
+        {
+            let s = &mut self.state;
+            let sel = s.piano.selection(s.pattern, piano::channel(s));
+            let targets = if sel.contains(&i) { sel } else { vec![i] };
+            let on = !piano::notes(s).get(i).is_some_and(|n| n.muted());
+            piano::snapshot_as(s, "Piano roll mute notes");
+            let notes = &mut piano::pattern_mut(s).notes;
+            for j in targets {
+                if let Some(n) = notes.get_mut(j) {
+                    n.set_muted(on);
+                }
+            }
+            s.piano.dirty = true;
+            s.message = Some(if on { "Notes muted" } else { "Notes unmuted" }.into());
+            return self.invalidate();
         }
         if let Some(a @ (Action::PianoNote(_) | Action::PianoGrid)) = action {
             // Select: same as the left button; Zoom: toggle zoomed out / last zoom; the other
@@ -7822,6 +7843,20 @@ impl App {
             self.damage_piano();
             return;
         }
+        // KNAY: a double-click on a note opens its properties (slide, portamento, velocity, pan, fine pitch), as FL's.
+        if let Action::PianoNote(i) = *a {
+            static LAST: std::sync::Mutex<Option<(usize, std::time::Instant)>> = std::sync::Mutex::new(None);
+            let now = std::time::Instant::now();
+            let double = LAST.lock().ok().and_then(|mut l| l.replace((i, now))).is_some_and(|(j, t)| j == i && now.duration_since(t).as_millis() < 400);
+            if double {
+                if let Ok(mut l) = LAST.lock() {
+                    *l = None;
+                }
+                self.drag = None;
+                self.state.playlist.popup = Some(crate::piano_tools::note_menu(&self.state, i, x, y));
+                return self.invalidate();
+            }
+        }
         if *a==Action::PianoGrid && tool==Tool::Draw && self.state.piano.harmony.stamp.is_some() {
             let tick=crate::piano_snap::place(&self.state,&g,g.tick_at(x),self.alt);
             crate::harmony::stamp(&mut self.state,ch,tick,g.key_at(y));self.invalidate();return;
@@ -8272,6 +8307,16 @@ impl App {
             }
             Action::CableDebug(d) => self.cable_debug(d),
             Action::Tempo => {
+                // KNAY: a double-click types the tempo in.
+                static LAST: std::sync::Mutex<Option<std::time::Instant>> = std::sync::Mutex::new(None);
+                let now = std::time::Instant::now();
+                let double = LAST.lock().ok().and_then(|mut l| l.replace(now)).is_some_and(|t| now.duration_since(t).as_millis() < 400);
+                if double {
+                    if let Ok(mut l) = LAST.lock() {
+                        *l = None;
+                    }
+                    return crate::playlist::type_tempo(self);
+                }
                 // The digit under the press sets the step: the whole number, else the decimal place it is over.
                 let x = self.mouse.0 / views::band_k(s); // the tempo box is laid out in band px
                 let n = s.tempo_digits.get().iter().filter(|&&d| x >= d).count();
@@ -8922,7 +8967,7 @@ impl App {
             (HELP_MENU, HELP_ABOUT) => {
                 // The Windows build includes the ASIO SDK, which is under version 3 only (THIRD-PARTY-NOTICES.txt §9).
                 let licence = if cfg!(windows) { "the GNU GPL v3" } else { "the GNU GPL v3 or later" };
-                self.state.message = Some(format!("Lemon Studio {} (pre-alpha), free software under {licence}", env!("CARGO_PKG_VERSION")));
+                self.state.message = Some(format!("KNAY Studio {} (pre-alpha), free software under {licence}", env!("CARGO_PKG_VERSION")));
             }
             (ADD_MENU | TOOLS_MENU, i) if item_at(menu, i).is_some_and(|it| it.label == "Pattern") => {
                 let at = crate::patterns::box_at_mouse(self.mouse);
@@ -9166,7 +9211,7 @@ impl App {
         let _ = std::fs::create_dir_all(&dir);
         let start = self.state.bar.user_current().map_or_else(|| "My toolbar".to_string(), |p| p.name.clone());
         let dlg = FileDlg::new(Mode::Save, "Save toolbar preset as", "toolbar preset", crate::dialog::Then::SaveToolbarPreset)
-            .filter("Lemon Studio toolbar preset", &[EXT])
+            .filter("KNAY Studio toolbar preset", &[EXT])
             .start(Some(&dir))
             .name(&format!("{start}.{EXT}"));
         self.file_dialog(dlg);
@@ -12452,8 +12497,8 @@ mod tests {
         let r = hit_rect(&app, &Action::Settings(SAct::Check("Pickup (takeover mode)")));
         click(&mut app, &mut c, r);
         assert_eq!(app.state.message.as_deref(), Some("Pickup (takeover mode): on"));
-        assert!(app.hits.iter().any(|h| h.action == Action::Settings(SAct::Body) && h.hint == "Lemon Studio has no MIDI scripts"));
-        assert!(app.hits.iter().any(|h| h.action == Action::Settings(SAct::Body) && h.hint == "Lemon Studio has no playlist performance mode"));
+        assert!(app.hits.iter().any(|h| h.action == Action::Settings(SAct::Body) && h.hint == "KNAY Studio has no MIDI scripts"));
+        assert!(app.hits.iter().any(|h| h.action == Action::Settings(SAct::Body) && h.hint == "KNAY Studio has no playlist performance mode"));
         let r = hit_rect(&app, &Action::Settings(SAct::Tab(PROJECT)));
         click(&mut app, &mut c, r);
         assert!(app.hits.iter().any(|h| matches!(h.action, Action::Settings(SAct::Combo("Ask for data folder", ..)))), "Ask for data folder works");
@@ -12747,7 +12792,7 @@ mod tests {
                 (Kind::Question, "Confirm", spans(&["Save the changes to ", "Demo.flp", " before closing?"]), &[Answer::Yes, Answer::No, Answer::Cancel][..], "question"),
                 (Kind::Warning, "Confirm save as", spans(&["", "Demo.flp", " already exists.\nDo you want to replace it?"]), &[Answer::Yes, Answer::No][..], "warning"),
                 (Kind::Error, "Error", spans(&["The file doesn't exist or has been moved."]), &[Answer::Ok][..], "error"),
-                (Kind::Info, "Project not supported yet", spans(&["Lemon Studio cannot open ", "Old.flp", " yet.\n\nIt was saved by version 12.3. Projects saved before version 24.2 use an older channel layout that Lemon Studio does not read yet."]), &[Answer::Ok][..], "info"),
+                (Kind::Info, "Project not supported yet", spans(&["KNAY Studio cannot open ", "Old.flp", " yet.\n\nIt was saved by version 12.3. Projects saved before version 24.2 use an older channel layout that Lemon Studio does not read yet."]), &[Answer::Ok][..], "info"),
             ] {
                 let mut m = Msg::new(kind, title, text, buttons, Then::Nothing);
                 // As in the app, the replace question starts on No.
@@ -20216,7 +20261,7 @@ mod tests {
         right(&mut app, &mut c, help, (help.cx() + 40.0, help.cy()));
         assert!(app.state.message.is_none());
         right(&mut app, &mut c, help, (help.cx(), help.cy()));
-        assert!(app.state.message.as_deref().is_some_and(|m| m.starts_with("Lemon Studio ")), "{:?}", app.state.message);
+        assert!(app.state.message.as_deref().is_some_and(|m| m.starts_with("KNAY Studio ")), "{:?}", app.state.message);
         // Undo: EDIT > Undo; its right click does nothing yet.
         let undo = hit_rect(&app, &Action::Util(Util::Undo));
         app.state.message = None;

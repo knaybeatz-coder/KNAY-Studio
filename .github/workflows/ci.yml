@@ -69,22 +69,23 @@ jobs:
         if: ${{ !cancelled() && steps.build.outcome == 'success' && runner.os == 'Windows' }}
         env:
           OPENSTUDIO_NO_PLUGIN_BUILD: "1"
-        run: cargo build --locked --release -p os-app
+        run: cargo build --locked --release -p os-app && copy "target\release\lemonstudio.exe" "target\release\KNAY Studio.exe"
+        shell: cmd
 
       - name: Upload Windows program
         if: ${{ !cancelled() && steps.build.outcome == 'success' && runner.os == 'Windows' }}
         uses: actions/upload-artifact@v4
         with:
-          name: KNAY-Lemon-Studio-Windows
-          path: target/release/lemonstudio.exe
+          name: KNAY-Studio-Windows
+          path: target/release/KNAY Studio.exe
 
       - name: Zip the Mac app
         if: ${{ !cancelled() && steps.bundle.outcome == 'success' && runner.os == 'macOS' }}
-        run: ditto -c -k --keepParent "target/bundled/Lemon Studio.app" "target/KNAY-Lemon-Studio-Mac.zip"
+        run: ditto -c -k --keepParent "target/bundled/KNAY Studio.app" "target/KNAY-Studio-Mac.zip"
 
       - name: Upload Mac app
         if: ${{ !cancelled() && steps.bundle.outcome == 'success' && runner.os == 'macOS' }}
         uses: actions/upload-artifact@v4
         with:
-          name: KNAY-Lemon-Studio-Mac
-          path: target/KNAY-Lemon-Studio-Mac.zip
+          name: KNAY-Studio-Mac
+          path: target/KNAY-Studio-Mac.zip

@@ -247,7 +247,7 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo, width: f32) {
     for (offset, icon, action, hint) in [
         (0., Icon::Minimize, Action::Minimize, "Minimize"),
         (32., Icon::Restore, Action::Maximize, "Restore / maximize"),
-        (64., Icon::Close, Action::Close, "Exit Lemon Studio"),
+        (64., Icon::Close, Action::Close, "Exit KNAY Studio"),
     ] {
         let r=Rect::new(width-window_w+offset,8.,30.,24.);
         let hover=ui.hit(r,action,hint);
@@ -276,7 +276,7 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo, width: f32) {
         ui.hit(r, Action::Bar(BarHit::Logo), "Logo - drag onto the palette to take it off");
         frame(ui, r.inset(2.0));
     } else {
-        ui.hit(r, Action::MenuItem(menus::HELP_MENU, menus::HELP_ABOUT), "About Lemon Studio");
+        ui.hit(r, Action::MenuItem(menus::HELP_MENU, menus::HELP_ABOUT), "About KNAY Studio");
     }
     icons::logo(ui.c, lx, mid, 26.0 * h / 81.0, if lemon { t.toolbar_edge } else { t.toolbar_line });
 }
@@ -325,7 +325,7 @@ fn caption(ui: &mut Ui, c: &Ctx) {
     for (x, icon, action, hint) in [
         (4.0, Icon::Minimize, Action::Minimize, "Minimize"),
         (24.0, Icon::Restore, Action::Maximize, "Restore / maximize"),
-        (44.0, Icon::Close, Action::Close, "Exit Lemon Studio"),
+        (44.0, Icon::Close, Action::Close, "Exit KNAY Studio"),
     ] {
         let r = a.r(Rect::new(x, 11.0, 19.0, 19.0));
         let hov = ui.hit(r, action, hint);
@@ -1321,7 +1321,7 @@ mod tests {
         app.paint(&mut c, None);
         assert_eq!(more(&app), None);
         assert!(has(&app, &Action::Monitor) && has(&app, &Action::CpuPanel) && has(&app, &Action::PatternPrev));
-        assert!(app.hits.iter().any(|h| h.hint == "About Lemon Studio"));
+        assert!(app.hits.iter().any(|h| h.hint == "About KNAY Studio"));
         // No news panel: Lemon Studio has no online service.
         assert!(!app.hits.iter().any(|h| h.action == Action::Placeholder("News")));
 
@@ -1333,7 +1333,7 @@ mod tests {
         assert_eq!((r, action), (Rect::new(1920.0 - 2.0 * MORE_W, 0.0, 2.0 * MORE_W, 162.0), Action::Swallow));
         assert!(has(&app, &Action::Clock) && has(&app, &Action::GlobalSnap));
         assert!(!has(&app, &Action::Monitor) && !has(&app, &Action::CpuPanel) && !has(&app, &Action::PatternPrev));
-        assert!(!app.hits.iter().any(|h| h.hint == "About Lemon Studio"));
+        assert!(!app.hits.iter().any(|h| h.hint == "About KNAY Studio"));
         app.mouse_move(r.cx(), r.cy());
         assert_eq!(app.hint, MORE_HINT);
         let before = (app.state.message.clone(), app.state.menu_open, app.state.settings.open);
@@ -1349,6 +1349,6 @@ mod tests {
         let (r, _) = more(&app).expect("the arrow");
         assert_eq!(r, Rect::new(1300.0 - MORE_W, 0.0, MORE_W, 81.0));
         assert!(has(&app, &Action::CpuPanel) && has(&app, &Action::PatternPrev));
-        assert!(!app.hits.iter().any(|h| h.hint == "About Lemon Studio" || h.hint == "Project info (F11)"));
+        assert!(!app.hits.iter().any(|h| h.hint == "About KNAY Studio" || h.hint == "Project info (F11)"));
     }
 }

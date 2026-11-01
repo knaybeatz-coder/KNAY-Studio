@@ -738,7 +738,7 @@ pub fn category(d: &Descriptor) -> &'static str {
 }
 
 /// The built-in plugins' vendor in the menus.
-pub const BUILTIN_VENDOR: &str = "Lemon Studio";
+pub const BUILTIN_VENDOR: &str = "Lemon Studio"; // a stored identity: projects name their built-in plugins by it
 pub const NO_VENDOR: &str = "(unknown vendor)";
 
 /// A plugin as the menus list it.
