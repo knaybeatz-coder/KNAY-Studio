@@ -205,7 +205,8 @@ impl App {
         if path.file_stem().is_some_and(|n| n == "Lemon Starter" || n == "KNAY Starter") {
             clean_mixer(&mut s.project);
         }
-        for m in &mut s.project.mixer { m.slots_enabled = m.is_fx_return(); }
+        // KNAY: every track's effects are on, as in FL Studio: a plugin put in a slot is heard at once.
+        for m in &mut s.project.mixer { m.slots_enabled = true; }
         crate::project_info::created(s);
         // KNAY: the factory starter goes by our name.
         let name = if name == "Lemon Starter" { "KNAY Starter" } else { name };
@@ -280,17 +281,17 @@ mod tests {
         assert!(!app.unsaved(),"fresh startup defaults are not unsaved edits");
         for m in &app.state.project.mixer {
             assert_eq!(m.volume,Some(0.8),"{:?} after startup",m.name);
-            assert_eq!(m.slots_enabled,m.is_fx_return(),"only FX returns enabled by default");
+            assert!(m.slots_enabled,"every track's effects are on by default");
             assert!(m.slot_on[10],"dedicated EQ stays independently enabled");
         }
         crate::mixer::hit(&mut app,crate::mixer::MHit::Effects(3));
-        assert!(app.state.project.mixer.iter().all(|m|m.slots_enabled==(m.index==3 || m.is_fx_return())));
+        assert!(app.state.project.mixer.iter().all(|m|m.slots_enabled==(m.index!=3)));
         crate::mixer::hit(&mut app,crate::mixer::MHit::Effects(3));
         crate::mixer::hit(&mut app,crate::mixer::MHit::AllEffects);
         assert!(app.state.mixer.all_fx_bypassed);
         crate::history::undo(&mut app.state);
         assert!(!app.state.mixer.all_fx_bypassed);
-        assert!(app.state.project.mixer.iter().all(|m|m.slots_enabled==m.is_fx_return()));
+        assert!(app.state.project.mixer.iter().all(|m|m.slots_enabled));
         app.open(path);
         assert!(app.state.project.mixer.iter().all(|m|m.slots_enabled),"saved effect choices preserved");
         assert!(app.state.project.mixer.iter().all(|m|m.volume==Some(0.5)),"saved projects retain their mix");

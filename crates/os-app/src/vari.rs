@@ -207,6 +207,8 @@ pub enum Btn {
     Guides,
     Snap,
     DetectScale,
+    /// KNAY: the piano roll's key and scale (♪ menu) as the editor scale, snapping on.
+    PianoKey,
     /// Giannitune: the next voice type (analyses the take again), auto-tune on / off.
     Voice,
     AutoTune,
@@ -490,6 +492,8 @@ pub fn open(app: &mut App, i: usize) -> Option<String> {
     let secs = sample.left.len() as f64 / f64::from(sample.rate.max(1));
     app.state.raise(Win::PianoRoll);
     app.state.piano.harmony.open = false;
+    // KNAY: with no scale of its own yet, the take follows the piano roll's key and scale (the ♪ menu) when one is lit.
+    let scale = scale.or_else(|| piano_key(&app.state.piano.harmony));
     let grid = grid_now(app).unwrap_or(Rect::new(0.0, 0.0, 900.0, 500.0));
     // About twelve seconds across, from just before the first segment; rows tall enough to read.
     let px_per_sec = (grid.w / (secs.min(12.0).max(1.0)) as f32).clamp(20.0, 600.0);
@@ -518,7 +522,7 @@ pub fn open(app: &mut App, i: usize) -> Option<String> {
         scroll_y,
         scale,
         guides: scale.is_some(),
-        snap: false,
+        snap: scale.is_some(),
         voice,
         autotune,
         retune,
@@ -639,6 +643,21 @@ fn button(app: &mut App, b: Btn) {
             v.snap = !v.snap;
             (if v.snap { "Snap pitch editing on: segments land on the editor scale" } else { "Snap pitch editing off" }).to_string()
         }
+        Btn::PianoKey => {
+            let h = &app.state.piano.harmony;
+            let (root, scale) = (h.root, h.scale);
+            match piano_key(h) {
+                Some(k) => {
+                    v.scale = Some(k);
+                    v.guides = true;
+                    v.snap = true;
+                    v.retune_curve();
+                    rerender = v.autotune || v.edits.iter().any(|e| e.correct > 0.0);
+                    format!("Piano roll key: {} {} — snap to scale on", crate::harmony::ROOTS[usize::from(root % 12)], crate::chords::label(scale))
+                }
+                None => "Pick a root note and scale in the piano roll's ♪ menu first".into(),
+            }
+        }
         Btn::DetectScale => {
             let c = crate::key_detect::chroma(&v.sample.left, &v.sample.right, v.sample.rate);
             match crate::key_detect::key_of(&c) {
@@ -658,6 +677,16 @@ fn button(app: &mut App, b: Btn) {
         render(app);
     }
     app.invalidate();
+}
+
+/// The piano roll's key (♪ menu) as VariAudio's editor scale (root, minor): minor when the scale has a minor third.
+fn piano_key(h: &crate::harmony::Harmony) -> Option<(u8, bool)> {
+    if !h.shade && !h.edit_snap {
+        return None;
+    }
+    let pcs = crate::chords::classes(h.scale, h.root);
+    let minor = pcs[usize::from((h.root + 3) % 12)] && !pcs[usize::from((h.root + 4) % 12)];
+    Some((h.root % 12, minor))
 }
 
 fn scale_name(s: Option<(u8, bool)>) -> String {
@@ -1074,6 +1103,8 @@ fn inspector(ui: &mut Ui, v: &Session, r: Rect) {
     small_button(ui, Rect::new(x + 130.0, y, w - 130.0, 22.0), mode, false, Btn::ScaleMode, "Major or minor");
     y += 28.0;
     small_button(ui, Rect::new(x, y, w, 22.0), "Detect scale from this take", false, Btn::DetectScale, "Finds the take's key and makes it the editor scale");
+    y += 28.0;
+    small_button(ui, Rect::new(x, y, w, 22.0), "Use piano roll key + snap", false, Btn::PianoKey, "The key and scale chosen in the piano roll's ♪ menu, with Snap to scale on");
     y += 28.0;
     small_button(ui, Rect::new(x, y, w, 22.0), "Show scale note guides", v.guides, Btn::Guides, "Darkens the rows of notes outside the editor scale");
     y += 28.0;

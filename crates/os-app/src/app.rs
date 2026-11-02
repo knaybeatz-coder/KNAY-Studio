@@ -6286,6 +6286,11 @@ impl App {
                 self.record_option_menu(*o, x, y);
                 return self.invalidate();
             }
+            // KNAY: right-click on the piano roll's ♪ opens its key and scale menu, as in FL.
+            Some(Action::Harmony(crate::harmony::HCmd::Menu(10))) => {
+                crate::harmony::run(self, crate::harmony::HCmd::Menu(10));
+                return self.invalidate();
+            }
             // The Limit dialog's keys take the right button too (spec: ui/piano-limit.md §1).
             Some(Action::PianoDlg(crate::piano_dlg::Act::Keys)) => return self.piano_dlg_act(crate::piano_dlg::Act::Keys),
             Some(Action::PianoTarget) => {
@@ -22322,7 +22327,7 @@ mod common_shortcut_tests {
     fn common_shortcuts_tools_windows_panic_and_help(){
         use crate::playlist::PlTool;
         let mut a=App::new(None);a.state.z=vec![Win::Playlist];a.state.toggles.retain(|t|*t!="typing");
-        for (c,tool) in [("p",PlTool::Paint),("b",PlTool::Paint),("c",PlTool::Slice),("e",PlTool::Select),("s",PlTool::Slip),("y",PlTool::Playback),("d",PlTool::Delete),("t",PlTool::Mute),("z",PlTool::Zoom),("g",PlTool::Comp)] {
+        for (c,tool) in [("p",PlTool::Draw),("b",PlTool::Paint),("c",PlTool::Slice),("e",PlTool::Select),("s",PlTool::Slip),("y",PlTool::Playback),("d",PlTool::Delete),("t",PlTool::Mute),("z",PlTool::Zoom),("g",PlTool::Comp)] {
             letter(&mut a,c,false,false);assert_eq!(a.state.playlist.tool,tool,"{c}");
         }
         a.state.project.arrangements=vec![os_model::Arrangement{number:1,clips:vec![os_model::Clip::new(96,192,0,os_model::ClipSource::Pattern(1))],..Default::default()}];

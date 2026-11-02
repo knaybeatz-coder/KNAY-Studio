@@ -486,6 +486,10 @@ pub enum HCmd {
     BassStyle,
     BassParam(u8),
     BassGen,
+    /// KNAY: the piano roll's BASS button: the chord workspace on its Congo Bass tab.
+    OpenBass,
+    /// KNAY: the ♪ menu's highlight choice: black keys (false) or the key's scale (true).
+    Highlight(bool),
 }
 fn item(label: impl Into<String>, cmd: HCmd) -> PItem {
     PItem::new(label.into(), Cmd::Harmony(cmd))
@@ -576,15 +580,25 @@ pub fn menu(s: &State, which: u8, x: f32, y: f32) -> Popup {
             item("Type a progression...", HCmd::Text),
             item("Show Roman numerals", HCmd::Names),
         ],
+        // KNAY: FL's ♪ menu: root note and scale (each pick lights the scale on the grid and keyboard), the snaps, the
+        // highlight, and the chord and bass tools.
         10 => vec![
-            item("Open chord workspace", HCmd::Open),
-            item(format!("Key: {}", ROOTS[h.root as usize]), HCmd::Menu(0)),
-            item(format!("Scale: {}", chords::label(h.scale)), HCmd::Menu(1)),
-            item("Snap drawn / moved notes", HCmd::EditSnap).mark(Mark::Check(h.edit_snap)),
-            item("Snap MIDI keyboard", HCmd::MidiSnap).mark(Mark::Check(h.midi_snap)),
+            PItem::sub(
+                format!("Root note: {}", ROOTS[h.root as usize]),
+                ROOTS.iter().enumerate().map(|(i, n)| item(*n, HCmd::Root(i as u8)).mark(Mark::Radio(i == h.root as usize))).collect(),
+            ),
+            PItem::sub(
+                format!("Scale: {}", chords::label(h.scale)),
+                (67..=88).map(|i| item(chords::label(i), HCmd::Scale(i)).mark(Mark::Radio(i == h.scale))).collect(),
+            ),
+            item("Snap PR notes to scale", HCmd::EditSnap).mark(Mark::Check(h.edit_snap)),
+            item("Snap incoming MIDI", HCmd::MidiSnap).mark(Mark::Check(h.midi_snap)),
             item("Snap typing keyboard", HCmd::TypingSnap).mark(Mark::Check(h.typing_snap)),
-            item("Highlight scale", HCmd::Shade).mark(Mark::Check(h.shade)),
+            item("Highlight: black notes", HCmd::Highlight(false)).mark(Mark::Radio(!h.shade)),
+            item("Highlight: key and scale", HCmd::Highlight(true)).mark(Mark::Radio(h.shade)),
             item("Snap selected notes now", HCmd::SnapExisting),
+            item("KNAY Congolese Chords...", HCmd::Open),
+            item("KNAY Congo Bass...", HCmd::OpenBass),
         ],
         _ => vec![],
     };
@@ -784,6 +798,16 @@ pub fn run(app: &mut App, cmd: HCmd) {
             *v = (*v + 1) % 5;
         }
         BassGen => {}
+        Highlight(on) => h.shade = on,
+        OpenBass => {
+            if h.undo.is_empty() && h.slots.iter().all(|c| *c == Chord::default()) {
+                h.generate(0);
+            }
+            h.complex = true;
+            h.tab = 3;
+            h.open = true;
+            h.start = start;
+        }
         Open => {
             if h.undo.is_empty() && h.slots.iter().all(|c| *c == Chord::default()) {
                 h.generate(0);

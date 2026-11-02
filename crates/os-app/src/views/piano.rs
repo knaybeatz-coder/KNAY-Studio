@@ -114,6 +114,19 @@ pub fn paint(ui: &mut Ui, s: &State, r: Rect, f: &FrameInfo) {
     } else {
         os_ui::kit::triangle(ui.c, ax, ay, 4.0, os_ui::kit::Dir::Right, t.text_dim);
     }
+    // KNAY: the chord and bass tools straight from the piano roll: CHORDS (KNAY Congolese Chords) and BASS (Congo Bass).
+    let mut bx = ax + 16.0;
+    for (label, cmd, hint) in [
+        ("CHORDS", crate::harmony::HCmd::Open, "KNAY Congolese Chords: rumba and seben progressions, arpeggio styles (Alt+P)"),
+        ("BASS", crate::harmony::HCmd::OpenBass, "KNAY Congo Bass: generate a rumba / seben bass line for this channel"),
+    ] {
+        let f = Font::new(12);
+        let b = Rect::new(bx, r.y + 3.0, ui.c.text_width(f, label) + 14.0, 17.0);
+        let hov = ui.hit(b, Action::Harmony(cmd), hint);
+        ui.c.fill_rrect(b, 3.0, if hov { orange } else { t.h(0xc8962e) });
+        ui.c.text(f, b.x + 7.0, b.y + 1.0, Color::rgb(0x111111), label);
+        bx = b.right() + 5.0;
+    }
     let shift = if floating { -4.0 } else { 0.0 };
     toolbar(ui, s, r, shift);
     if r.h < 2.0 * crate::app::TITLE_H {
@@ -166,6 +179,7 @@ pub fn paint(ui: &mut Ui, s: &State, r: Rect, f: &FrameInfo) {
     lit.extend(f.sounding.iter().filter(|&&(c, _)| Some(c) == ch).map(|&(_, k)| i32::from(k)));
     ui.live(Live::Sounding, l.keys);
     keyboard(ui, &l, &g, &lit);
+    scale_keys(ui, &l, &g, &s.piano.harmony);
     grid(ui, s, &l, &g, range);
 
     // Notes: ghosts of the other channels first (when shown, Alt+V), then this channel's (§5).
@@ -470,6 +484,28 @@ fn ruler(ui: &mut Ui, l: &Layout, g: &Geom, range: Option<(f32, f32)>, marker: u
     ui.c.pop_clip();
 }
 
+/// KNAY: with the key's scale highlighted (♪ menu), the keyboard marks the scale's keys, FL-style: an orange band on
+/// each key of the scale, a grey one on the root.
+pub(crate) fn scale_keys(ui: &mut Ui, l: &Layout, g: &Geom, h: &crate::harmony::Harmony) {
+    if !h.shade {
+        return;
+    }
+    let k = l.keys;
+    ui.c.push_clip(k);
+    let (lo, hi) = g.visible_keys();
+    let (orange, grey) = (Color::rgb(0xf2a65a).with_alpha(170), Color::rgb(0x9aa0a6).with_alpha(200));
+    for key in lo..=hi {
+        if !h.allows(key) {
+            continue;
+        }
+        let root = key.rem_euclid(12) == i32::from(h.root % 12);
+        let y = g.y_of(key);
+        let x = if is_black(key) { k.x + 14.0 } else { k.x + 50.0 };
+        ui.c.fill_rect(Rect::new(x, y + 1.0, (k.right() - 2.0 - x).max(4.0), (g.row - 2.0).max(1.0)), if root { grey } else { orange });
+    }
+    ui.c.pop_clip();
+}
+
 pub(crate) fn keyboard(ui: &mut Ui, l: &Layout, g: &Geom, lit: &[i32]) {
     let t = ui.t;
     let k = l.keys;
@@ -594,7 +630,12 @@ fn grid_rows(ui: &mut Ui, s: &State, l: &Layout, g: &Geom, clip: Rect, selecting
     let mut bands = Vec::with_capacity((hi - lo + 1).max(0) as usize);
     for key in lo..=hi {
         let y = g.y_of(key);
-        let fill = if s.piano.harmony.shade {if s.piano.harmony.allows(key){white}else{black.shade(-0.18)}}else if is_black(key) { black } else { white };
+        // KNAY: with the scale highlighted, its rows are light, the others dark, and the root's rows grey (FL's look);
+        // they follow the key and scale chosen in the ♪ menu.
+        let h = &s.piano.harmony;
+        let fill = if h.shade {
+            if !h.allows(key) { black.shade(-0.18) } else if key.rem_euclid(12) == i32::from(h.root % 12) { white.mix(Color::rgb(0x8a9097), 0.35) } else { white }
+        } else if is_black(key) { black } else { white };
         ui.c.fill_rect(Rect::new(gr.x, y, gr.w, g.row - 1.0), fill);
         ui.c.fill_rect(Rect::new(gr.x, y + g.row - 1.0, gr.w, 1.0), sub(t, white, 0x0a));
         bands.push((y, g.row - 1.0, fill));

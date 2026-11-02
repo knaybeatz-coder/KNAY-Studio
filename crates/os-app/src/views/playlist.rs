@@ -102,10 +102,37 @@ pub fn paint(ui: &mut Ui, s: &State, r: Rect, f: &FrameInfo) {
     ui.c.set_cover(None);
     // Compact, bounded header labels share the same baseline as Clips / Stretch.
     let font=Font::new(12);
-    let available=(r.w-64.0-264.0).max(0.0);
+    // KNAY: FL's tool icons in the title bar: draw, paint, delete, mute, slip, slice, select, zoom, playback.
+    const TOOLS: [(pl::PlTool, Icon, &str); 9] = [
+        (pl::PlTool::Draw, Icon::Pencil, "Draw (P)"),
+        (pl::PlTool::Paint, Icon::Brush, "Paint (B)"),
+        (pl::PlTool::Delete, Icon::Delete, "Delete (D)"),
+        (pl::PlTool::Mute, Icon::Mute, "Mute (T): click or swipe to mute / unmute clips (Alt+right-click too)"),
+        (pl::PlTool::Slip, Icon::Slip, "Slip (S): drag to slide a clip's contents inside it"),
+        (pl::PlTool::Slice, Icon::Slice, "Slice (C): cut clips"),
+        (pl::PlTool::Select, Icon::Select, "Select (E)"),
+        (pl::PlTool::Zoom, Icon::Zoom, "Zoom (Z)"),
+        (pl::PlTool::Playback, Icon::Speaker, "Playback (Y)"),
+    ];
+    let tools_x = r.x + 264.0;
+    if r.w > 264.0 + 21.0 * TOOLS.len() as f32 + 64.0 {
+        for (k, (tool, icon, hint)) in TOOLS.iter().enumerate() {
+            let b = Rect::new(tools_x + 21.0 * k as f32, r.y + 2.0, 18.0, 18.0);
+            let hov = ui.hit(b, Action::PlTool(*tool), *hint);
+            let on = s.playlist.tool == *tool;
+            if on {
+                ui.c.fill_rrect(b.outset(1.0), 3.0, if *tool == pl::PlTool::Mute { t.h(0xd04a5a) } else { t.pill });
+            } else if hov {
+                ui.c.fill_rrect(b.outset(1.0), 3.0, t.button_hi);
+            }
+            icons::draw(ui.c, *icon, b, if on { Color::rgb(0x111111) } else if hov { t.glyph } else { t.text });
+        }
+    }
+    let arr_x = if r.w > 264.0 + 21.0 * TOOLS.len() as f32 + 64.0 { 264.0 + 21.0 * TOOLS.len() as f32 + 8.0 } else { 264.0 };
+    let available=(r.w-64.0-arr_x).max(0.0);
     let arr_w=(ui.c.text_width(font,&arr)+25.0).min(180.0).min(available);
     if arr_w>24.0 {
-        let b=Rect::new(r.x+264.0,r.y+2.0,arr_w,18.0);
+        let b=Rect::new(r.x+arr_x,r.y+2.0,arr_w,18.0);
         let hot=ui.hit(b,Action::PlArrangement,"Arrangements");
         let ink=tool_face(ui,b,false,hot);
         ui.c.text_clip(font,b.x+6.0,b.y+1.0,(b.w-19.0).max(0.),ink,&arr);

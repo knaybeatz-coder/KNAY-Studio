@@ -1061,6 +1061,66 @@ impl Canvas {
         Some((pm.width() as usize, pm.height() as usize, px.collect()))
     }
 
+    /// KNAY: a PNG as `0xAARRGGBB` pixels (straight alpha), for `image_over`.
+    pub fn decode_png_argb(bytes: &[u8]) -> Option<(usize, usize, Vec<u32>)> {
+        let pm = tiny_skia::Pixmap::decode_png(bytes).ok()?;
+        let px = pm.pixels().iter().map(|p| {
+            let c = p.demultiply();
+            u32::from(c.alpha()) << 24 | u32::from(c.red()) << 16 | u32::from(c.green()) << 8 | u32::from(c.blue())
+        });
+        Some((pm.width() as usize, pm.height() as usize, px.collect()))
+    }
+
+    /// KNAY: draws a `w` x `h` image of `0xAARRGGBB` pixels stretched over `r` (clipped), blended over what is there
+    /// by its alpha times `opacity` (0..1). Filtered as `image`.
+    pub fn image_over(&mut self, r: Rect, w: usize, h: usize, px: &[u32], opacity: f32) {
+        if w == 0 || h == 0 || px.len() < w * h || opacity <= 0.0 {
+            return;
+        }
+        for i in 0..self.clip_count() {
+            let (cx0, cy0, cx1, cy1) = self.clip_at(i);
+            let k = self.scale;
+            let (x0, x1) = (((r.x * k).round() as i32).max(cx0), ((r.right() * k).round() as i32).min(cx1));
+            let (y0, y1) = (((r.y * k).round() as i32).max(cy0), ((r.bottom() * k).round() as i32).min(cy1));
+            if x0 >= x1 || y0 >= y1 {
+                continue;
+            }
+            self.mark(x0, y0, x1, y1);
+            let (rw, rh) = ((r.w * k).max(1.0), (r.h * k).max(1.0));
+            let (fx, fy) = (w as f32 / rw, h as f32 / rh);
+            let xs: Vec<Vec<(usize, f32)>> = (x0..x1).map(|x| taps(x as f32 + 0.5 - r.x * k, fx, w)).collect();
+            let ys: Vec<Vec<(usize, f32)>> = (y0..y1).map(|y| taps(y as f32 + 0.5 - r.y * k, fy, h)).collect();
+            let pw = self.pixmap.width() as usize;
+            let pixels = self.pixmap.pixels_mut();
+            for (y, ty) in (y0..y1).zip(&ys) {
+                for (x, tx) in (x0..x1).zip(&xs) {
+                    // Premultiplied sums: colour weighted by alpha, and the alpha.
+                    let mut acc = [0.0f32; 4];
+                    for &(sy, wy) in ty {
+                        for &(sx, wx) in tx {
+                            let v = px[sy * w + sx];
+                            let a = ((v >> 24) & 0xff) as f32 / 255.0 * wx * wy;
+                            acc[0] += ((v >> 16) & 0xff) as f32 * a;
+                            acc[1] += ((v >> 8) & 0xff) as f32 * a;
+                            acc[2] += (v & 0xff) as f32 * a;
+                            acc[3] += a;
+                        }
+                    }
+                    let a = (acc[3] * opacity).clamp(0.0, 1.0);
+                    if a <= 0.0 {
+                        continue;
+                    }
+                    let i = y as usize * pw + x as usize;
+                    let d = pixels[i];
+                    let mix = |s: f32, d: u8| (s * opacity + f32::from(d) * (1.0 - a)).round().clamp(0.0, 255.0) as u8;
+                    let (r_, g_, b_) = (mix(acc[0], d.red()), mix(acc[1], d.green()), mix(acc[2], d.blue()));
+                    let al = (a * 255.0 + f32::from(d.alpha()) * (1.0 - a)).round().clamp(0.0, 255.0) as u8;
+                    pixels[i] = PremultipliedColorU8::from_rgba(r_.min(al), g_.min(al), b_.min(al), al).unwrap_or(d);
+                }
+            }
+        }
+    }
+
     /// Draws a `w` x `h` image of `0x00RRGGBB` pixels stretched over `r` (clipped). Filtered, so a picture stays smooth
     /// at any display scale: each device pixel averages the source pixels it covers when shrinking, and blends the
     /// nearest four when enlarging. Pixel for pixel, the image is copied as it is. Spec: ui/ui-scaling.md §5.

@@ -112,6 +112,9 @@ pub enum MCmd {
     DriveType(u16,u8),
     RecordInput(u16,Option<crate::capture::Input>),
     ArmDisk(u16),
+    /// KNAY: the input menu's Record point (0 external input only .. 5 post track) and Monitor (0 off, 1 when armed, 2 on).
+    RecPoint(u16,u8),
+    Monitor(u16,u8),
     Rename(u16),
     Color(u16, Option<Rgb>),
     RandomColor(u16),
@@ -956,8 +959,7 @@ pub fn add_track(s: &mut State, at: Option<u16>) -> u16 {
     s.project.mixer.push(MixerTrack::new(len));
     // The hidden last track moves too, keeping what it had (spec: flp/events/mixer.md "Adding tracks").
     shift_tracks(s, n, len, 1);
-    let mut fresh = MixerTrack::new(n);
-    fresh.slots_enabled=false;
+    let fresh = MixerTrack::new(n);
     if let Some(m) = track_mut(s, n) {
         *m = fresh;
     }
@@ -1346,12 +1348,19 @@ pub fn run(app: &mut App, c: MCmd) -> Option<String> {
         MCmd::Detach=>{app.act(Action::DetachWin(Win::Mixer));return None;},
         MCmd::RecordInput(t,i)=>return app.set_mixer_input(t,i),
         MCmd::ArmDisk(t)=>return app.arm_mixer_disk(t),
+        MCmd::RecPoint(t,p)=>{app.state.mixer.recording.rec_point.insert(t,p);app.invalidate();return None;}
+        MCmd::Monitor(t,m)=>{
+            app.state.mixer.recording.monitor.insert(t,m);
+            app.invalidate();
+            let what=["Monitoring off","Monitoring when armed","Monitoring on"][usize::from(m.min(2))];
+            return Some(app.sync_input_monitor().err().unwrap_or_else(||format!("{}: {what}",name(&app.state,t))));
+        }
         _=>{}
     }
     let at = app.mouse;
     let s = &mut app.state;
     let msg = match c {
-        MCmd::RecordInput(..)|MCmd::ArmDisk(_)=>None,
+        MCmd::RecordInput(..)|MCmd::ArmDisk(_)|MCmd::RecPoint(..)|MCmd::Monitor(..)=>None,
         MCmd::TuneSetting(n,k,v)=>{
             if !(1..=3).contains(&k) {return None;}
             let old=track(s,n)?.tune;
@@ -1514,6 +1523,8 @@ pub fn run(app: &mut App, c: MCmd) -> Option<String> {
             crate::peak_link::remove_slot(s,t,slot);
             if let Some(m) = track_mut(s, t) {
                 m.slots[usize::from(slot)] = Some(crate::plugins::new_slot(&nm));
+                // KNAY: a plugin put in a slot is heard: the track's effects switch comes on with it.
+                m.slots_enabled = true;
                 m.slot_on[usize::from(slot)] = true;
                 m.slot_mix[usize::from(slot)] = 1.0;
             }
@@ -1865,6 +1876,7 @@ impl App {
         };
         let m = track_mut(s, t).expect("the track");
         m.slots[k] = Some(crate::plugins::new_slot(TESLA));
+        m.slots_enabled = true;
         m.slot_on[k] = true;
         m.slot_mix[k] = 1.0;
         s.mixer.slot_names.remove(&(t, k as u8));
@@ -2016,7 +2028,7 @@ mod tests {
         hit(&mut a,MHit::InsertBefore(3));
         assert_eq!(inserts(&a.state),count+1);
         assert_eq!(a.state.selected_mixer,3);
-        assert_eq!(*track(&a.state,3).unwrap(),MixerTrack {slots_enabled:false,..MixerTrack::new(3)});
+        assert_eq!(*track(&a.state,3).unwrap(),MixerTrack::new(3));
         assert_eq!(track(&a.state,2).unwrap().routes,vec![6,7]);
         assert_eq!(a.state.project.automations[0].target(),Some(target::mixer(6,target::MIXER_VOLUME)));
         assert!(key(&mut a,&Key::Character("v".into()),true,false));
@@ -2032,7 +2044,7 @@ mod tests {
         let saved=os_flp::project::create(&a.state.project).unwrap();
         let back=os_flp::project::load(&os_flp::FlpFile::parse(&saved.to_bytes().unwrap()).unwrap()).unwrap();
         assert_eq!(back.mixer[3].routes,vec![6,7]);
-        crate::history::undo(&mut a.state);assert_eq!(*track(&a.state,3).unwrap(),MixerTrack {slots_enabled:false,..MixerTrack::new(3)});
+        crate::history::undo(&mut a.state);assert_eq!(*track(&a.state,3).unwrap(),MixerTrack::new(3));
         crate::history::redo(&mut a.state);assert_eq!(track(&a.state,3).unwrap().routes,vec![6,7]);
         a.state.selected_mixer=6;
         let before=a.state.project.clone();
