@@ -580,26 +580,23 @@ pub fn menu(s: &State, which: u8, x: f32, y: f32) -> Popup {
             item("Type a progression...", HCmd::Text),
             item("Show Roman numerals", HCmd::Names),
         ],
-        // KNAY: FL's ♪ menu: root note and scale (each pick lights the scale on the grid and keyboard), the snaps, the
-        // highlight, and the chord and bass tools.
-        10 => vec![
-            PItem::sub(
-                format!("Root note: {}", ROOTS[h.root as usize]),
-                ROOTS.iter().enumerate().map(|(i, n)| item(*n, HCmd::Root(i as u8)).mark(Mark::Radio(i == h.root as usize))).collect(),
-            ),
-            PItem::sub(
-                format!("Scale: {}", chords::label(h.scale)),
-                (67..=88).map(|i| item(chords::label(i), HCmd::Scale(i)).mark(Mark::Radio(i == h.scale))).collect(),
-            ),
-            item("Snap PR notes to scale", HCmd::EditSnap).mark(Mark::Check(h.edit_snap)),
-            item("Snap incoming MIDI", HCmd::MidiSnap).mark(Mark::Check(h.midi_snap)),
-            item("Snap typing keyboard", HCmd::TypingSnap).mark(Mark::Check(h.typing_snap)),
-            item("Highlight: black notes", HCmd::Highlight(false)).mark(Mark::Radio(!h.shade)),
-            item("Highlight: key and scale", HCmd::Highlight(true)).mark(Mark::Radio(h.shade)),
-            item("Snap selected notes now", HCmd::SnapExisting),
-            item("KNAY Congolese Chords...", HCmd::Open),
-            item("KNAY Congo Bass...", HCmd::OpenBass),
-        ],
+        // KNAY: FL's ♪ menu, flat as FL shows it: the root notes, then the snaps and the scales. Picking a root or a scale
+        // lights that key's scale on the grid and the keyboard at once; "No scale" goes back to the plain black keys.
+        10 => {
+            let mut v = vec![PItem::head("Root note")];
+            v.extend(ROOTS.iter().enumerate().map(|(i, n)| item(*n, HCmd::Root(i as u8)).mark(Mark::Radio(h.shade && i == h.root as usize))));
+            // FL shows the scales in a column of their own, beside the roots.
+            v.push(PItem::col());
+            v.push(PItem::head("Scale"));
+            v.push(item("Snap PR notes to scale", HCmd::EditSnap).mark(Mark::Check(h.edit_snap)));
+            v.push(item("Snap incoming MIDI", HCmd::MidiSnap).mark(Mark::Check(h.midi_snap)));
+            v.push(item("No scale (black notes)", HCmd::Highlight(false)).mark(Mark::Radio(!h.shade)));
+            v.extend((67..=88).map(|i| item(chords::label(i), HCmd::Scale(i)).mark(Mark::Radio(h.shade && i == h.scale))));
+            v.push(PItem::head("KNAY"));
+            v.push(item("KNAY Congolese Chords...", HCmd::Open));
+            v.push(item("KNAY Congo Bass...", HCmd::OpenBass));
+            v
+        }
         _ => vec![],
     };
     Popup {
@@ -1980,6 +1977,24 @@ mod tests {
         run(&mut app, HCmd::Load);
         assert_eq!(app.state.piano.harmony.slots.len(), 4);
     }
+    #[test]
+    fn knay_key_menu_picks_root_and_scale() {
+        let mut app = crate::app::App::new(None);
+        let m = menu(&app.state, 10, 0.0, 0.0);
+        assert!(m.items.iter().any(|i| i.label == "G"), "the roots are in the menu itself");
+        assert!(m.items.iter().any(|i| i.label == "Minor Natural (Aeolian)"), "and the scales");
+        run(&mut app, HCmd::Root(7));
+        run(&mut app, HCmd::Scale(73));
+        let h = &app.state.piano.harmony;
+        assert!(h.shade && h.root == 7 && h.scale == 73);
+        // G natural minor: G A Bb C D Eb F.
+        let on: Vec<i32> = (0..12).filter(|k| h.allows(*k)).collect();
+        assert_eq!(on, vec![0, 2, 3, 5, 7, 9, 10]);
+        assert_eq!(app.state.project.harmony.map(|c| (c.0, c.1)), Some((7, 73)));
+        run(&mut app, HCmd::Highlight(false));
+        assert!(!app.state.piano.harmony.shade);
+    }
+
     #[test]
     fn harmony_all_chords_scales_and_note_bounds() {
         for scale in 67..=88 {

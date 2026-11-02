@@ -502,6 +502,10 @@ pub(crate) fn scale_keys(ui: &mut Ui, l: &Layout, g: &Geom, h: &crate::harmony::
         let y = g.y_of(key);
         let x = if is_black(key) { k.x + 14.0 } else { k.x + 50.0 };
         ui.c.fill_rect(Rect::new(x, y + 1.0, (k.right() - 2.0 - x).max(4.0), (g.row - 2.0).max(1.0)), if root { grey } else { orange });
+        // The root's name on its key (G4, D#3 ...), so the chosen key reads at a glance.
+        if root && g.row >= 10.0 && key.rem_euclid(12) != 0 {
+            ui.c.text_right(Font::new(12), k.right() - 4.0, y + 1.0 + (g.row - ROW) / 2.0, Color::rgb(0x111111), &key_name(key));
+        }
     }
     ui.c.pop_clip();
 }
