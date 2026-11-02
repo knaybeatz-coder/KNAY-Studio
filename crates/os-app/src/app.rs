@@ -7849,14 +7849,21 @@ impl App {
             return;
         }
         // KNAY: a double-click on a note opens its properties (slide, portamento, velocity, pan, fine pitch), as FL's.
-        if let Action::PianoNote(i) = *a {
-            static LAST: std::sync::Mutex<Option<(usize, std::time::Instant)>> = std::sync::Mutex::new(None);
+        // Only with the pencil, brush or select tool, no modifier, the mouse still (the other tools click on and on).
+        if let Action::PianoNote(i) = *a
+            && matches!(tool, Tool::Draw | Tool::Paint | Tool::Select)
+            && !self.shift
+            && !self.alt
+        {
+            thread_local! {
+                static LAST: std::cell::Cell<Option<(usize, std::time::Instant, f32, f32)>> = const { std::cell::Cell::new(None) };
+            }
             let now = std::time::Instant::now();
-            let double = LAST.lock().ok().and_then(|mut l| l.replace((i, now))).is_some_and(|(j, t)| j == i && now.duration_since(t).as_millis() < 400);
+            let double = LAST.with(|l| l.replace(Some((i, now, x, y)))).is_some_and(|(j, t, px, py)| {
+                j == i && now.duration_since(t).as_millis() < 400 && (px - x).abs() < 4.0 && (py - y).abs() < 4.0
+            });
             if double {
-                if let Ok(mut l) = LAST.lock() {
-                    *l = None;
-                }
+                LAST.with(|l| l.set(None));
                 self.drag = None;
                 self.state.playlist.popup = Some(crate::piano_tools::note_menu(&self.state, i, x, y));
                 return self.invalidate();
@@ -8313,13 +8320,16 @@ impl App {
             Action::CableDebug(d) => self.cable_debug(d),
             Action::Tempo => {
                 // KNAY: a double-click types the tempo in.
-                static LAST: std::sync::Mutex<Option<std::time::Instant>> = std::sync::Mutex::new(None);
+                thread_local! {
+                    static LAST: std::cell::Cell<Option<(std::time::Instant, f32, f32)>> = const { std::cell::Cell::new(None) };
+                }
                 let now = std::time::Instant::now();
-                let double = LAST.lock().ok().and_then(|mut l| l.replace(now)).is_some_and(|t| now.duration_since(t).as_millis() < 400);
+                let (mx, my) = self.mouse;
+                let double = LAST.with(|l| l.replace(Some((now, mx, my)))).is_some_and(|(t, px, py)| {
+                    now.duration_since(t).as_millis() < 400 && (px - mx).abs() < 4.0 && (py - my).abs() < 4.0
+                });
                 if double {
-                    if let Ok(mut l) = LAST.lock() {
-                        *l = None;
-                    }
+                    LAST.with(|l| l.set(None));
                     return crate::playlist::type_tempo(self);
                 }
                 // The digit under the press sets the step: the whole number, else the decimal place it is over.
