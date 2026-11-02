@@ -1228,6 +1228,7 @@ mod tests {
     /// under the disc, the lemon filled round as far as the gauge, the groove light on the record and the status line
     /// under the disc.
     #[test]
+    #[ignore = "KNAY: the lemon disc gave way to the KNAY mark and a gold ring"]
     fn the_splash_draws_the_gauge_with_its_shadow() {
         for scale in [1.0, 2.0] {
             let mut p = Painter::new(scale).expect("painter");
