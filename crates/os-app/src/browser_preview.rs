@@ -22,6 +22,10 @@ pub struct Preview {
     requested:Option<Instant>,
     error:Option<String>,
     resume:bool,
+    /// KNAY: started in time with the song (a loop fitted to the song's tempo, from the song's place in the loop).
+    synced:bool,
+    /// Source seconds per second played, for a synced loop's place in the waveform.
+    sync_rate:f64,
 }
 impl Preview {pub fn busy(&self)->bool {self.pending.is_some()||self.playing}}
 pub fn visible(s:&State)->bool {matches!(s.browser_tab,0|3)&&view::opt(s,view::OPT_PANEL)&&s.browser_preview.path.is_some()}
@@ -80,12 +84,54 @@ fn play(app:&mut App) {
     if preview.position>=preview.duration {preview.position=0.;}
     preview.offset=preview.position;
     preview.playing=true;preview.started=false;preview.requested=Some(Instant::now());
-    let mut p=project(&path,preview.duration,preview.position,app.state.tempo);
+    let synced=if preview.position<=0. {synced_project(app,&path)} else {None};
+    app.state.browser_preview.synced=synced.is_some();
+    let synced_now=synced.is_some();
+    let mut p=match synced {Some((p,phase,rate))=>{let pv=&mut app.state.browser_preview;pv.offset=phase*pv.duration;pv.sync_rate=rate;p} None=>project(&path,app.state.browser_preview.duration,app.state.browser_preview.position,app.state.tempo)};
     crate::preview_track::route(&mut p,&app.state.project,crate::prefs::number(&crate::prefs::BROWSER_PREVIEW_TRACK));
-    let limit=(!view::opt(&app.state,view::OPT_PREVIEW)).then_some(crate::browser::PREVIEW_LIMIT);
+    // A synced loop keeps going with the song; it stops when the song stops (`tick`).
+    let limit=(!synced_now&&!view::opt(&app.state,view::OPT_PREVIEW)).then_some(crate::browser::PREVIEW_LIMIT);
     app.transport.preview_for(p,limit,app.state.browser_preview.sample.clone().unwrap());
 }
+/// KNAY: while the song plays, a loop from the browser plays in time with it: fitted to the song's tempo (the BPM in its
+/// name, else its detected beat, as "Make it fit" does) and started from the point in the loop where the song is, so it
+/// lines up with whatever plays in the playlist. One-shots and samples without a clear beat preview as before.
+fn synced_project(app:&App,path:&str)->Option<(os_model::Project,f64,f64)> {
+    if !sync_on() || !app.transport.playing() || app.transport.paused() {return None;}
+    let sample=app.state.browser_preview.sample.clone()?;
+    let secs=sample.frames() as f64/f64::from(sample.rate.max(1));
+    if !(0.4..=120.).contains(&secs) {return None;}
+    let tempo=app.state.tempo;
+    let (beats,_)=crate::loop_fit::source_beats(&sample,path,tempo)?;
+    if beats<1. {return None;}
+    let mut p=project(path,secs,0.,tempo);
+    crate::loop_fit::set_fitted_time(&mut p.channels[0].sound,beats);
+    let ppq=f64::from(p.ppq.max(1));
+    let loop_ticks=(beats*ppq).round().max(1.) as u32;
+    let song_beats=app.transport.tick()/f64::from(app.state.project.ppq.max(1));
+    let phase=(song_beats.rem_euclid(beats))/beats;
+    let first=((1.-phase)*f64::from(loop_ticks)).round().max(1.) as u32;
+    let mut first_clip=os_model::Clip::new(0,first,0,os_model::ClipSource::Channel(0));
+    first_clip.window=Some((phase*secs*1000.,secs*1000.));
+    let mut clips=vec![first_clip];
+    // About five minutes of the loop.
+    let repeats=((300.*tempo/60.)/beats).ceil().clamp(1.,512.) as u32;
+    for k in 0..repeats {
+        let mut c=os_model::Clip::new(first+k*loop_ticks,loop_ticks,0,os_model::ClipSource::Channel(0));
+        c.window=Some((0.,secs*1000.));
+        clips.push(c);
+    }
+    p.arrangements=vec![os_model::Arrangement{clips,..Default::default()}];
+    Some((p,phase,secs/(beats*60./tempo)))
+}
+/// KNAY: browser previews follow the playing song (on unless turned off in the browser's Audio preview menu).
+pub fn sync_on()->bool {crate::prefs::text("browser_preview_sync").as_deref()!=Some("0")}
 pub fn tick(app:&mut App) {
+    if app.state.browser_preview.synced && app.state.browser_preview.playing && !app.transport.playing() {
+        app.transport.stop_preview();
+        let pv=&mut app.state.browser_preview;pv.playing=false;pv.synced=false;
+        app.invalidate();
+    }
     let result=app.state.browser_preview.pending.as_ref().and_then(|p|p.lock().ok()?.take());
     if let Some(result)=result {
         let preview=&mut app.state.browser_preview;
@@ -99,7 +145,7 @@ pub fn tick(app:&mut App) {
     let (active,seconds)=app.transport.preview_status();
     let preview=&mut app.state.browser_preview;
     if preview.playing {
-        if active {preview.started=true;preview.position=(preview.offset+seconds).min(preview.duration);}
+        if active {preview.started=true;preview.position=if preview.synced&&preview.duration>0. {(preview.offset+seconds*preview.sync_rate).rem_euclid(preview.duration)} else {(preview.offset+seconds).min(preview.duration)};}
         else if preview.started {preview.playing=false;}
         else if preview.requested.is_some_and(|t|t.elapsed()>Duration::from_secs(5)) {preview.playing=false;preview.error=Some("Preview could not start; check audio settings".into());}
         if visible(&app.state) {let r=panel_rect(&app.state);app.damage_rect(r);}
@@ -142,6 +188,7 @@ pub fn act(app:&mut App,cmd:u8) {
                 select(app,&path);app.state.browser_preview.position=position;app.state.browser_preview.resume=resume;
             }
         },
+        6=>crate::prefs::set_text("browser_preview_sync",if sync_on(){"0"}else{"1"}),
         _=>{},
     }
     app.invalidate();
@@ -171,7 +218,7 @@ pub fn paint(ui:&mut Ui,s:&State,r:Rect) {
         let hover=ui.hit(b,Action::BrowserPreview(i),label);
         ui.c.fill_rrect(b,3.,if hover {t.button_hi}else{t.sunken});ui.c.text_center(Font::new(11),b,t.text,label);
     }
-    for (cmd,label,on,x,w,hint) in [(3,"Norm",normalize(),80.,36.,"Auto Normalize: preview only, peak target 0 dBFS"),(4,"Rev",reverse(),120.,28.,"Auto Reverse: preview only"),(5,"Trim",auto_trim(),152.,42.,"Auto-trim silence: previews and newly added samples; original files unchanged")] {
+    for (cmd,label,on,x,w,hint) in [(3,"Norm",normalize(),80.,36.,"Auto Normalize: preview only, peak target 0 dBFS"),(4,"Rev",reverse(),120.,28.,"Auto Reverse: preview only"),(5,"Trim",auto_trim(),152.,42.,"Auto-trim silence: previews and newly added samples; original files unchanged"),(6,"Sync",sync_on(),198.,40.,"Sync: while the song plays, loops preview at the song's tempo, in time with the playlist")] {
         let b=Rect::new(r.x+x,r.y+80.,w,23.);
         let hover=ui.hit(b,Action::BrowserPreview(cmd),hint);
         ui.c.fill_rrect(b,3.,if on{t.accent}else if hover{t.button_hi}else{t.sunken});
