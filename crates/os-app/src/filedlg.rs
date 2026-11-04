@@ -105,6 +105,8 @@ pub enum Outcome {
 }
 
 pub struct FileDlg {
+    pub preview:bool,
+    pub preview_last:Option<PathBuf>,
     pub mode: Mode,
     pub title: String,
     /// The last folder used is remembered per purpose for the session ("project", "audio", ...).
@@ -149,6 +151,7 @@ static LAST: std::sync::Mutex<Vec<(&'static str, PathBuf)>> = std::sync::Mutex::
 impl FileDlg {
     pub fn new(mode: Mode, title: &str, purpose: &'static str, then: Then) -> FileDlg {
         FileDlg {
+            preview:true,preview_last:None,
             mode,
             title: title.into(),
             purpose,

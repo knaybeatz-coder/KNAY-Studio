@@ -922,6 +922,8 @@ pub fn page(tab: usize, s: &State) -> Vec<Group> {
                 vec![
                     Gap(20.0),
                     Big(format!("KNAY Studio {}", env!("CARGO_PKG_VERSION"))),
+                    txt(&format!("Version {} · build {}", env!("CARGO_PKG_VERSION"), crate::updates::VERSION)),
+                    txt("Built on Lemon Studio — Michael Lane Edition (GPL-3.0)."),
                     txt("A digital audio workstation written in Rust."),
                     txt("Copyright (C) 2026 ItsAlphaNeon and the Lemon Studio contributors."),
                     Gap(10.0),

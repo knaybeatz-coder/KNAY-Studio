@@ -132,6 +132,8 @@ fn target_text(t: Target) -> String {
         Target::Knob(k) => match k {
             KnobId::MasterVol => "mainvol".into(),
             KnobId::MasterPitch => "mainpitch".into(),
+            KnobId::Varispeed => "varispeed".into(),
+            KnobId::ChanPitch(r) => format!("chanpitch:{r}"),
             KnobId::MixPan(m) => format!("mixpan:{m}"),
             KnobId::MixSep(m) => format!("mixsep:{m}"),
             KnobId::SlotMix(m, s) => format!("slotmix:{m}:{s}"),
@@ -155,6 +157,8 @@ fn parse_target(s: &str) -> Option<Target> {
     Some(match kind {
         "mainvol" => Target::Knob(KnobId::MasterVol),
         "mainpitch" => Target::Knob(KnobId::MasterPitch),
+        "varispeed" => Target::Knob(KnobId::Varispeed),
+        "chanpitch" => Target::Knob(KnobId::ChanPitch(n()?)),
         "swing" => Target::Knob(KnobId::Swing),
         "mixpan" => Target::Knob(KnobId::MixPan(n()? as u16)),
         "mixsep" => Target::Knob(KnobId::MixSep(n()? as u16)),

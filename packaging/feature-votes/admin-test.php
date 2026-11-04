@@ -26,7 +26,7 @@ try{
  admin_change($db,['action'=>'block','id'=>10,'user'=>$user,'value'=>false]);$row=array_column(board($db,$user)['items'],null,'id')[10];ensure($row['up']===1,'votes restored');
  ensure(count(admin_board($db)['log'])===7,'audit log');ensure(admin_voters($db,10,0)['total']===1,'voter review');
  // Public metadata/comment lifecycle and isolation from voter-only access.
- foreach(['Open','Planned','In progress','Completed','Declined'] as $status){admin_change($db,['action'=>'status','id'=>10,'value'=>$status]);ensure(array_column(board($db,'' )['items'],null,'id')[10]['status']===$status,'public status');}
+ foreach(['Open','Planned','In progress','Completed','Declined'] as $status){admin_change($db,['action'=>'status','id'=>10,'value'=>$status]);ensure(array_column(board($db,'' )['items'],null,'id')[10]['status']===$status,'public status');if($status!=='Open'){denied(fn()=>handle($db,['action'=>'vote','id'=>10,'value'=>-1],'192.0.2.80',$token),403);}}
  $added=admin_change($db,['action'=>'comment_add','id'=>10,'body'=>"Work in progress.\n<script>alert(1)</script>"]);
  $comment=array_column($added['items'],null,'id')[10]['comments'][0];
  ensure(array_column(board($db,'' )['items'],null,'id')[10]['comments'][0]['body']===$comment['body'],'public plain text comment');

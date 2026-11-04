@@ -117,7 +117,10 @@ pub fn scale_rect(r: Rect, k: f32) -> Rect {
 
 /// The top band's toolbar panels as laid out now, in the band's own px.
 fn placed(s: &State) -> Vec<crate::toolbar::Placed> {
-    crate::toolbar::place(&s.bar.layout, s.screen.0 / band_k(s), s.bar.editing)
+    // Reuse the measured room left by the fixed right-side actions. Painting,
+    // invalidation and pointer mapping must use exactly the same layout.
+    let width=s.toolbar_content_width.get();
+    crate::toolbar::place(&toolbar::visible_layout(s), if width>0. {width} else {s.screen.0/band_k(s)}, s.bar.editing)
 }
 
 /// How far toolbar panel `p` is from its home (`toolbar::Panel::home`); `None` when it is not on the toolbar.
@@ -241,9 +244,7 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo) -> usize {
         ui.part(Seg::Toolbar, Rect::new(0.0, 0.0, w, band_h(s)), |ui| ui.scaled(scale, |ui, k| toolbar::paint(ui, s, f, w / k)));
     }
     // The floating hint bar, over every window (spec: ui/toolbar-menu.md §4).
-    if s.toolbar.hint_bar && s.native_view.is_none() {
-        toolbar::paint_hint_bar(ui, s, f);
-    }
+    // Hints live only in the top toolbar; there is no floating duplicate.
     let overlays = ui.hit_count();
     if s.native_view != s.native_input {return overlays;}
     crate::plugin_downloads::paint_tooltip(ui, s);
@@ -342,7 +343,9 @@ pub fn resize_zones(ui: &mut Ui, s: &State, win: Win, r: Rect) {
 pub fn window_buttons(ui: &mut Ui, win: Win, x0: f32, y: f32, _normal: Color, _hover: Color) {
     if win.slot().is_some() {
         let r=Rect::new(x0-23.,y+3.,19.,17.);
-        ui.hit(r,Action::DetachWin(win),"Detach / attach window - move freely between monitors");
+        let hover=ui.hit(r,Action::DetachWin(win),"Detach / attach window - move freely between monitors");
+        ui.c.fill_rrect(r,2.,if hover {ui.t.button_hi} else {ui.t.sunken});
+        ui.c.stroke_rrect(r,2.,1.,if hover {ui.t.accent} else {ui.t.text_dim});
         ui.c.text_center(os_ui::Font::new(13),r,ui.t.text,"D");
     }
     let mut hovered = None;

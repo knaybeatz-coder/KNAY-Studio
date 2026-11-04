@@ -11,6 +11,10 @@
 #![cfg_attr(all(windows, not(test)), windows_subsystem = "windows")]
 
 mod app;
+mod marker_profiles;
+mod instrument_stack;
+mod clip_effects;
+mod ara;
 mod ai_control;
 mod ai_commands;
 mod updates;
@@ -19,14 +23,23 @@ mod audio_cfg;
 mod auto_close;
 mod autoscroll;
 mod backup;
+mod safe_save;
+#[cfg(test)] mod audit_fixes;
 #[cfg(test)]
 mod audio_bench;
 #[cfg(test)]
 mod open_bench;
 mod browser;
+mod browser_preview;
 mod plugin_downloads;
+mod plugin_picker;
+mod plugin_artwork;
+mod plugin_previews;
 mod starter_pack;
 mod feature_votes;
+mod feedback;
+mod community_forum;
+mod change_log;
 mod cable;
 mod capture;
 mod input_monitor;
@@ -51,8 +64,6 @@ mod keep_on_disk;
 mod key_detect;
 mod key_match;
 mod congo_bass;
-mod vari;
-mod vari_dsp;
 mod icons;
 mod init;
 mod knobs;
@@ -71,9 +82,12 @@ mod metronome;
 mod midi_cfg;
 mod midi_file;
 mod midi_in;
+mod mpe;
 mod midi_out;
 mod midi_play;
 mod mixer;
+mod rack_mixer;
+#[cfg(windows)] mod strip_editor;
 mod mini_eq;
 mod mixer_recording;
 mod smart_recording;
@@ -87,6 +101,7 @@ mod piano_snap;
 mod piano_split;
 mod piano_tools;
 mod rack;
+mod rack_controls;
 mod remote;
 mod peak_link;
 mod render;
@@ -94,9 +109,9 @@ mod pattern_render;
 mod track_render;
 mod quick_sidechain;
 mod headphones;
-#[cfg(feature = "private-master-assistant")]
+#[cfg(feature = "master-assistant")]
 mod master_assistant;
-#[cfg(not(feature = "private-master-assistant"))]
+#[cfg(not(feature = "master-assistant"))]
 #[path = "master_assistant_disabled.rs"]
 mod master_assistant;
 mod route_picker;
@@ -133,6 +148,7 @@ mod scroll_speed;
 mod search_folders;
 mod settings_file;
 mod shortcuts;
+mod warp;
 mod smooth;
 mod snap;
 mod song_pos;
@@ -612,11 +628,8 @@ impl Shell {
     /// Ticks the app, asks for a frame when one is due and sets the next wake-up: from `about_to_wait`, or from a
     /// watchdog wake while a modal loop holds up winit's (`held`, see `stall`).
     fn prepare_main(&mut self) {
-        if self.app.state.native_view.take().is_some() {
+        if self.detached.restore_main(&mut self.app) {
             self.app.mouse=self.main_mouse;
-            if let Some(w)=&self.window {self.app.state.display_scale=w.scale_factor() as f32;}
-            if let Some(c)=&mut self.canvas {self.app.paint(c,None);}
-            self.app.invalidate();
         }
     }
 
@@ -890,10 +903,10 @@ impl ApplicationHandler for Shell {
     }
 
     fn window_event(&mut self, el: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
-        if self.detached.owns(_id) {if self.app.state.native_view.is_none(){self.main_mouse=self.app.mouse;}self.detached.event(&mut self.app,el,_id,event);self.pending=true;return;}
+        if self.detached.owns(_id) {if self.app.state.native_view.is_none(){self.main_mouse=self.app.mouse;}self.detached.event(&mut self.app,el,_id,event);self.prepare_main();self.pending|=self.app.has_damage();return;}
         self.prepare_main();
         if matches!(event,WindowEvent::MouseInput{state:ElementState::Pressed,..}|WindowEvent::KeyboardInput{..}|WindowEvent::Focused(true)) {
-            if self.app.state.native_input.take().is_some() {self.app.state.playlist.popup=None;self.app.state.menu_open=None;if let Some(c)=&mut self.canvas {self.app.paint(c,None);}self.app.invalidate();}
+            if self.app.state.native_input.take().is_some() {let popup=self.app.state.playlist.popup.is_some()||self.app.state.menu_open.is_some();self.app.state.playlist.popup=None;self.app.state.menu_open=None;if popup {self.app.invalidate();}}
         }
         let Some(window) = self.window.clone() else { return };
         let scale = ui_scale(&window) as f32;
@@ -1167,6 +1180,7 @@ impl ApplicationHandler for Shell {
                     self.grab = None;
                     self.unmax = None;
                     self.app.typing_release_all();
+                    self.app.cancel_mouse_audition();
                     window.request_redraw();
                 }
             }
@@ -1839,9 +1853,9 @@ fn wake_ui() {
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.first().map(String::as_str)==Some("--build-flavour") {
-        #[cfg(feature="private-master-assistant")]
-        println!("LEMON_PRIVATE_MASTER_ASSISTANT_BUILD");
-        #[cfg(not(feature="private-master-assistant"))]
+        #[cfg(feature="master-assistant")]
+        println!("{}", master_assistant::build_flavour());
+        #[cfg(not(feature="master-assistant"))]
         println!("public");
         return;
     }
@@ -1856,6 +1870,7 @@ fn main() {
     if args.first().is_some_and(|s|matches!(s.as_str(), "--update-version" | "--check-update-feed" | "--verify-update")) {
         std::process::exit(updates::diagnostic(&args));
     }
+    if args.first().map(String::as_str)==Some("--capture-plugin-preview"){plugin_previews::child_main(&args[1..]);}
     // A plugin scanner process (spec: ui/plugin-manager.md §4): loads one file, prints its plugins, ends.
     if args.first().map(String::as_str) == Some(plugin_scan::ARG) {
         plugin_scan::child_main(&args[1..]);
@@ -2075,3 +2090,5 @@ mod tests {
         assert_eq!(gui_scale(1.25), 1.25);
     }
 }
+
+mod channel_bounce;

@@ -83,6 +83,7 @@ enum Ev {
     Wheel { at: At, notches: f32 },
     Leave,
     Key { sym: u32 },
+    KeyUp { sym: u32 },
     Expose,
     Drop(String),
     /// A press outside every surface while a popup or box is open.
@@ -207,6 +208,7 @@ pub fn spawn(parent: Parent, size: (u32, u32), slot: &Slot, run: impl FnOnce(Win
         scale,
         mods: (false, false, false),
         locked: false,
+        key_releases: false,
         pointer: (0, 0),
         next_tick: Instant::now() + TICK,
         raw: VecDeque::new(),
@@ -362,6 +364,7 @@ fn view_class() -> &'static AnyClass {
                 sel!(mouseEntered:),
                 sel!(mouseExited:),
                 sel!(keyDown:),
+                sel!(keyUp:),
             ] {
                 b.add_method(s, on_event as extern "C-unwind" fn(_, _, _));
             }
@@ -481,6 +484,10 @@ extern "C-unwind" fn on_event(v: &NSView, _: Sel, e: Option<&NSEvent>) {
         NSEventType::MouseExited => Ev::Leave,
         NSEventType::KeyDown => match key_sym(e) {
             Some(sym) => Ev::Key { sym },
+            None => return,
+        },
+        NSEventType::KeyUp => match key_sym(e) {
+            Some(sym) => Ev::KeyUp { sym },
             None => return,
         },
         _ => return,
@@ -690,6 +697,7 @@ fn remove_monitors(id: u64) {
 
 /// An editor's view, as its GUI thread sees it.
 pub struct Window {
+    key_releases: bool,
     shared: Arc<Shared>,
     /// The editor view's surface.
     id: u64,
@@ -707,6 +715,9 @@ pub struct Window {
 }
 
 impl Window {
+    pub fn key_releases(&mut self) {
+        self.key_releases = true;
+    }
     /// No input is waiting: a good moment to paint (once per burst of events).
     pub fn idle(&self) -> bool {
         self.queue.is_empty()
@@ -803,10 +814,11 @@ impl Window {
             }
             Ev::Wheel { at, notches } => Some(Input::Wheel { x: at.x, y: at.y, notches }),
             Ev::Leave => Some(Input::Leave),
-            Ev::Key { sym } => Some(Input::Key { sym, text: keysym_char(sym) }),
+            Ev::Key { sym } => Some(Input::Key { sym, text: keysym_char(sym), pressed: true }),
+            Ev::KeyUp { sym } if self.key_releases => Some(Input::Key { sym, text: None, pressed: false }),
             Ev::Expose => Some(Input::Expose),
             Ev::Drop(path) => Some(Input::Drop { path }),
-            Ev::Outside => None,
+            Ev::Outside | Ev::KeyUp { .. } => None,
         }
     }
 

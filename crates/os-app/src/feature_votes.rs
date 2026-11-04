@@ -7,7 +7,7 @@ use os_ui::{Rect,Font};
 use crate::app::{App,State,Ui,Action};
 pub const TAB:usize=6;
 pub const ROW_H:f32=204.;
-pub const HEADER:f32=208.;
+pub const HEADER:f32=188.;
 const URL:&str="https://michaellanemusic.de/lemon-studio/features/api.php";
 #[derive(Clone,Debug,Serialize,Deserialize)]
 pub struct Comment {pub id:u64,pub body:String,pub created:i64,#[serde(default)]pub edited:i64}
@@ -17,13 +17,13 @@ pub struct Item {pub id:u64,pub title:String,pub up:u64,pub down:u64,pub mine:i8
 #[derive(Clone,Debug,Serialize,Deserialize)]
 pub struct Announcement {pub id:u64,pub title:String,pub body:String,pub created:i64,#[serde(default)]pub edited:i64}
 #[derive(Clone,Debug,Serialize,Deserialize)]
-pub struct Board {pub items:Vec<Item>,#[serde(default)]pub announcements:Vec<Announcement>}
+pub struct Board {#[serde(default)]pub forum:Option<crate::community_forum::Page>,pub items:Vec<Item>,#[serde(default)]pub announcements:Vec<Announcement>}
 #[derive(Clone,Debug)]
-pub struct View {pub board:Board,pub draft:crate::dialog::Field,pub focus:bool,pub online:bool,pub busy:bool,pub status:String,pub initialized:bool,pub last:Option<Instant>,pub expanded:Option<u64>,pub expanded_height:std::cell::Cell<f32>,pub announcements_height:std::cell::Cell<f32>}
-impl Default for View {fn default()->Self {Self{board:Board{announcements:Vec::new(),items:["Track freeze and unfreeze to save CPU","ARA integration for compatible audio editors","Live collaboration on projects"].iter().enumerate().map(|(i,t)|Item{id:i as u64+1,title:(*t).into(),up:0,down:0,mine:0,locked:0,status:open_status(),comments:Vec::new()}).collect()},draft:Default::default(),focus:false,online:false,busy:false,status:"Starter ideas — connect for live votes.".into(),initialized:false,last:None,expanded:None,expanded_height:std::cell::Cell::new(0.),announcements_height:std::cell::Cell::new(0.)}}}
+pub struct View {pub change_log:bool,pub changelog_scroll:std::cell::Cell<f32>,pub community_forum:bool,pub forum:crate::community_forum::View,pub board:Board,pub draft:crate::dialog::Field,pub focus:bool,pub online:bool,pub busy:bool,pub status:String,pub initialized:bool,pub last:Option<Instant>,pub expanded:Option<u64>,pub sections:[bool;6],pub expanded_height:std::cell::Cell<f32>,pub announcements_height:std::cell::Cell<f32>}
+impl Default for View {fn default()->Self {Self{change_log:false,changelog_scroll:std::cell::Cell::new(0.),community_forum:false,forum:Default::default(),board:Board{forum:None,announcements:Vec::new(),items:["Track freeze and unfreeze to save CPU","ARA integration for compatible audio editors","Live collaboration on projects"].iter().enumerate().map(|(i,t)|Item{id:i as u64+1,title:(*t).into(),up:0,down:0,mine:0,locked:0,status:open_status(),comments:Vec::new()}).collect()},draft:Default::default(),focus:false,online:false,busy:false,status:"Starter ideas — connect for live votes.".into(),initialized:false,last:None,expanded:None,sections:[true,false,false,false,false,false],expanded_height:std::cell::Cell::new(0.),announcements_height:std::cell::Cell::new(0.)}}}
 type ResultBoard=Result<Board,(String,bool)>;
 #[derive(Default)]
-struct Job {result:Option<(ResultBoard,bool)>,busy:bool}
+struct Job {result:Option<(ResultBoard,String)>,busy:bool}
 fn job()->&'static Mutex<Job>{static J:OnceLock<Mutex<Job>>=OnceLock::new();J.get_or_init(Default::default)}
 fn request(url:&str,token:&str,body:serde_json::Value)->Result<serde_json::Value,(String,bool)>{
  // KNAY build: the board is Michael Lane's server; nothing is sent there.
@@ -36,7 +36,7 @@ fn request(url:&str,token:&str,body:serde_json::Value)->Result<serde_json::Value
  let value:serde_json::Value=serde_json::from_slice(&bytes).map_err(|_|("Board unavailable — please try later.".into(),false))?;
  if !ok {let message=value["error"].as_str().unwrap_or("Board unavailable — please try later.").chars().take(160).collect();return Err((message,true));}Ok(value)
 }
-fn valid(board:&Board)->bool {board.announcements.len()<=50 && board.announcements.iter().all(|a|a.id>0&&(1..=120).contains(&a.title.chars().count())&&!a.title.chars().any(char::is_control)&&(1..=2000).contains(&a.body.chars().count())&&!a.body.chars().any(|c|c.is_control()&&c!='\n'&&c!='\t')) && board.items.len()<=500 && board.items.iter().all(|i|i.id>0&&i.title.chars().count()<=120&&!i.title.chars().any(char::is_control)&&(-1..=1).contains(&i.mine)&&i.locked<=1&&["Open","Planned","In progress","Completed","Declined"].contains(&i.status.as_str())&&i.comments.len()<=10&&i.comments.iter().all(|c|c.id>0&&c.body.chars().count()<=600&&!c.body.chars().any(|ch|ch.is_control()&&ch!='\n'&&ch!='\t')))}
+fn valid(board:&Board)->bool {board.forum.as_ref().is_none_or(crate::community_forum::valid) && board.announcements.len()<=50 && board.announcements.iter().all(|a|a.id>0&&(1..=120).contains(&a.title.chars().count())&&!a.title.chars().any(char::is_control)&&(1..=2000).contains(&a.body.chars().count())&&!a.body.chars().any(|c|c.is_control()&&c!='\n'&&c!='\t')) && board.items.len()<=500 && board.items.iter().all(|i|i.id>0&&i.title.chars().count()<=120&&!i.title.chars().any(char::is_control)&&(-1..=1).contains(&i.mine)&&i.locked<=1&&["Open","Planned","In progress","Completed","Declined"].contains(&i.status.as_str())&&i.comments.len()<=10&&i.comments.iter().all(|c|c.id>0&&c.body.chars().count()<=600&&!c.body.chars().any(|ch|ch.is_control()&&ch!='\n'&&ch!='\t')))}
 fn solve(challenge:&str)->Option<String>{
  let deadline=Instant::now()+Duration::from_secs(10);
  for n in 0..10_000_000u64 {if n%4096==0 && Instant::now()>deadline{return None;}
@@ -58,15 +58,15 @@ fn save_token(token:&str)->Result<String,(String,bool)>{
  #[cfg(unix)] {use std::os::unix::fs::OpenOptionsExt;options.mode(0o600);}
  match options.open(path){Ok(mut file)=>{file.write_all(token.as_bytes()).and_then(|_|file.sync_all()).map_err(|_|("Cannot save voter identity.".into(),true))?;Ok(token.into())},Err(e) if e.kind()==std::io::ErrorKind::AlreadyExists=>read_token(),Err(_)=>Err(("Cannot save voter identity.".into(),true))}
 }
-fn start(app:&mut App,body:serde_json::Value){
+pub(crate) fn start(app:&mut App,body:serde_json::Value){
  let mut j=job().lock().unwrap();if j.busy{return;}j.busy=true;drop(j);
  app.state.feature_votes.busy=true;app.state.feature_votes.last=Some(Instant::now());
  app.state.feature_votes.status="Connecting…".into();app.invalidate();
  std::thread::spawn(move||{
-  let submit=body["action"]=="suggest";
+  let submit=body["action"].as_str().unwrap_or("list").to_string();
   let result=(||{
    let mut token=read_token()?;
-   if body["action"]!="list" && token.is_empty(){
+   if body["action"]!="list" && body["action"]!="forum_list" && token.is_empty(){
     let challenge=request(URL,"",serde_json::json!({"action":"challenge"}))?;
     let challenge=challenge["challenge"].as_str().filter(|s|s.len()<140).ok_or(("Connection unavailable.".into(),false))?;
     let nonce=solve(challenge).ok_or(("Please retry the connection.".into(),false))?;
@@ -82,21 +82,37 @@ fn start(app:&mut App,body:serde_json::Value){
  });
 }
 pub fn tick(app:&mut App){
+ crate::community_forum::tick(app);
  let result={let mut j=job().lock().unwrap();let r=j.result.take();if r.is_some(){j.busy=false;}r};
  if let Some((result,submit))=result {
   let v=&mut app.state.feature_votes;v.busy=false;
-  match result {Ok(board)=>{crate::prefs::set_text("feature_board_cache",&serde_json::to_string(&board).unwrap());v.board=board;v.online=true;v.status=if submit {v.draft.set("");"Suggestion added."}else{"Live votes • one vote per suggestion."}.into();},Err((message,online))=>{v.online=online;v.status=message;}}
+  match result {Ok(board)=>{
+   if let Some(page)=board.forum.clone(){if submit=="forum_profile"{v.forum.editing_profile=false;v.forum.focus=0;}let posted=submit=="forum_create"||submit=="forum_reply";crate::prefs::set_text("community_forum_cache",&serde_json::to_string(&page).unwrap());crate::community_forum::accept(v,page,posted);if posted{app.state.browser_scroll=0.;}}
+   crate::prefs::set_text("feature_board_cache",&serde_json::to_string(&board).unwrap());v.board=board;v.online=true;
+   v.status=if submit=="suggest" {v.draft.set("");"Suggestion added."}else if submit=="forum_create"||submit=="forum_reply"{"Message posted."}else if submit.starts_with("forum_"){"Public forum · anonymous member identity"}else{"Live votes • one vote per suggestion."}.into();
+  },Err((message,online))=>{v.online=online;v.status=message;}}
+
   app.invalidate();
  }
  if app.state.show_browser && app.state.browser_tab==TAB && !app.state.browser_auto_hidden {
   if !app.state.feature_votes.initialized {
    let v=&mut app.state.feature_votes;v.initialized=true;
+   if let Some(page)=crate::prefs::text("community_forum_cache").and_then(|s|serde_json::from_str(&s).ok()).filter(crate::community_forum::valid){v.forum.page=page;}
    if let Some(b)=crate::prefs::text("feature_board_cache").and_then(|s|serde_json::from_str::<Board>(&s).ok()).filter(valid){v.board=b;}
   }
-  if !app.state.feature_votes.busy && app.state.feature_votes.last.is_none_or(|t|t.elapsed()>Duration::from_secs(60)){start(app,serde_json::json!({"action":"list"}));}
+  if !app.state.feature_votes.change_log && !app.state.feature_votes.busy && app.state.feature_votes.last.is_none_or(|t|t.elapsed()>Duration::from_secs(60)){refresh(app);}
  }
 }
+fn refresh(app:&mut App){let body=if app.state.feature_votes.community_forum{crate::community_forum::request(&app.state)}else{serde_json::json!({"action":"list"})};start(app,body);}
 pub fn act(app:&mut App,id:u64,command:i8){
+ if command==30 {if let Err(e)=crate::feedback::open(){app.state.message=Some(e);}return;}
+ if command==6 {if id>2{return;}let v=&mut app.state.feature_votes;v.change_log=id==2;v.community_forum=id==1;v.focus=false;v.forum.focus=0;app.state.browser_scroll=0.;app.state.browser_search.clear();if id!=2 && !app.state.feature_votes.busy{refresh(app);}app.invalidate();return;}
+ if command>=10 {crate::community_forum::act(app,id,command);return;}
+
+ if command==5 {
+  if let Some(open)=app.state.feature_votes.sections.get_mut(id as usize) {*open=!*open;app.state.browser_scroll=0.;app.invalidate();}
+  return;
+ }
  if command==4 {
   let v=&mut app.state.feature_votes;
   if v.board.items.iter().any(|i|i.id==id&&!i.comments.is_empty()){v.expanded=if v.expanded==Some(id){None}else{Some(id)};v.expanded_height.set(0.);app.invalidate();}
@@ -104,13 +120,16 @@ pub fn act(app:&mut App,id:u64,command:i8){
  }
  if command==3 {app.state.feature_votes.focus=true;app.state.browser_search_focus=false;app.invalidate();return;}
  if app.state.feature_votes.busy{return;}
- if command==0 {if app.state.feature_votes.last.is_none_or(|t|t.elapsed()>Duration::from_secs(2)){start(app,serde_json::json!({"action":"list"}));}return;}
+ if command==0 {if app.state.feature_votes.last.is_none_or(|t|t.elapsed()>Duration::from_secs(2)){refresh(app);}return;}
  if !app.state.feature_votes.online{return;}
  if command==2 {let title=app.state.feature_votes.draft.text.trim().to_string();if !(8..=120).contains(&title.chars().count()){app.state.feature_votes.status="Describe your idea in 8–120 characters.".into();app.invalidate();return;}start(app,serde_json::json!({"action":"suggest","title":title}));}
- else if [-1,1].contains(&command) && app.state.feature_votes.board.items.iter().any(|i|i.id==id&&i.mine!=command&&i.locked==0){start(app,serde_json::json!({"action":"vote","id":id,"value":command}));}
+ else if [-1,1].contains(&command) && app.state.feature_votes.board.items.iter().any(|i|i.id==id&&i.mine!=command&&group(i)==0){start(app,serde_json::json!({"action":"vote","id":id,"value":command}));}
 }
 pub fn key(app:&mut App,key:&winit::keyboard::Key,ctrl:bool,alt:bool)->bool{
- if !app.state.feature_votes.focus||app.state.browser_tab!=TAB||!app.state.show_browser{return false;}
+ if app.state.browser_tab!=TAB||!app.state.show_browser{return false;}
+ if app.state.feature_votes.change_log{return false;}
+ if app.state.feature_votes.community_forum{return crate::community_forum::key(app,key,ctrl,alt);}
+ if !app.state.feature_votes.focus{return false;}
  use winit::keyboard::{Key,NamedKey};
  if matches!(key,Key::Named(NamedKey::Escape|NamedKey::Tab)){app.state.feature_votes.focus=false;}
  else if matches!(key,Key::Named(NamedKey::Enter)){act(app,0,2);}
@@ -118,8 +137,22 @@ pub fn key(app:&mut App,key:&winit::keyboard::Key,ctrl:bool,alt:bool)->bool{
  app.invalidate();true
 }
 pub fn items(s:&State)->Vec<&Item>{let q=s.browser_search.to_lowercase();s.feature_votes.board.items.iter().filter(|i|i.title.to_lowercase().contains(&q)).collect()}
-pub fn max_scroll(s:&State)->f32 {(s.feature_votes.announcements_height.get()+items(s).len() as f32*ROW_H+if items(s).iter().any(|i|Some(i.id)==s.feature_votes.expanded){s.feature_votes.expanded_height.get()}else{0.}-(s.screen.1-crate::views::browser::list_top(s)-28.-HEADER).max(0.)).max(0.)}
-fn comment_lines(ui:&mut Ui,value:&str,width:f32)->Vec<String>{
+const SECTION_H:f32=36.;
+const SECTIONS:[&str;6]=["Active voting","Planned","In progress","Completed","Rejected","Voting closed"];
+fn group(i:&Item)->usize {match i.status.as_str(){"Planned"=>1,"In progress"=>2,"Completed"=>3,"Declined"=>4,_=>if i.locked!=0 {5}else{0}}}
+fn rows(s:&State)->Vec<(usize,Option<&Item>)> {
+ let matched=items(s);let mut out=Vec::new();
+ for section in 0..SECTIONS.len() {
+  let members:Vec<_>=matched.iter().copied().filter(|i|group(i)==section).collect();
+  if members.is_empty()&&section!=0 {continue;}
+  out.push((section,None));
+  if s.feature_votes.sections[section] {out.extend(members.into_iter().map(|i|(section,Some(i))));}
+ }
+ out
+}
+fn content_height(s:&State)->f32 {rows(s).iter().map(|(_,i)|match i {None=>SECTION_H,Some(i)=>ROW_H+if Some(i.id)==s.feature_votes.expanded{s.feature_votes.expanded_height.get()}else{0.}}).sum()}
+pub fn max_scroll(s:&State)->f32 {if s.feature_votes.change_log{return crate::change_log::max_scroll(s);}if s.feature_votes.community_forum{return crate::community_forum::max_scroll(s);}(s.feature_votes.announcements_height.get()+content_height(s)-(s.screen.1-crate::views::browser::list_top(s)-28.-HEADER).max(0.)).max(0.)}
+pub(crate) fn comment_lines(ui:&mut Ui,value:&str,width:f32)->Vec<String>{
  let mut out=Vec::new();
  for paragraph in value.lines(){
   let mut line=String::new();
@@ -133,17 +166,24 @@ fn comment_lines(ui:&mut Ui,value:&str,width:f32)->Vec<String>{
  }
  out
 }
-fn text(ui:&mut Ui,r:Rect,value:&str,size:u16){
+pub(crate) fn text(ui:&mut Ui,r:Rect,value:&str,size:u16){
  let font=Font::new(size);let mut line=String::new();let mut y=r.y;
  for word in value.split_whitespace(){let next=if line.is_empty(){word.into()}else{format!("{line} {word}")};if !line.is_empty() && ui.c.text_width(font,&next)>r.w {ui.c.text_clip(font,r.x,y,r.w,ui.t.text,&line);y+=16.;line=word.into();}else{line=next;}if y+14.>r.bottom(){return;}}
  ui.c.text_clip(font,r.x,y,r.w,ui.t.text,&line);
 }
 // Flat vector surfaces only: no textures, blur, animation timers or audio-thread work.
-fn button(ui:&mut Ui,r:Rect,label:&str,action:Action,enabled:bool,primary:bool,tip:&str){
+pub(crate) fn button(ui:&mut Ui,r:Rect,label:&str,action:Action,enabled:bool,primary:bool,tip:&str){
  let hover=enabled && ui.hit(r,action,tip.to_string());
  let bg=if primary&&enabled {ui.t.h(0xb5d98b)}else if hover {ui.t.s(0x3e4c4a)}else{ui.t.s(0x293635)};
  ui.c.fill_rrect(r,5.,bg);
- ui.c.text_center(Font::new(12).bold(),r,if primary&&enabled{ui.t.s(0x19251b)}else if enabled{ui.t.text}else{ui.t.text_dim},label);
+ let size=if ui.c.text_width(Font::new(12).bold(),label)>r.w-8.{10}else{12};
+ let ink=if primary&&enabled{ui.t.s(0x19251b)}else if enabled{ui.t.text}else{ui.t.text_dim};
+ ui.c.push_clip(r);
+ if label.contains('\n') {
+  let count=label.lines().count() as f32;let line_h=12.;let top=r.cy()-count*line_h/2.;
+  for (i,line) in label.lines().enumerate(){ui.c.text_center(Font::new(10).bold(),Rect::new(r.x,top+i as f32*line_h,r.w,line_h),ink,line);}
+ }else{ui.c.text_center(Font::new(size).bold(),r,ink,label);}
+ ui.c.pop_clip();
 }
 fn vote_button(ui:&mut Ui,r:Rect,id:u64,dir:i8,count:u64,enabled:bool,selected:bool){
  let accent=if dir==1 {ui.t.h(0xa7d994)}else{ui.t.h(0xe4b583)};
@@ -160,24 +200,26 @@ fn vote_button(ui:&mut Ui,r:Rect,id:u64,dir:i8,count:u64,enabled:bool,selected:b
  ui.c.text(Font::new(14).bold(),r.right()-cw-8.,r.y+6.,if enabled||selected{ui.t.text}else{ui.t.text_dim},&count);
 }
 pub fn paint(ui:&mut Ui,s:&State,r:Rect){
+ ui.c.fill_rect(Rect::new(r.x,r.y,r.w,32.),ui.t.s(0x171f23));let w=(r.w-40.)/4.;
+ for (id,label) in [(0,"Voting"),(1,"Forum"),(2,"Change\nLog"),(3,"Report\nbug")] {button(ui,Rect::new(r.x+8.+id as f32*(w+8.),r.y+3.,w,25.),label,Action::FeatureVote(if id==3{0}else{id},if id==3{30}else{6}),true,if s.feature_votes.change_log{id==2}else if s.feature_votes.community_forum{id==1}else{id==0},"Switch community section");}
+ let r=Rect::new(r.x,r.y+32.,r.w,(r.h-32.).max(0.));
+ if s.feature_votes.change_log {crate::change_log::paint(ui,s,r);}else if s.feature_votes.community_forum {crate::community_forum::paint(ui,s,r);}else{paint_voting(ui,s,r);}
+}
+fn paint_voting(ui:&mut Ui,s:&State,r:Rect){
  let v=&s.feature_votes;let x=r.x+9.;let w=r.w-18.;let t=ui.t;
  ui.c.fill_rect(r,t.s(0x171f23));ui.hit(r,Action::BrowserList,"Feature voting");ui.c.push_clip(r);
  // Compact editorial header, with connection details available on hover.
  ui.c.text(Font::new(10).bold(),x,r.y+9.,t.h(0xb5d98b),"LEMON COMMUNITY");
- ui.c.text(Font::new(24).bold(),x,r.y+25.,t.text,"What's next?");
- let routine=v.status.starts_with("Live votes")||v.status.starts_with("Starter ideas")||v.status.starts_with("Connecting")||v.status.starts_with("Offline / unavailable");
- let subtitle=if v.status=="Suggestion added." {"Thanks! Your idea is on the board."}else if !routine {&v.status}else if v.online {"Your ideas. A better KNAY Studio."}else{"Saved ideas. Reconnect to vote."};
- ui.c.text_clip(Font::new(12),x,r.y+55.,w,if routine{t.text_dim}else{t.h(0xe4b583)},subtitle);
- let status=Rect::new(x,r.y+77.,w-77.,21.);
+ let status=Rect::new(x,r.y+25.,w-77.,21.);
  ui.c.fill_rrect(status,10.,t.s(0x263330));
  let color=if v.online {t.h(0xa7d994)}else{t.h(0xe4b583)};
  ui.c.fill_circle(status.x+9.,status.cy(),2.5,color);
  ui.c.text(Font::new(10).bold(),status.x+17.,status.y+4.,color,if v.busy{"CONNECTING"}else if v.online{"LIVE BOARD"}else{"OFFLINE"});
  ui.hit(status,Action::BrowserList,v.status.clone());
- button(ui,Rect::new(x+w-68.,r.y+77.,68.,21.),"Refresh",Action::FeatureVote(0,0),!v.busy,false,"Refresh shared votes");
- let composer=Rect::new(x,r.y+109.,w,69.);ui.c.fill_rrect(composer,7.,t.s(0x243034));
+ button(ui,Rect::new(x+w-68.,r.y+25.,68.,21.),"Refresh",Action::FeatureVote(0,0),!v.busy,false,"Refresh shared votes");
+ let composer=Rect::new(x,r.y+57.,w,69.);ui.c.fill_rrect(composer,7.,t.s(0x243034));
  ui.c.stroke_rrect(composer,7.,1.,t.s(0x364447));
- let field=Rect::new(x+6.,r.y+115.,w-12.,25.);
+ let field=Rect::new(x+6.,r.y+63.,w-12.,25.);
  ui.c.fill_rrect(field,4.,t.s(0x172125));
  if v.focus {ui.c.stroke_rrect(field,4.,1.,t.h(0xb5d98b));}
  ui.hit(field,Action::FeatureVote(0,3),"Suggest a feature in 8–120 characters. Enter submits; Escape leaves the field.");
@@ -188,18 +230,19 @@ pub fn paint(ui:&mut Ui,s:&State,r:Rect){
  ui.c.text(Font::new(13),field.x+5.-offset,field.y+4.,if v.draft.text.is_empty(){t.text_dim}else{t.text},value);
  if v.focus {let cx=field.x+5.+caret-offset;ui.c.line(cx,field.y+4.,cx,field.bottom()-4.,1.,t.text);}
  ui.c.pop_clip();
- button(ui,Rect::new(x+6.,r.y+146.,w-12.,25.),if v.online{"+  Share your idea"}else{"Connect to share an idea"},Action::FeatureVote(0,2),v.online&&!v.busy,true,"Submit a public suggestion. No personal information or links.");
- ui.c.text(Font::new(10).bold(),x,r.y+189.,t.text_dim,if v.board.announcements.is_empty(){"COMMUNITY IDEAS"}else{"ANNOUNCEMENTS & IDEAS"});
- let filtered=items(s);let count=filtered.len().to_string();let cw=ui.c.text_width(Font::new(11),&count);ui.c.text(Font::new(11),x+w-cw,r.y+188.,t.text_dim,&count);
- let list=Rect::new(x,r.y+HEADER,w,(r.h-HEADER).max(0.));ui.c.push_clip(list);
- let expanded=filtered.iter().find(|i|Some(i.id)==v.expanded);
+ button(ui,Rect::new(x+6.,r.y+94.,w-12.,25.),if v.online{"+  Share your idea"}else{"Connect to share an idea"},Action::FeatureVote(0,2),v.online&&!v.busy,true,"Submit a public suggestion. No personal information or links.");
+ ui.c.text(Font::new(10).bold(),x,r.y+137.,t.text_dim,if v.board.announcements.is_empty(){"COMMUNITY IDEAS"}else{"ANNOUNCEMENTS & IDEAS"});
+ let filtered=items(s);let count=filtered.len().to_string();let cw=ui.c.text_width(Font::new(11),&count);ui.c.text(Font::new(11),x+w-cw,r.y+136.,t.text_dim,&count);
+ let list=Rect::new(x,r.y+HEADER-32.,w,(r.h-HEADER+32.).max(0.));ui.c.push_clip(list);
+ let display=rows(s);
+ let expanded=display.iter().filter_map(|(_,i)|*i).find(|i|Some(i.id)==v.expanded);
  let comment_rows:Vec<_>=expanded.into_iter().flat_map(|i|&i.comments).map(|c|(c,comment_lines(ui,&c.body,(w-24.).max(20.)))).collect();
  let extra=comment_rows.iter().map(|(_,lines)|32.+lines.len() as f32*16.).sum::<f32>();
  v.expanded_height.set(extra);
  let news:Vec<_>=v.board.announcements.iter().map(|a|(a,comment_lines(ui,&a.title,(w-24.).max(20.)),comment_lines(ui,&a.body,(w-24.).max(20.)))).collect();
  let news_height=news.iter().map(|(_,title,body)|58.+(title.len()+body.len()) as f32*16.).sum::<f32>();
  v.announcements_height.set(news_height);
- let scroll=s.browser_scroll.min((news_height+filtered.len() as f32*ROW_H+extra-list.h).max(0.));
+ let scroll=s.browser_scroll.min((news_height+content_height(s)-list.h).max(0.));
  if filtered.is_empty(){text(ui,Rect::new(x+8.,list.y+news_height-scroll+16.,w-16.,64.),"No matching ideas. Try another search, or share your own.",13);}
  let mut offset=0.;
  for (announcement,title,body) in news {
@@ -213,7 +256,17 @@ pub fn paint(ui:&mut Ui,s:&State,r:Rect){
   cy+=7.;
   for line in body {ui.c.text_clip(Font::new(12),x+12.,cy,w-24.,t.text,&line);cy+=16.;}
  }
- for item in filtered {let height=ROW_H+if Some(item.id)==v.expanded{extra}else{0.};let y=list.y+offset-scroll;offset+=height;if y+height<=list.y||y>=list.bottom(){continue;}
+ for (section,item) in display {
+  let Some(item)=item else {
+   let y=list.y+offset-scroll;offset+=SECTION_H;
+   if y+SECTION_H<=list.y||y>=list.bottom(){continue;}
+   let count=filtered.iter().filter(|i|group(i)==section).count();
+   let label=format!("{}  {} ({count})",if v.sections[section]{"−"}else{"+"},SECTIONS[section]);
+   let header=Rect::new(x,y,w,SECTION_H-6.);
+   button(ui,header,&label,Action::FeatureVote(section as u64,5),header.y>=list.y&&header.bottom()<=list.bottom(),false,"Expand or collapse this category");
+   continue;
+  };
+  let height=ROW_H+if Some(item.id)==v.expanded{extra}else{0.};let y=list.y+offset-scroll;offset+=height;if y+height<=list.y||y>=list.bottom(){continue;}
   let card=Rect::new(x,y,w,height-10.);ui.c.fill_rrect(Rect::new(x,y+2.,w,card.h),8.,t.s(0x11191c));ui.c.fill_rrect(card,8.,t.s(0x273236));
   ui.c.stroke_rrect(card,8.,1.,if item.mine==1 {t.s(0x50604c)}else if item.mine == -1 {t.s(0x66533e)}else{t.s(0x39464a)});
   ui.c.text(Font::new(10).bold(),x+10.,y+9.,t.h(0xb5c7b0),&format!("IDEA {:02}",item.id));
@@ -223,10 +276,10 @@ pub fn paint(ui:&mut Ui,s:&State,r:Rect){
   let status_color=match item.status.as_str(){"Completed"=>t.h(0xb5d98b),"In progress"=>t.h(0xf0ce87),"Declined"=>t.h(0xe4a89b),_=>t.h(0xb3cad8)};
   ui.c.text(Font::new(10).bold(),x+10.,y+29.,status_color,&item.status.to_uppercase());
   text(ui,Rect::new(x+10.,y+48.,w-20.,53.),&item.title,14);
-  let half=(w-26.)/2.;let enabled=v.online&&!v.busy&&item.locked==0&&y+105.>=list.y&&y+136.<=list.bottom();
+  let half=(w-26.)/2.;let enabled=v.online&&!v.busy&&group(item)==0&&y+105.>=list.y&&y+136.<=list.bottom();
   vote_button(ui,Rect::new(x+9.,y+105.,half,31.),item.id,1,item.up,enabled,item.mine==1);
   vote_button(ui,Rect::new(x+17.+half,y+105.,half,31.),item.id,-1,item.down,enabled,item.mine == -1);
-  ui.c.text(Font::new(10),x+10.,y+142.,if item.mine!=0{t.h(0xb5d98b)}else{t.text_dim},if item.locked!=0 {"Voting closed"}else{match item.mine{1=>"You upvoted this idea",-1=>"You downvoted this idea",_=>"One voice. One vote per idea."}});
+  ui.c.text(Font::new(10),x+10.,y+142.,if item.mine!=0{t.h(0xb5d98b)}else{t.text_dim},if group(item)!=0 {"Voting closed · request history"}else{match item.mine{1=>"You upvoted this idea",-1=>"You downvoted this idea",_=>"One voice. One vote per idea."}});
   let comments_button=Rect::new(x+9.,y+164.,w-18.,23.);
   if item.comments.is_empty(){ui.c.text(Font::new(10),x+10.,y+169.,t.text_dim,"No comments from Michael yet");}
   else {button(ui,comments_button,&format!("{} ({})",if Some(item.id)==v.expanded{"Hide comments"}else{"Comments from Michael"},item.comments.len()),Action::FeatureVote(item.id,4),comments_button.y>=list.y&&comments_button.bottom()<=list.bottom(),false,"Read public updates from Michael / KNAY Studio");}
@@ -259,7 +312,9 @@ pub fn paint(ui:&mut Ui,s:&State,r:Rect){
   a.state.feature_votes.board.items[0].comments=vec![Comment{id:1,created:1793577600,edited:1793577601,body:"A public update.\n".to_string()+&"Long text with Unicode 🎵 and <markup> kept as plain text. ".repeat(8)}];
   assert!(valid(&a.state.feature_votes.board));
   let saved=serde_json::to_string(&a.state.feature_votes.board).unwrap();let back:Board=serde_json::from_str(&saved).unwrap();assert_eq!(back.items[0].comments[0].body,a.state.feature_votes.board.items[0].comments[0].body);
+  act(&mut a,2,5);
   let mut c=os_ui::Canvas::new(1000,600,1.).unwrap();a.paint(&mut c,None);
+  a.state.browser_scroll=max_scroll(&a.state);a.paint(&mut c,None);
   assert!(a.hits.iter().any(|h|h.action==Action::FeatureVote(1,4)),"comments remain readable offline");
   act(&mut a,1,4);a.paint(&mut c,None);assert!(max_scroll(&a.state)>0.);assert!(a.state.feature_votes.expanded_height.get()>100.);
   if let Some(dir)=std::env::var_os("OS_SHOT_DIR"){c.pixmap.save_png(std::path::PathBuf::from(dir).join("feature-comments.png")).unwrap();}

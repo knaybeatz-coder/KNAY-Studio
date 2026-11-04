@@ -2004,6 +2004,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "lemon-chop"
+version = "0.0.1"
+dependencies = [
+ "crossbeam-queue",
+ "nih_plug",
+ "os-dsp",
+ "os-engine",
+ "os-hostlink",
+ "os-model",
+ "os-paths",
+ "os-plugkit",
+ "os-theme",
+ "os-ui",
+ "rfd",
+ "serde",
+ "serde_json",
+ "tiny-skia",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "lemon-chorus"
 version = "0.0.1"
 dependencies = [
@@ -2148,6 +2169,25 @@ dependencies = [
  "lemon-small-fx",
  "nih_plug",
  "os-plugkit",
+]
+
+[[package]]
+name = "lemon-wave"
+version = "0.0.1"
+dependencies = [
+ "lemon-small-fx",
+ "nih_plug",
+ "os-clap",
+ "os-engine",
+ "os-host",
+ "os-plugkit",
+ "os-theme",
+ "os-ui",
+ "os-vst3",
+ "rfd",
+ "serde",
+ "serde_json",
+ "tiny-skia",
 ]
 
 [[package]]
@@ -2949,6 +2989,7 @@ dependencies = [
  "jpeg-decoder",
  "lemon-3x-osc",
  "lemon-balance",
+ "lemon-chop",
  "lemon-chorus",
  "lemon-delay",
  "lemon-fast-distortion",
@@ -2961,6 +3002,7 @@ dependencies = [
  "lemon-stereo-enhancer",
  "lemon-stereo-shaper",
  "lemon-transient-processor",
+ "lemon-wave",
  "libc",
  "midir",
  "mp3lame-encoder",
@@ -3042,6 +3084,7 @@ version = "0.0.1"
 dependencies = [
  "chrono",
  "os-model",
+ "serde_json",
  "thiserror 2.0.21",
 ]
 
@@ -3166,10 +3209,13 @@ dependencies = [
 name = "os-vst3"
 version = "0.0.1"
 dependencies = [
+ "bindgen 0.72.1",
  "libloading 0.8.9",
  "os-engine",
  "os-host",
  "os-model",
+ "serde",
+ "serde_json",
  "vst3-sys",
  "windows-sys 0.61.2",
 ]

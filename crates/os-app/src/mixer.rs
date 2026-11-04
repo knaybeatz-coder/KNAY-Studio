@@ -53,6 +53,7 @@ pub enum MHit {
     View(u8),
     /// Effect slot `n` of the current track: name, ▸ arrow, LED.
     SlotName(u8),
+    TrackSlot(u16,u8),
     AddSlot,
     SlotScroll,
     SlotArrow(u8),
@@ -105,6 +106,7 @@ impl Section {
 /// Menu commands (`Cmd::Mixer`).
 #[derive(Debug, Clone, PartialEq)]
 pub enum MCmd {
+    Rack(crate::rack_mixer::Command),
     CompProfile(u16,u8),
     TuneSetting(u16,u8,u16),
     ChannelLayout(u16,u8),
@@ -181,9 +183,13 @@ pub enum FxReq {
 /// Full view keeps the existing wide layout identifier.
 pub const WIDE: u8 = 3;
 pub const COMPACT: u8 = 0;
+pub const TRADITIONAL: u8 = 10;
+pub const TRADITIONAL_LAYOUTS: [&str; 8] = ["Compact", "Compact 2", "Compact alt", "Wide", "Wide 2", "Wide 3", "Wide alt", "Extra large"];
+pub fn traditional(s: &State) -> bool {(TRADITIONAL..TRADITIONAL+8).contains(&s.mixer.layout)}
 pub fn set_layout(s: &mut State, layout: u8) {
     let old=crate::views::mixer::strip_width(s);
-    s.mixer.layout=if layout==COMPACT {COMPACT} else {WIDE};
+    s.mixer.layout=if layout==crate::rack_mixer::VIEW{layout}else if layout==COMPACT {TRADITIONAL} else if (TRADITIONAL..TRADITIONAL+8).contains(&layout) {layout} else {WIDE};
+    if traditional(s) {s.mixer.traditional_layout=s.mixer.layout-TRADITIONAL;}
     s.mixer_scroll*=crate::views::mixer::strip_width(s)/old;
 }
 
@@ -203,6 +209,12 @@ pub struct MixerUi {
     /// Selected tracks besides the current one (Ctrl+click, §2).
     pub sel: Vec<u16>,
     pub layout: u8,
+    pub traditional_layout: u8,
+    pub rack_width:f32,
+    pub rack_min_height:std::collections::BTreeMap<u16,f32>,
+    pub rack_pages:std::collections::BTreeMap<u16,(usize,usize)>,
+    pub rack_auto_width:std::collections::BTreeMap<u16,f32>,
+    pub rack_errors:std::collections::BTreeMap<u16,String>,
     /// Slot names typed in the rename box (session only).
     pub slot_names: HashMap<(u16, u8), String>,
     pub pending: Vec<FxReq>,
@@ -221,7 +233,7 @@ pub struct MixerUi {
 
 impl Default for MixerUi {
     fn default() -> Self {
-        MixerUi { slot_scroll: HashMap::new(), slots_shown: HashMap::new(), mini_eq: Default::default(), clipboard:None, recording: Default::default(), all_fx_bypassed: false, peak_view: Default::default(), sel: Vec::new(), layout: WIDE, slot_names: HashMap::new(), pending: Vec::new(), meters: Vec::new(),
+        MixerUi { slot_scroll: HashMap::new(), slots_shown: HashMap::new(), mini_eq: Default::default(), clipboard:None, recording: Default::default(), all_fx_bypassed: false, peak_view: Default::default(), sel: Vec::new(), layout: WIDE, traditional_layout: 3, rack_width:128.,rack_min_height:Default::default(),rack_pages:Default::default(),rack_auto_width:Default::default(),rack_errors:Default::default(), slot_names: HashMap::new(), pending: Vec::new(), meters: Vec::new(),
             meter_cfg: Default::default(), meter_at: None, solo: None, wheel_grab: None }
     }
 }
@@ -310,6 +322,7 @@ fn remove_question(n: usize) -> String {
 
 /// Empties slot `k` of track `t` and drops its instance (the slot menu's Delete).
 fn clear_slot(s: &mut State, t: u16, k: u8) {
+    crate::rack_mixer::detach(s,t,k);
     crate::peak_link::remove_slot(s,t,k);
     if let Some(m) = track_mut(s, t) {
         m.slots[usize::from(k)] = None;
@@ -403,7 +416,7 @@ pub fn hit(app: &mut App, h: MHit) -> Option<String> {
     if h==MHit::HeadphonesToggle {crate::headphones::toggle(app);return None;}
     if let MHit::Jump(_, section) = h {
         if let Some(n) = section.target(&app.state) {
-            app.scroll_set(crate::app::Scroll::MixerX, f32::from(n.saturating_sub(1)) * crate::views::mixer::strip_width(&app.state));
+            app.scroll_set(crate::app::Scroll::MixerX, crate::views::mixer::channel_offset(&app.state,n));
             app.invalidate();
         }
         return None;
@@ -534,7 +547,13 @@ pub fn hit(app: &mut App, h: MHit) -> Option<String> {
             None
         }
         MHit::SlotScroll => None,
-        MHit::AddSlot => { let n=s.selected_mixer;let count=slot_count(s,n).saturating_add(1).min(63);s.mixer.slots_shown.insert(n,count);s.mixer.slot_scroll.insert(n,count.saturating_sub(10)); None },
+        MHit::AddSlot => { let n=s.selected_mixer;let count=slot_count(s,n).saturating_add(1).min(user_slot_capacity(s,n));s.mixer.slots_shown.insert(n,count);s.mixer.slot_scroll.insert(n,count.saturating_sub(10)); None },
+        MHit::TrackSlot(t,i) => {
+            s.selected_mixer=t;
+            if slot_name(s,t,i).is_some() {s.mixer.pending.push(FxReq::Toggle {track:t,slot:i});}
+            else {s.playlist.popup=Some(effect_menu(s,i,at.0,at.1));}
+            None
+        }
         MHit::SlotName(i) => {
             let t = s.selected_mixer;
             if slot_name(s, t, i).is_some() {
@@ -589,6 +608,12 @@ pub fn eq_graph_hint(s: &State, g: os_ui::Rect, x: f32) -> String {
 
 /// Right click on a mixer control. Returns false when it is not handled here (knob menus).
 pub fn right(app: &mut App, h: MHit) -> bool {
+    if let MHit::TrackSlot(t,i)=h {
+        app.state.selected_mixer=t;
+        let s=&mut app.state;
+        s.playlist.popup=Some(if slot_name(s,t,i).is_some(){slot_menu(s,i,app.mouse.0,app.mouse.1)}else{effect_menu(s,i,app.mouse.0,app.mouse.1)});
+        return true;
+    }
     let at = app.mouse;
     let s = &mut app.state;
     match h {
@@ -619,7 +644,7 @@ pub fn right(app: &mut App, h: MHit) -> bool {
             s.playlist.popup = Some(if slot_name(s, t, i).is_some() { slot_menu(s, i, at.0, at.1) } else { effect_menu(s, i, at.0, at.1) });
         }
         MHit::SlotScroll => {},
-        MHit::AddSlot => { let n=s.selected_mixer;let count=slot_count(s,n).saturating_add(1).min(63);s.mixer.slots_shown.insert(n,count);s.mixer.slot_scroll.insert(n,count.saturating_sub(10)); },
+        MHit::AddSlot => { let n=s.selected_mixer;let count=slot_count(s,n).saturating_add(1).min(user_slot_capacity(s,n));s.mixer.slots_shown.insert(n,count);s.mixer.slot_scroll.insert(n,count.saturating_sub(10)); },
         MHit::SlotName(i) => {
             let t = s.selected_mixer;
             if slot_name(s, t, i).is_some() {
@@ -670,12 +695,12 @@ pub fn slot_wheel(app: &mut App, slot: u8, notches: i32) {
     };
     let d: i8 = if notches > 0 { -1 } else { 1 };
     for _ in 0..notches.unsigned_abs() {
-        let to = user_slot_index(slot) as i32 + i32::from(d);
-        if !(0..63).contains(&to) {
+        let to = visible_user_slot_index(&app.state,t,slot) as i32 + i32::from(d);
+        if !(0..user_slot_capacity(&app.state,t) as i32).contains(&to) {
             break;
         }
         run(app, MCmd::SlotMove(slot, d));
-        slot = user_slot(to as usize);
+        slot = visible_user_slot(&app.state,t,to as usize);
     }
     app.state.mixer.wheel_grab = Some((t, slot, at));
 }
@@ -1215,6 +1240,7 @@ fn track_items(s: &State, n: u16) -> Vec<PItem> {
         PItem::new("Reset selected track(s) routing", mx(MCmd::ResetRouting(n))),
         PItem::sep(),
         PItem::new("Separator", mx(MCmd::Separator(n))).mark(Mark::Check(has_separator(s, n))),
+        PItem::sub("Channel Strip mixer",crate::rack_mixer::menu(s,n)),
         PItem::sub("Channel layout",["Standard (FL-style)","Custom strip","Vox (Custom + DS)"].iter().enumerate().map(|(i,label)| {
             let item=PItem::new(*label,mx(MCmd::ChannelLayout(n,i as u8))).mark(Mark::Radio(track(s,n).is_some_and(|m|m.channel_layout==i as u8)));
             if n==0 {item.off()}else{item}
@@ -1262,9 +1288,15 @@ pub fn options_menu(s: &State, x: f32, y: f32) -> Popup {
 
 /// The compact and full views also available on the mixer toolbar.
 pub fn layout_menu(s: &State, x: f32, y: f32) -> Popup {
-    let mut items = Vec::new();
-    for (mode,label) in [(COMPACT,"Compact"),(WIDE,"Full")] {
-        items.push(PItem::new(label,Cmd::Mixer(MCmd::Layout(mode))).mark(Mark::Radio(s.mixer.layout==mode)));
+    let mut items = vec![PItem::new("Channel Strip mixer",Cmd::Mixer(MCmd::Layout(crate::rack_mixer::VIEW)))];
+    if traditional(s) {
+        for (i,label) in TRADITIONAL_LAYOUTS.iter().enumerate() {
+            items.push(PItem::new(*label,Cmd::Mixer(MCmd::Layout(TRADITIONAL+i as u8))).mark(Mark::Radio(s.mixer.layout==TRADITIONAL+i as u8)));
+        }
+    } else {
+        for (mode,label) in [(WIDE,"Full"),(TRADITIONAL+s.mixer.traditional_layout,"Traditional FL-style")] {
+            items.push(PItem::new(label,Cmd::Mixer(MCmd::Layout(mode))).mark(Mark::Radio(s.mixer.layout==mode)));
+        }
     }
     Popup { x, y, items, sub: None, scroll: [0; 2], cascade: Vec::new() }
 }
@@ -1342,6 +1374,7 @@ fn sidechain_items(s: &State, slot: u8) -> Vec<PItem> {
 // Commands
 
 pub fn run(app: &mut App, c: MCmd) -> Option<String> {
+    if let MCmd::Rack(c)=c{return crate::rack_mixer::run(app,c);}
     if app.audio_rec.is_some()&&matches!(c,MCmd::MoveLeft(_)|MCmd::MoveRight(_)|MCmd::Delete(_)|MCmd::InsertOne(_)|MCmd::Trim{..}){return Some("Stop the take before moving or removing mixer tracks".into());}
     match c {
         MCmd::QuickSidechain(dst)=>return crate::quick_sidechain::run(app,dst),
@@ -1375,7 +1408,7 @@ pub fn run(app: &mut App, c: MCmd) -> Option<String> {
             changed(s);
             None
         }
-        MCmd::Detach | MCmd::QuickSidechain(_) => None,
+        MCmd::Rack(_) | MCmd::Detach | MCmd::QuickSidechain(_) => None,
         MCmd::ChannelLayout(n,p) => {
             if n==0 {return None;}
             let old=track(s,n)?.channel_layout;
@@ -1520,6 +1553,7 @@ pub fn run(app: &mut App, c: MCmd) -> Option<String> {
         MCmd::AddEffect(slot, index) => {
             let t = s.selected_mixer;
             let Some(nm) = app.plugins.effects.get(index).map(|a| a.desc.name.clone()) else { return None };
+            crate::rack_mixer::detach(s,t,slot);
             crate::peak_link::remove_slot(s,t,slot);
             if let Some(m) = track_mut(s, t) {
                 m.slots[usize::from(slot)] = Some(crate::plugins::new_slot(&nm));
@@ -1541,13 +1575,14 @@ pub fn run(app: &mut App, c: MCmd) -> Option<String> {
         }
         MCmd::SlotMove(slot, d) => {
             let t = s.selected_mixer;
-            let o = user_slot_index(slot) as i32 + i32::from(d);
-            if !(0..63).contains(&o) {
+            let o = visible_user_slot_index(s,t,slot) as i32 + i32::from(d);
+            if !(0..user_slot_capacity(s,t) as i32).contains(&o) {
                 return None;
             }
-            let (a, b) = (usize::from(slot), user_slot(o as usize) as usize);
+            let (a, b) = (usize::from(slot), visible_user_slot(s,t,o as usize) as usize);
             for l in &mut s.project.peak_links {if let os_model::target::Target::SlotParam(tr,k,p)=os_model::target::decode(l.target){if tr==t {let k=if k as usize==a{b as u8}else if k as usize==b{a as u8}else{k};l.target=os_model::target::slot_param(t,k,p);}}}
             if let Some(m) = track_mut(s, t) {
+                if let Some(h)=&mut m.rack_strip{if h.slot as usize==a{h.slot=b as u8;}else if h.slot as usize==b{h.slot=a as u8;}}
                 m.slots.swap(a, b);
                 m.slot_on.swap(a, b);
                 m.slot_mix.swap(a, b);
@@ -1615,7 +1650,7 @@ fn copy_channel(app:&mut App,n:u16)->Option<String> {
     app.params_tick();
     app.store_builtin_states();
     let mut project=app.state.project.clone();
-    crate::project_plugins::store_hosted(&mut project,&app.plugins);
+    if let Err(e)=crate::project_plugins::store_hosted(&mut project,&app.plugins){return Some(e);}
     let mut copied=channel_copy(&app.state,n)?;
     copied.track=project.mixer.iter().find(|t|t.index==n)?.clone();
     app.state.mixer.clipboard=Some(copied);
@@ -1630,9 +1665,10 @@ fn paste_channel(app:&mut App,n:u16)->Option<String> {
         return Some("Cannot paste this routing here: it would create a feedback loop".into());
     }
     app.mixer_tick();app.store_builtin_states();
-    crate::project_plugins::store_hosted(&mut app.state.project,&app.plugins);
+    if let Err(e)=crate::project_plugins::store_hosted(&mut app.state.project,&app.plugins){return Some(e);}
     let old=channel_copy(&app.state,n)?;
     c.track.index=n;c.track.origin=old.track.origin;
+    c.track.runtime_id=MixerTrack::new(n).runtime_id;
     crate::history::record(&mut app.state,"Paste mixer channel",crate::history::Snap::MixerChannel(Box::new(old)));
     put_channel(&mut app.state,c);
     app.mixer_tick();app.sync_effects();app.sync_wrapped();app.sync_native();
@@ -1955,8 +1991,8 @@ impl App {
         select(&mut self.state, t, false);
         // The master strip is fixed; an insert scrolls into the mixer's last painted view.
         if let Some(bar) = self.bar(crate::app::Scroll::MixerX).filter(|_| t > 0) {
-            let w = crate::views::mixer::strip_width(&self.state);
-            let left = w * f32::from(t - 1);
+            let w = crate::views::mixer::channel_width(&self.state,t);
+            let left = crate::views::mixer::channel_offset(&self.state,t);
             let scroll = self.state.mixer_scroll;
             if left < scroll {
                 self.scroll_set(crate::app::Scroll::MixerX, left);
@@ -2548,9 +2584,20 @@ pub fn tune_menu(s:&State,n:u16,x:f32,y:f32,voice:bool)->Popup {
 /// Logical user slot numbers skip the reserved, independently bypassable EQ.
 pub fn user_slot(i:usize)->u8 { if i<10 {i as u8}else{(i+1) as u8} }
 pub fn user_slot_index(k:u8)->usize {if k<10 {k as usize}else{(k-1) as usize}}
+/// The assistant owns its processing instance; it is not a user insert.
+/// Preserve existing physical keys so old automation and saved projects do not move.
+pub fn user_slot_capacity(s:&State,t:u16)->usize {63-usize::from(t==0 && crate::master_assistant::slot(s).is_some())}
+pub fn visible_user_slot(s:&State,t:u16,i:usize)->u8 {
+    let hidden=if t==0 {crate::master_assistant::slot(s)}else{None};
+    (0..64u8).filter(|k|*k!=10 && Some(*k)!=hidden).nth(i).unwrap_or(0)
+}
+fn visible_user_slot_index(s:&State,t:u16,k:u8)->usize {
+    (0..user_slot_capacity(s,t)).find(|i|visible_user_slot(s,t,*i)==k).unwrap_or(0)
+}
 pub fn slot_count(s:&State,t:u16)->usize {
-    let filled=track(s,t).and_then(|m|(0..63).rfind(|i|m.slots[user_slot(*i) as usize].is_some())).map_or(10,|i|i+2);
-    filled.max(s.mixer.slots_shown.get(&t).copied().unwrap_or(10)).clamp(10,63)
+    let cap=user_slot_capacity(s,t);
+    let filled=track(s,t).and_then(|m|(0..cap).rfind(|i|m.slots[visible_user_slot(s,t,*i) as usize].is_some())).map_or(10,|i|i+2);
+    filled.max(s.mixer.slots_shown.get(&t).copied().unwrap_or(10)).clamp(10,cap)
 }
 pub fn scroll_slots(s:&mut State,delta:f32) {
     let t=s.selected_mixer;let max=slot_count(s,t).saturating_sub(10);

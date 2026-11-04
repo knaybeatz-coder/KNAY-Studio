@@ -4,7 +4,7 @@ use ed25519_dalek::{Signature, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-pub const VERSION: u64 = 2026110106;
+pub const VERSION: u64 = 2026110307;
 /// KNAY build: automatic updates from the Michael Lane feed are switched off, so a remote
 /// release can never replace this customized program.
 pub const ENABLED: bool = false;
@@ -96,6 +96,15 @@ fn get(url: &str, max: u64) -> Result<Vec<u8>> {
     let mut bytes=Vec::new(); response.into_reader().take(max+1).read_to_end(&mut bytes)?;
     if bytes.len() as u64>max {return Err("Download exceeds expected size".into())} Ok(bytes)
 }
+#[cfg(target_os="macos")]
+fn writable_bundle(exe:&Path) -> Result<()> {
+    let bundle=exe.parent().and_then(Path::parent).and_then(Path::parent).ok_or("Run Lemon Studio from Applications")?;
+    if bundle.extension().and_then(|s|s.to_str())!=Some("app") {return Err("Run the installed Lemon Studio app from Applications to update".into());}
+    let parent=bundle.parent().ok_or("No Applications folder")?;
+    let probe=parent.join(format!(".lemon-write-check-{}-{}",std::process::id(),std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_nanos()));
+    let file=fs::OpenOptions::new().write(true).create_new(true).open(&probe).map_err(|_|"Move Lemon Studio out of the DMG into a writable Applications folder, reopen it there, then retry Update")?;
+    drop(file);fs::remove_file(probe)?;Ok(())
+}
 fn check() -> Result<Option<PathBuf>> {
     let bytes=get(FEED,65536)?;
     // Authenticate even a current/older release, before interpreting its version.
@@ -105,6 +114,7 @@ fn check() -> Result<Option<PathBuf>> {
     if advertised.product!=PRODUCT { return Err("Wrong update product".into()); }
     if advertised.version<=VERSION {return Ok(None)}
     let manifest=verify(&bytes)?;
+    #[cfg(target_os="macos")] writable_bundle(&std::env::current_exe()?)?;
     let dir=cache()?.join(format!("{}-{}",manifest.version,std::process::id())); fs::create_dir_all(&dir)?;
     #[cfg(unix)] {use std::os::unix::fs::PermissionsExt;fs::set_permissions(&dir,fs::Permissions::from_mode(0o700))?;}
     for file in &manifest.files {
@@ -144,7 +154,7 @@ pub fn tick() {
 pub fn ready() -> bool { status().lock().unwrap().ready.is_some() }
 pub fn display() -> (&'static str,String) {
     let s=status().lock().unwrap();
-    ("Update",s.message.clone())
+    (if s.ready.is_some(){"Restart"}else if s.busy{if s.message.starts_with("Downloading"){"Get…"}else{"Check…"}}else if s.message.starts_with("Update check failed"){"Retry"}else if s.message.contains("up to date"){"Latest"}else{"Update"},s.message.clone())
 }
 pub fn report_result(message: &str) {
     if let Ok(dir)=cache() {let _=fs::write(dir.join("last-update-result.txt"),message);}

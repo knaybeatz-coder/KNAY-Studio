@@ -1,0 +1,26 @@
+LEMON MASTER ASSISTANT - local working version
+
+On the master bus, underneath the headphone controls:
+ON / OFF enables or bypasses mastering for playback and normal song exports.
+OPEN opens the controls and reuses your existing settings.
+Opening it for the first time leaves mastering OFF until you enable it.
+
+Enable it, open the controls, play a representative section of your song and
+run Master Assist. Review and apply its suggestion, then adjust the controls
+to taste. The assistant listens for about a minute. Reference matching is
+also available. Save your Lemon project to keep your settings.
+
+Export the song normally. Keep Master FX enabled in export settings.
+The global mixer FX bypass also bypasses the assistant. Enabling the
+assistant restores the master effects group, including its other active slots.
+Headphone correction remains monitor-only.
+
+Powered by the oXygen engine by Wamphyre, adapted for Lemon Studio.
+This is a local Windows working update, not a public release.
+
+The main view has Bass, Body, Air, Width and Loudness knobs. Drag the three
+tone handles on the EQ curve, or adjust their knobs. Detailed controls opens
+the full rack. The curve shows the actual combined EQ response.
+
+PRIVATE ONLY: do not include this assistant in public updates until Michael
+explicitly says the Master Assistant is ready to publish.

@@ -487,7 +487,7 @@ fn walk(dir: &Path, depth: u32, formats: Formats, walked: &mut HashSet<(PathBuf,
 /// A file named like a built-in Lemon plugin, or like one by an earlier name (same plugin id): the built-in copy
 /// is used (a second copy in the process would share the built-in one's editor window class).
 fn builtin_file(p: &Path) -> bool {
-    let builtin = [crate::plugins::LEMON_SAMPLER, crate::plugins::LEMON_EQ, crate::plugins::PULP_FILTER, crate::plugins::PRESS, crate::osc3::LEMON_TRIO, crate::citrus::CITRUS];
+    let builtin = ["Lemon Wave", "Lemon Chop", crate::plugins::LEMON_SAMPLER, crate::plugins::LEMON_EQ, crate::plugins::PULP_FILTER, crate::plugins::PRESS, crate::osc3::LEMON_TRIO, crate::citrus::CITRUS];
     let old = crate::plugins::OLD_NAMES.map(|(old, _)| old);
     p.file_stem().is_some_and(|s| builtin.iter().chain(&crate::plugins::LINKED_EFFECTS).chain(&old).any(|b| s.eq_ignore_ascii_case(b)))
 }
@@ -727,9 +727,10 @@ pub fn categories(effects: bool) -> impl Iterator<Item = &'static str> {
 /// A plugin's category (§4): the first category in table order with a matching feature string.
 pub fn category(d: &Descriptor) -> &'static str {
     match d.name.as_str() {
-        n if n == crate::plugins::LEMON_SAMPLER => return "Sampler",
+        n if n == crate::plugins::LEMON_SAMPLER || n == "Lemon Chop" => return "Sampler",
         n if n == crate::osc3::LEMON_TRIO || n == crate::citrus::CITRUS => return "Synth",
         n if n == crate::plugins::LEMON_EQ => return "EQ",
+        "Lemon Master Assistant" => return "Utility",
         _ => {}
     }
     let feats: Vec<String> = d.features.iter().map(|f| f.trim().to_lowercase()).collect();
@@ -1102,10 +1103,40 @@ mod tests {
     /// Installed bundles of the built-in Lemon plugins are not scanned: the built-in copy is used.
     #[test]
     fn installed_copies_of_built_in_plugins_are_skipped() {
-        for name in ["Lemon Sampler.clap", "Lemon Parametric EQ.vst3", "Lemon Limiter.clap", "Lemon Chorus.vst3", "lemon stereo shaper.clap"] {
+        for name in ["Lemon Chop.clap", "Lemon Chop.vst3", "Lemon Sampler.clap", "Lemon Parametric EQ.vst3", "Lemon Limiter.clap", "Lemon Chorus.vst3", "lemon stereo shaper.clap"] {
             assert!(builtin_file(Path::new(&format!("/Library/Audio/Plug-Ins/{name}"))), "{name}");
         }
         assert!(!builtin_file(Path::new("/Library/Audio/Plug-Ins/Surge XT.clap")));
+    }
+
+    /// Existing scan caches predate newly bundled instruments and must not hide them.
+    #[test]
+    fn chop_is_in_instruments_after_upgrade_with_old_cache() {
+        let old: Cache = serde_json::from_str(r#"{"version":1,"files":[]}"#).unwrap();
+        let mut plugins = crate::plugins::Plugins::builtins();
+        for _ in 0..2 {
+            plugins.merge(&old);
+            let listed = lists(&plugins.available, &plugins.effects, &Prefs::default(), &plugins.missing);
+            let chop: Vec<_> = listed.gens.iter().filter(|e| e.name == "Lemon Chop").collect();
+            assert_eq!(chop.len(), 1, "upgrade and rescan retain exactly one Chop instrument");
+            assert_eq!(chop[0].category, "Sampler");
+            assert_eq!(chop[0].vendor, BUILTIN_VENDOR);
+            assert_eq!(plugins.available[chop[0].index].desc.kind, Kind::Instrument);
+            assert!(!listed.fx.iter().any(|e| e.name == "Lemon Chop"));
+        }
+    }
+
+    #[test]
+    fn wave_factory_organization_and_recall_without_scan() {
+        let mut plugins=crate::plugins::Plugins::builtins();
+        for _ in 0..2 {
+            plugins.merge(&Cache::default());let listed=lists(&plugins.available,&plugins.effects,&Prefs::default(),&plugins.missing);
+            let waves:Vec<_>=listed.gens.iter().filter(|e|e.name=="Lemon Wave").collect();assert_eq!(waves.len(),1);assert_eq!(waves[0].category,"Synth");assert!(!listed.fx.iter().any(|e|e.name=="Lemon Wave"));
+            for e in listed.gens.iter().chain(&listed.fx){assert_ne!(e.category,OTHER,"{} must have a factory category",e.name);}
+            let available=&plugins.available[waves[0].index];assert!(crate::project_plugins::is_wrapped(&available.desc));
+            let shared=available.lib.clone().create(&available.desc.id).unwrap();let mut p=shared.lock().unwrap();assert!(p.activate(48000));let state=p.save_state().unwrap();assert!(p.load_state(&state));p.note_on(0,60,0.8);let(mut l,mut r)=(vec![0.;1024],vec![0.;1024]);p.process(48000,&mut l,&mut r);assert!(l.iter().any(|x|x.abs()>0.0001));assert!(l.iter().chain(&r).all(|x|x.is_finite()));
+        }
+        assert!(builtin_file(Path::new("Lemon Wave.vst3")));
     }
 
     /// Combining (spec: ui/plugin-manager.md §3): one entry per plugin in the preferred format, the next format when the

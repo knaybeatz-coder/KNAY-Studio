@@ -327,7 +327,8 @@ fn execute(app: &mut App, name: &str, a: &Value) -> Result<Value> {
                         if slot == 0 {
                             return Err("Slot numbering starts at1".into());
                         }
-                        mx::run(app, MCmd::SlotDelete(mx::user_slot(slot as usize - 1)));
+                        if slot as usize > mx::user_slot_capacity(&app.state,app.state.selected_mixer) {return Err("Slot is out of range".into());}
+                        mx::run(app, MCmd::SlotDelete(mx::visible_user_slot(&app.state,app.state.selected_mixer,slot as usize - 1)));
                     }
                     _ => return Err("Unknown mixer operation".into()),
                 }
@@ -539,7 +540,8 @@ fn execute(app: &mut App, name: &str, a: &Value) -> Result<Value> {
                     if k == 0 {
                         return Err("Slot numbering starts at1".into());
                     }
-                    let slot = crate::mixer::user_slot(k as usize - 1);
+                    if k as usize > crate::mixer::user_slot_capacity(&app.state,t) {return Err("Slot is out of range".into());}
+                    let slot = crate::mixer::visible_user_slot(&app.state,t,k as usize - 1);
                     if crate::mixer::track(&app.state, t).unwrap().slots[slot as usize].is_some() {
                         return Err("Slot is occupied; choose an empty slot".into());
                     }

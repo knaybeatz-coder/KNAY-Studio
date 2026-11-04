@@ -165,6 +165,8 @@ struct Band {
     stored: Stored,
     coefs: BandCoefs,
     state: [[Section; 4]; 2],
+    current: [BandCoefs; 2],
+    ramp: [usize; 2],
     count: i64,
     off: bool,
 }
@@ -198,6 +200,7 @@ pub struct Equalizer {
     /// LIN's "settings changed" mark.
     changed: bool,
     hi: [Vec<f32>; 2],
+    processed: bool,
 }
 
 /// `single(exp(double(single(main) * 0.01 * dB)))`, the product in singles.
@@ -228,6 +231,7 @@ impl Equalizer {
             lin: None,
             changed: true,
             hi: [Vec::new(), Vec::new()],
+            processed: false,
         };
         for k in 0..BANDS {
             eq.set_band(k);
@@ -274,23 +278,32 @@ impl Equalizer {
         let b = &mut self.bands[k];
         b.stored = stored;
         b.coefs = design::band(&stored, self.design);
+        b.current=[b.coefs;2];b.ramp=[0;2];
         b.count = count;
         b.off = false;
     }
 
-    /// An automation value for parameter `i`: from the next block on, without smoothing. A value for a band's type or
+    /// An automation value for parameter `i`: HQ Enhanced continuous band controls ramp over 10ms. A value for a band's type or
     /// order also clears its sections; any value for a band starts its countdown anew.
     pub fn set_param(&mut self, i: usize, v: i32) {
         if i >= PARAMS {
             return;
         }
         let (lo, hi) = range(i);
-        self.params[i] = v.clamp(lo, hi);
+        let v=v.clamp(lo,hi);
+        let changed=self.params[i]!=v;
+        self.params[i] = v;
         if i == MAIN {
             self.gain = main_gain(self.params[MAIN]);
         } else {
             let k = i % BANDS;
+            let current=self.bands[k].current;
+            let smooth=changed && self.processed && self.mode()==Mode::HqEnhanced && i/BANDS<3;
             self.set_band(k);
+            if smooth && current[0].n==self.bands[k].coefs.n {
+                self.bands[k].current=current;
+                self.bands[k].ramp=[(self.band_rate()*0.01).ceil().max(1.) as usize;2];
+            }
             if i / BANDS >= 3 {
                 self.bands[k].clear();
             }
@@ -321,6 +334,7 @@ impl Equalizer {
 
     /// Back to a new instance's state (the settings stay).
     pub fn reset(&mut self) {
+        self.processed=false;
         for k in 0..BANDS {
             self.set_band(k);
             self.bands[k].clear();
@@ -374,6 +388,7 @@ impl Equalizer {
             return;
         }
         let (l, r) = (&mut l[..n], &mut r[..n]);
+        self.processed=true;
         let mode = self.mode();
         if mode == Mode::Lin {
             let len = self.opts.lin_n(self.rate);
@@ -471,9 +486,23 @@ impl Equalizer {
                 continue;
             }
             let b = &mut self.bands[k];
-            for (c, s) in b.coefs.as_slice().iter().zip(b.state[ch].iter_mut()) {
+            if b.ramp[ch]>0 {
                 for v in x.iter_mut() {
-                    *v = s.run(c, *v);
+                    let left=b.ramp[ch];
+                    if left>0 {
+                        for (a,z) in b.current[ch].s.iter_mut().zip(b.coefs.s) {
+                            let t=1./left as f64;
+                            a.b0+=(z.b0-a.b0)*t;a.b1+=(z.b1-a.b1)*t;a.b2+=(z.b2-a.b2)*t;
+                            a.a1+=(z.a1-a.a1)*t;a.a2+=(z.a2-a.a2)*t;
+                        }
+                        b.ramp[ch]-=1;
+                        if b.ramp[ch]==0 {b.current[ch]=b.coefs;}
+                    }
+                    for (c,s) in b.current[ch].as_slice().iter().zip(b.state[ch].iter_mut()) {*v=s.run(c,*v);}
+                }
+            } else {
+                for (c, s) in b.coefs.as_slice().iter().zip(b.state[ch].iter_mut()) {
+                    for v in x.iter_mut() {*v = s.run(c, *v);}
                 }
             }
         }
@@ -542,6 +571,26 @@ mod tests {
             eq.process(a, b);
         }
         (l, r)
+    }
+
+    #[test]
+    fn hq_enhanced_shelf_sweep_is_smooth_and_block_independent() {
+        for rate in [44100.,48000.,96000.] {for hz in [20.,600.] {
+            let mut p=preset(0);p[BANDS+6]=((hz/20.0_f64).ln()/1000.0_f64.ln()*65536.).round() as i32;
+            let render=|block:usize,smooth:bool| {
+                let mut eq=Equalizer::new(rate,&p,opts(1,2));
+                let input=vec![0.1;4096];let _=run(&mut eq,&input,block);
+                if !smooth {eq.processed=false;}
+                eq.set_param(6,1200);
+                let (l,r)=run(&mut eq,&vec![0.1;4096],block);
+                assert!(l.iter().chain(&r).all(|v|v.is_finite()&&(!smooth||v.abs()<2.)),"rate {rate} hz {hz} smooth {smooth} peak {}",l.iter().map(|v|v.abs()).fold(0.,f32::max));
+                l
+            };
+            let a=render(32,true);let b=render(257,true);let raw=render(32,false);
+            assert!(a.iter().zip(&b).all(|(a,b)|(a-b).abs()<1e-5));
+            let jump=|x:&[f32]|x.windows(2).map(|w|(w[1]-w[0]).abs()).fold(0.,f32::max);
+            assert!(jump(&a)<jump(&raw)*0.6,"{rate} {hz}: smooth {} abrupt {}",jump(&a),jump(&raw));
+        }}
     }
 
     // spec: plugins/fruity-parametric-eq-2.md "Which processing a state selects"

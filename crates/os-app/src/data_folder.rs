@@ -259,11 +259,16 @@ impl App {
                     if hosted.is_some_and(|h| h != to) {
                         self.plugins.load_sample(row, &to);
                     }
+                    if let Some(old)=self.state.project.channels[row].sample_path.as_ref(){for w in &mut self.state.project.audio_warps{if w.rendered==*old{w.rendered=to.clone();}}}
                     self.state.project.channels[row].sample_path = Some(to);
                     copied += 1;
                 }
                 Err(_) => failed += 1,
             }
+        }
+        for w in &mut self.state.project.audio_warps {
+            let source=crate::plugins::resolve_sample(&w.source);
+            match copy_sample(Path::new(&source),dir){Ok(p)=>w.source=p.to_string_lossy().into_owned(),Err(_)=>failed+=1}
         }
         reread(&self.state);
         self.invalidate();

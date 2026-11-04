@@ -1,0 +1,11 @@
+name: Check public source for Google API keys
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  source-check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 packaging/test_public_source.py
+      - run: python3 packaging/private_build.py --check-source

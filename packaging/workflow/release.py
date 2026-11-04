@@ -36,7 +36,7 @@ def sync():
     if git('status','--porcelain'): raise RuntimeError('Commit/reconcile local source changes before syncing. Nothing was stashed, reset or overwritten.')
     run('git','fetch','home','main')
     run('git','merge','--ff-only','home/main')
-    run('git','push','home','HEAD:main')
+    run('git','push','--receive-pack=git -c receive.autogc=false receive-pack','home','HEAD:main')
     if git('rev-parse','HEAD') != git('rev-parse','home/main'): raise RuntimeError('Shared revision mismatch')
 
 def connect(cfg):
@@ -136,6 +136,7 @@ def configure():
 def permitted(rel,scope):
     p=PurePosixPath(rel)
     if p.is_absolute() or '..' in p.parts or '\\' in rel: return False
+    if scope=='website': return rel=='index.html'
     if scope=='windows-linux':
         return bool(re.fullmatch(r'(?:downloads|linux|updates)/\d+/[^/]+',rel) or re.fullmatch(r'updates/linux-x64/\d+/[^/]+',rel) or rel in ('platforms/windows.json','platforms/linux.json','updates/stable.json','updates/linux-x64/stable.json'))
     if scope in ('mac-arm64','mac-x86_64'):
@@ -198,7 +199,7 @@ def relay_publish(cfg,plan_path,plan):
     shutil.copy2(receipt,plan_path.parent/'PUBLISHED.json')
     print('Published through the Mac; receipt copied back to this PC.')
 
-def publish(plan_path):
+def _publish(plan_path):
     plan_path=Path(plan_path).resolve(); plan=json.loads(plan_path.read_text());scope=plan['scope']
     entries=plan['files']; paths=[e['path'] for e in entries]
     if len(paths)!=len(set(paths)) or not all(permitted(p,scope) for p in paths): raise RuntimeError('Publication plan exceeds platform scope')
@@ -215,16 +216,27 @@ def publish(plan_path):
     ftp=connect(cfg)
     # Per-platform lock excludes simultaneous publications of the same architecture.
     lock='.publish-'+scope+'.lock'
-    ftp.mkd(lock)
+    PRIVATE.mkdir(parents=True,exist_ok=True)
+    owner_file=PRIVATE/'publisher-id.txt'
+    if not owner_file.exists():owner_file.write_text(uuid.uuid4().hex)
+    owner={'publisher':owner_file.read_text().strip(),'scope':scope}
+    try:ftp.mkd(lock)
+    except ftplib.error_perm:
+        previous=bytearray()
+        try:ftp.retrbinary('RETR '+lock+'/owner.json',previous.extend)
+        except ftplib.error_perm:raise RuntimeError('Another or older publisher holds the upload lock; preserve it and inspect its status')
+        if json.loads(previous)!=owner:raise RuntimeError('Another computer holds the upload lock; do not remove it')
+        # publish() holds this computer's OS lock. Its previous process has exited.
+    ftp.storbinary('STOR '+lock+'/owner.json',io.BytesIO(json.dumps(owner).encode()),1024)
     try:
         for e in sorted(entries,key=lambda x: x['path'].startswith('platforms/') or x['path'].endswith('/stable.json')):
-            rel=e['path'];p=plan_path.parent/e['local'];mutable=rel.startswith('platforms/') or rel.endswith('/stable.json')
+            rel=e['path'];p=plan_path.parent/e['local'];mutable=rel.startswith('platforms/') or rel.endswith('/stable.json') or rel=='index.html'
             if mutable:
                 old=bytearray()
                 try: ftp.retrbinary('RETR '+rel,old.extend)
                 except ftplib.error_perm as ex:
                     if not str(ex).startswith('550'): raise
-                if old:
+                if old and rel != 'index.html':
                     previous=json.loads(old)
                     if 'payload' in previous:previous=json.loads(previous['payload'])
                     if previous.get('version',0)>plan['version']:raise RuntimeError('Refusing to replace a newer platform release')
@@ -258,7 +270,17 @@ def publish(plan_path):
         shutil.copy2(plan_path.parent/'PUBLISHED.json',destination/'PUBLISHED.json')
         print('Published and verified:',BASE)
     finally:
-        ftp.rmd(lock);ftp.quit()
+        try:
+            ftp.delete(lock+'/owner.json');ftp.rmd(lock)
+        finally:ftp.quit()
+
+def publish(plan_path):
+    # OS locks disappear after crashes; a persisted owner token permits safe retry of our own FTP lock.
+    sys.path.insert(0,str(Path(__file__).parent))
+    from checkpoints import exclusive
+    plan=json.loads(Path(plan_path).read_text());scope=plan['scope']
+    if scope not in ('windows-linux','mac-arm64','mac-x86_64','website'):raise RuntimeError('Invalid publication scope')
+    with exclusive(PRIVATE/('publisher-'+scope+'.lock')):_publish(plan_path)
 
 def write_plan(site,out,scope):
     entries=[]
@@ -271,7 +293,11 @@ def write_plan(site,out,scope):
     return plan
 
 def build_windows(out,cfg):
-    env=dict(os.environ,OPENSTUDIO_NO_PLUGIN_BUILD='1',LIBCLANG_PATH=cfg['llvm'])
+    env=dict(os.environ,OPENSTUDIO_NO_PLUGIN_BUILD='1',LIBCLANG_PATH=cfg['llvm'],LEMON_RELEASE='1')
+    windows_bundle=os.environ.get('LEMON_MASTER_WINDOWS_BUNDLE')
+    linux_bundle=os.environ.get('LEMON_MASTER_LINUX_BUNDLE')
+    if not windows_bundle or not linux_bundle: raise RuntimeError('Set LEMON_MASTER_WINDOWS_BUNDLE and LEMON_MASTER_LINUX_BUNDLE to the built native engine archives.')
+    env['LEMON_MASTER_BUNDLE']=windows_bundle
     run('cargo','build','--locked','--release','-p','os-app',env=env)
     run(sys.executable,ROOT/'packaging/windows/prepare-update.py','--output',out)
     site=out/'lemon-studio';v=str(version());payload=out/'payload';payload.mkdir()
@@ -288,7 +314,7 @@ def build_windows(out,cfg):
     run('subst',drive,ROOT.parent)
     try:
         tools=Path('Q:/linux-tools')
-        cross=dict(env,CARGO_ZIGBUILD_ZIG_PATH=str(tools/'python/ziglang/zig.exe'),CARGO_ZIGBUILD_CACHE_DIR=str(tools/'zig-cache'),PKG_CONFIG=str(tools/'pkg-config.cmd'),PKG_CONFIG_ALLOW_CROSS='1',PKG_CONFIG_LIBDIR=str(tools/'sysroot/usr/lib/x86_64-linux-gnu/pkgconfig'))
+        cross=dict(env,LEMON_MASTER_BUNDLE=linux_bundle,CARGO_ZIGBUILD_ZIG_PATH=str(tools/'python/ziglang/zig.exe'),CARGO_ZIGBUILD_CACHE_DIR=str(tools/'zig-cache'),PKG_CONFIG=str(tools/'pkg-config.cmd'),PKG_CONFIG_ALLOW_CROSS='1',PKG_CONFIG_LIBDIR=str(tools/'sysroot/usr/lib/x86_64-linux-gnu/pkgconfig'))
         run(tools/'python/bin/cargo-zigbuild.exe','zigbuild','--locked','--release','-p','os-app','--target','x86_64-unknown-linux-gnu.2.36',env=cross)
     finally:run('subst',drive,'/D')
     linux=site/'linux'/v/f'Lemon-Studio-Linux-x86_64-{v}.tar.gz';linux.parent.mkdir(parents=True)
@@ -303,6 +329,8 @@ def build_windows(out,cfg):
     return write_plan(site,out,'windows-linux')
 
 def build(publish_now):
+    # Public packages never inherit a local user's optional recorded-synth library.
+    os.environ['LEMON_WAVE_LIBRARY']=''
     cfg=read_config();shared_folder();sync()
     if publish_now:
         check_connection() # Fail before a long build if publishing is not configured.
@@ -315,18 +343,19 @@ def build(publish_now):
             p=ROOT/'crates/os-app/src/updates.rs';p.write_text(re.sub(r'pub const VERSION: u64 = \d+;',f'pub const VERSION: u64 = {new};',p.read_text()))
             label=f'{str(new)[:4]}.{str(new)[4:6]}.{str(new)[6:8]}.{int(str(new)[8:])}'
             p=ROOT/'packaging/windows/LemonStudio.nsi';p.write_text(re.sub(r'("DisplayVersion" ")[^"]+',lambda m:m[1]+label,p.read_text()))
-            run('git','add','crates/os-app/src/updates.rs','packaging/windows/LemonStudio.nsi');run('git','commit','-m',f'Prepare release {new}');run('git','push','home','HEAD:main')
+            run('git','add','crates/os-app/src/updates.rs','packaging/windows/LemonStudio.nsi');run('git','commit','-m',f'Prepare release {new}');run('git','push','--receive-pack=git -c receive.autogc=false receive-pack','home','HEAD:main')
         out=Path.home()/'Desktop/Lemon Studio/Lemon Studio Public Download'/str(version())
         if out.exists():raise RuntimeError('Local release folder already exists. Preserve it; resume its publish plan or increment version.')
         out.mkdir(parents=True);plan=build_windows(out,cfg)
     elif platform.system()=='Darwin':
         run('bash',ROOT/'packaging/mac/build-release.command')
-        out=Path.home()/'Desktop/Lemon Studio Mac Public Download'/str(version());arch=platform.machine()
+        arch=os.environ.get('LEMON_MAC_ARCH',platform.machine())
+        out=Path.home()/'Desktop/Lemon Studio Mac Public Download'/str(version())/arch
         m=json.loads((out/f'mac-{arch}.json').read_text());site=out/'lemon-studio';(site/'platforms').mkdir(parents=True,exist_ok=True)
         for rel in (m['url'],m['source']):
             p=site/rel;p.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(out/Path(rel).name,p)
         shutil.copy2(out/f'mac-{arch}.json',site/'platforms'/f'mac-{arch}.json')
-        run(sys.executable,ROOT/'packaging/prepare-unix-update.py','--platform',f'mac-{arch}','--site',site,'--app',Path.home()/'.cache/lemon-studio-remote-target/bundled/Lemon Studio.app')
+        run(sys.executable,ROOT/'packaging/prepare-unix-update.py','--platform',f'mac-{arch}','--site',site,'--app',Path(os.environ.get('CARGO_TARGET_DIR',Path.home()/'.cache/lemon-studio-remote-target'))/'bundled/Lemon Studio.app')
         plan=write_plan(site,out,f'mac-{arch}')
     else:raise RuntimeError('Use the Windows desktop or MacBook for this release workflow.')
     # Archive the concrete publication plan and artifacts on the home server too.

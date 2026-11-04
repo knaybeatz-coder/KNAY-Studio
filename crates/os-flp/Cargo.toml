@@ -6,6 +6,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+serde_json = "1"
 os-model.workspace = true
 thiserror.workspace = true
 # The local time a new project starts at (event 237; spec: flp/events/project-info.md).

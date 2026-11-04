@@ -6,29 +6,41 @@ use winit::{event::{WindowEvent,ElementState,MouseButton,MouseScrollDelta},event
 use crate::{app::{App,Win,Action},layout::{self,MainWin}};
 use os_ui::Canvas;
 #[derive(Default)]
-pub struct Windows { panes:Vec<Pane>, screens:Vec<[i32;4]> }
+pub struct Windows { panes:Vec<Pane>, screens:Vec<[i32;4]>, main:Option<crate::app::ViewContext>, changed:bool, layout_generation:u64 }
 struct Pane {
     kind:Win, window:Rc<Window>, surface:softbuffer::Surface<Rc<Window>,Rc<Window>>, canvas:Canvas,
-    frame:MainWin, mouse:(f32,f32), mods:ModifiersState, last:Instant, painted:Instant,
+    motion:Option<(f32,f32)>, hover:Option<Action>, refresh_editors:bool, frame:MainWin, mouse:(f32,f32), mods:ModifiersState, last:Instant, painted:Instant,
 }
 fn key(w:Win)-> &'static str {match w {Win::Mixer=>"native_mixer",Win::PianoRoll=>"native_piano",_=>"native_playlist"}}
 fn title(w:Win)-> &'static str {match w {Win::Mixer=>"KNAY Studio - Mixer",Win::PianoRoll=>"KNAY Studio - Piano roll",_=>"KNAY Studio - Playlist"}}
 impl Windows {
+    fn save_main(&mut self,app:&mut App){if self.main.is_none(){self.main=Some(app.take_view_context());}}
+    pub fn restore_main(&mut self,app:&mut App)->bool {
+        if let Some(c)=self.main.take(){app.restore_view_context(c);if self.changed {app.invalidate();}self.changed=false;return true;}false
+    }
+
     pub fn owns(&self,id:WindowId)->bool {self.panes.iter().any(|p|p.window.id()==id)}
     pub fn prepare_drag(&mut self,app:&mut App) {
-        if app.drag.is_none(){return;}
+        if app.drag.is_none()||!self.panes.iter().any(|p|Some(p.kind)==app.state.native_input){return;}
+        self.save_main(app);
         if let Some(p)=self.panes.iter_mut().find(|p|Some(p.kind)==app.state.native_input) {
-            app.state.native_view=Some(p.kind);app.mouse=p.mouse;app.paint(&mut p.canvas,None);
+            app.state.native_view=Some(p.kind);app.mouse=p.mouse;set_rack_parent(app,&p.window);app.hover=p.hover.clone();app.paint(&mut p.canvas,None);
         }
     }
     pub fn save(&self) {for p in &self.panes {layout::save_native(key(p.kind),p.frame);}}
     pub fn sync(&mut self,app:&mut App,el:&ActiveEventLoop) {
         let screens=crate::screens(el);let changed=screens!=self.screens;self.screens=screens.clone();
-        self.panes.retain(|p|{let keep=app.state.native_detached.contains(&p.kind)&&app.state.shown(p.kind);if !keep {layout::save_native(key(p.kind),p.frame);}keep});
+        if self.layout_generation!=app.state.native_layout_generation {
+            self.layout_generation=app.state.native_layout_generation;
+            for p in &mut self.panes {if let Some((_,f))=app.state.native_frames.iter().find(|(w,_)|*w==p.kind){
+                let f=layout::on_screens(*f,&screens);p.window.set_maximized(false);p.window.set_outer_position(PhysicalPosition::new(f.pos.0,f.pos.1));let _=p.window.request_inner_size(PhysicalSize::new(f.size.0,f.size.1));p.window.set_maximized(f.max);p.frame=f;
+            }}
+        }
+        self.panes.retain(|p|{let keep=app.state.native_detached.contains(&p.kind)&&app.state.shown(p.kind);if !keep {#[cfg(windows)] if p.kind==Win::Mixer {app.plugins.close_racks();}layout::save_native(key(p.kind),p.frame);}keep});
         let mut created=Vec::new();
         for kind in app.state.native_detached.clone() {
             if !app.state.shown(kind)||self.panes.iter().any(|p|p.kind==kind){continue;}
-            let initial=layout::native_win(key(kind)).unwrap_or(MainWin{pos:(100,100),size:(1100,800),max:false});
+            let initial=app.state.native_frames.iter().find(|(w,_)|*w==kind).map(|(_,f)|*f).or_else(||layout::native_win(key(kind))).unwrap_or(MainWin{pos:(100,100),size:(1100,800),max:false});
             let frame=layout::on_screens(initial,&screens);
             let attrs=Window::default_attributes().with_title(title(kind)).with_inner_size(PhysicalSize::new(frame.size.0,frame.size.1)).with_position(PhysicalPosition::new(frame.pos.0,frame.pos.1)).with_min_inner_size(LogicalSize::new(kind.min_size().0 as f64,kind.min_size().1 as f64)).with_maximized(frame.max).with_visible(false);
             let made=(||->Result<Pane,String>{
@@ -36,34 +48,51 @@ impl Windows {
                 let context=softbuffer::Context::new(window.clone()).map_err(|e|e.to_string())?;
                 let surface=softbuffer::Surface::new(&context,window.clone()).map_err(|e|e.to_string())?;
                 let size=window.inner_size();let canvas=Canvas::new(size.width.max(1),size.height.max(1),crate::ui_scale(&window) as f32).map_err(|e|e.to_string())?;
-                Ok(Pane{kind,window,surface,canvas,frame,mouse:(-1.,-1.),mods:ModifiersState::empty(),last:Instant::now(),painted:Instant::now()})
+                Ok(Pane{kind,window,surface,canvas,motion:None,hover:None,refresh_editors:false,frame,mouse:(-1.,-1.),mods:ModifiersState::empty(),last:Instant::now(),painted:Instant::now()})
             })();
             match made {Ok(p)=>{created.push(p.window.id());self.panes.push(p);},Err(e)=>{app.state.native_detached.retain(|w|*w!=kind);app.state.message=Some(format!("Could not detach window: {e}"));}}
         }
         for p in &mut self.panes {
+            app.state.native_frames.retain(|(w,_)|*w!=p.kind);app.state.native_frames.push((p.kind,p.frame));
             if changed {
                 let next=layout::on_screens(p.frame,&screens);
                 if next!=p.frame {p.window.set_maximized(false);p.window.set_outer_position(PhysicalPosition::new(next.pos.0,next.pos.1));let _=p.window.request_inner_size(PhysicalSize::new(next.size.0,next.size.1));p.frame=next;}
             }
-            if p.painted.elapsed().as_millis()>=if app.animating(){16}else{100} {p.window.request_redraw();}
+            if p.painted.elapsed().as_millis()>=if app.animating()||p.motion.is_some(){16}else{100} {p.window.request_redraw();}
         }
         for id in created {self.event(app,el,id,WindowEvent::RedrawRequested);}
     }
     pub fn event(&mut self,app:&mut App,_el:&ActiveEventLoop,id:WindowId,event:WindowEvent) {
         if app.loading() && matches!(event,WindowEvent::MouseInput{state:ElementState::Pressed,..}|WindowEvent::KeyboardInput{..}|WindowEvent::MouseWheel{..}|WindowEvent::DroppedFile(_)){return;}
+        // Mouse input is consumed once per frame, not at the mouse polling rate.
+        if let WindowEvent::CursorMoved{position,..}=&event {
+            if let Some(p)=self.panes.iter_mut().find(|p|p.window.id()==id){let scale=crate::ui_scale(&p.window) as f32;p.motion=Some((position.x as f32/scale,position.y as f32/scale));}
+            return;
+        }
+        self.save_main(app);
         let Some(p)=self.panes.iter_mut().find(|p|p.window.id()==id)else{return};
         let scale=crate::ui_scale(&p.window) as f32;
         if matches!(event,WindowEvent::Moved(_)|WindowEvent::Resized(_)) {
             if !p.window.is_maximized() && p.window.is_minimized()!=Some(true) {if let Some((pos,size))=crate::frame_of(&p.window){p.frame.pos=pos;p.frame.size=size;}}
             p.frame.max=p.window.is_maximized();
+            app.state.native_frames.retain(|(w,_)|*w!=p.kind);app.state.native_frames.push((p.kind,p.frame));
         }
-        if matches!(event,WindowEvent::CloseRequested) {app.state.hide(p.kind);app.invalidate();return;}
-        if matches!(event,WindowEvent::Focused(true)|WindowEvent::MouseInput{state:ElementState::Pressed,..}|WindowEvent::KeyboardInput{..}|WindowEvent::MouseWheel{..}) {if app.state.native_input!=Some(p.kind){app.state.playlist.popup=None;app.state.menu_open=None;}app.state.raise(p.kind);app.state.native_input=Some(p.kind);app.auto_close.main_focused=true;}
-        if matches!(event,WindowEvent::Focused(false)) {app.typing_release_all();}
+        if matches!(event,WindowEvent::CloseRequested) {app.state.hide(p.kind);self.changed=true;return;}
+        if matches!(event,WindowEvent::Focused(true)|WindowEvent::MouseInput{state:ElementState::Pressed,..}|WindowEvent::KeyboardInput{..}|WindowEvent::MouseWheel{..}) {if app.state.native_input!=Some(p.kind){self.changed|=app.state.playlist.popup.is_some()||app.state.menu_open.is_some();app.state.playlist.popup=None;app.state.menu_open=None;}app.state.raise(p.kind);app.state.native_input=Some(p.kind);app.auto_close.main_focused=true;}
+        if matches!(event,WindowEvent::Focused(false)) {p.motion=None;app.typing_release_all();}
+        if !needs_layout(&event,app.drag.is_some()||app.pressed.is_some()) {
+            if matches!(event,WindowEvent::Moved(_)|WindowEvent::ScaleFactorChanged{..}) {p.refresh_editors=true;}
+            if matches!(event,WindowEvent::Resized(_)|WindowEvent::ScaleFactorChanged{..}) {p.window.request_redraw();}
+            return;
+        }
         let size=p.window.inner_size();if size.width==0||size.height==0{return;}
         if p.canvas.pixmap.width()!=size.width||p.canvas.pixmap.height()!=size.height||p.canvas.scale!=scale {p.canvas.resize(size.width,size.height,scale);}
         app.state.native_view=Some(p.kind);app.state.display_scale=p.window.scale_factor() as f32;app.mouse=p.mouse;
-        app.paint(&mut p.canvas,None);
+        set_rack_parent(app,&p.window);app.hover=p.hover.clone();app.paint(&mut p.canvas,None);
+        let redraw=matches!(event,WindowEvent::RedrawRequested);
+        if let Some(pos)=p.motion.take(){p.mouse=pos;app.mouse_move(pos.0,pos.1);if app.drag.is_some(){self.changed=true;}}
+        p.refresh_editors|=matches!(event,WindowEvent::Moved(_)|WindowEvent::ScaleFactorChanged{..});
+        self.changed|=matches!(event,WindowEvent::MouseInput{..}|WindowEvent::MouseWheel{..}|WindowEvent::KeyboardInput{..}|WindowEvent::DroppedFile(_)|WindowEvent::Focused(_));
         match event {
             WindowEvent::RedrawRequested=>{
                 p.painted=Instant::now();
@@ -99,6 +128,31 @@ impl Windows {
             WindowEvent::DroppedFile(path)=>{app.state.native_input=Some(p.kind);app.drop_file(path);}
             _=>{}
         }
-        app.invalidate();
+        #[cfg(windows)] if p.kind==Win::Mixer && redraw && p.refresh_editors {for h in app.plugins.hosted.values(){if let Some(e)=&h.rack_editor{e.refresh();}}}
+        p.hover=app.hover.clone();
+        if redraw {p.refresh_editors=false;}
+    }
+}
+
+fn set_rack_parent(app:&mut App,window:&Window){
+    #[cfg(windows)] {use winit::raw_window_handle::{HasWindowHandle,RawWindowHandle};app.rack_parent=match window.window_handle().map(|h|h.as_raw()){Ok(RawWindowHandle::Win32(h))=>h.hwnd.get(),_=>0};}
+    #[cfg(not(windows))] let _=(app,window);
+}
+
+// Focus/position/monitor notifications need no hit testing or rasterization.
+fn needs_layout(event:&WindowEvent,drag:bool)->bool {
+    matches!(event,WindowEvent::RedrawRequested|WindowEvent::MouseInput{..}|WindowEvent::MouseWheel{..}|WindowEvent::KeyboardInput{..}|WindowEvent::DroppedFile(_)|WindowEvent::ModifiersChanged(_))
+        ||(drag&&matches!(event,WindowEvent::Focused(false)))
+}
+#[cfg(test)] mod monitor_tests {
+    use super::*;
+    #[test] fn monitor_switch_notifications_do_not_paint() {
+        for _ in 0..1000 {
+            assert!(!needs_layout(&WindowEvent::Focused(true),false));
+            assert!(!needs_layout(&WindowEvent::Focused(false),false));
+            assert!(!needs_layout(&WindowEvent::Moved(PhysicalPosition::new(2000,100)),false));
+        }
+        assert!(needs_layout(&WindowEvent::RedrawRequested,false));
+        assert!(needs_layout(&WindowEvent::Focused(false),true),"finish an active drag in its own view");
     }
 }

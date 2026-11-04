@@ -26,13 +26,14 @@ pub fn run(app: &mut App, dst: u16) -> Option<String> {
         return Some("Quick Sidechain would create a routing loop; nothing changed".into());
     }
     let m = mx::track(&app.state, dst)?;
-    let logical = (0..63)
-        .rfind(|i| m.slots[mx::user_slot(*i) as usize].is_some())
+    let capacity = mx::user_slot_capacity(&app.state,dst);
+    let logical = (0..capacity)
+        .rfind(|i| m.slots[mx::visible_user_slot(&app.state,dst,*i) as usize].is_some())
         .map_or(9, |i| (i + 1).max(9));
-    if logical >= 63 {
+    if logical >= capacity {
         return Some("This channel has reached the 63-effect limit".into());
     }
-    let slot = mx::user_slot(logical);
+    let slot = mx::visible_user_slot(&app.state,dst,logical);
     let Some(index) = app.plugins.effect_index("Lemon Limiter") else {
         return Some("Lemon Limiter is not available yet; try again after plugin loading finishes".into());
     };
@@ -51,7 +52,7 @@ pub fn run(app: &mut App, dst: u16) -> Option<String> {
     };
     // Capture live settings before recording an undo step for the two changed mixer channels.
     app.store_builtin_states();
-    crate::project_plugins::store_hosted(&mut app.state.project, &app.plugins);
+    if let Err(e)=crate::project_plugins::store_hosted(&mut app.state.project, &app.plugins){return Some(e);}
     let before = crate::history::Snap::Several(
         [src, dst]
             .into_iter()

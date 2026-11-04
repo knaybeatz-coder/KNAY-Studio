@@ -1,3 +1,22 @@
+# Lemon Studio — Michael Lane Edition
+
+An independently maintained edition of [Lemon Studio by ItsAlphaNeon](https://github.com/ItsAlphaNeon/Lemon-Studio), customized and maintained by **Michael Lane**. Original authorship and licence notices are preserved.
+
+- [Official downloads and change log](https://michaellanemusic.de/lemon-studio/)
+- [Michael Lane Edition source](https://github.com/Dorfhaus/Lemon-Studio-Michael-Lane-Edition/tree/michael-lane)
+
+This edition adds an analog-style mixer, a mixer view hosting original Waves channel-strip interfaces, Lemon Chop, integrated mastering, workflow and editing improvements, and community voting. Third-party Waves plugins are separate products and are not included.
+
+The `michael-lane` branch contains this edition. The `main` branch retains upstream history. Release availability and platform details are listed on the download page; a source commit alone is not a published binary release.
+
+## Building the edition
+
+Use the Rust workspace instructions below. The mastering engine is built separately from `plugins/lemon-master-assistant` using CMake and JUCE 8.0.9. Package the resulting VST3 directory with `python packaging/bundle-master-engine.py --help`, set `LEMON_MASTER_BUNDLE` to that ZIP, and set `LEMON_RELEASE=1` before building `os-app`. Release builds require the matching engine. JUCE modules are used under AGPLv3; the original processor code retains its BSD-3-Clause licence. See `THIRD-PARTY-NOTICES.txt` and the engine's licence files.
+
+## Original project documentation
+
+The documentation below describes the original project; upstream release policies do not govern the Michael Lane Edition downloads linked above.
+
 <div align="center">
 
 <picture>

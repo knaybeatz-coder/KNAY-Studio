@@ -1,0 +1,33 @@
+Lemon Chop audit — 2 November 2026
+
+Scope
+Source review of Lemon Chop's editor, document/state, decoder/analysis, voice DSP, export, cue importer and controller mapping, plus focused host checks for file drops, project persistence, mixer outputs and upgrade registration. This is a local working update, not a public release or a certification of the entire DAW.
+
+Confirmed issues corrected
+- Select all/group editing now applies consistently to typed values, resets and reverse toggles as well as dragging and wheel changes.
+- Opening the editor, Ctrl-selecting pads, undoing, or receiving a source from the host keeps the edit target aligned with the displayed pad. Undo preserves the selection mask.
+- Loading another source clears old grid-edit sessions, viewport position and tap history. Undo no longer leaves an automatic analysis request targeting the restored document.
+- Loading or locating the same file can explicitly retry after a failed/cancelled analysis. A stale worker cannot discard the newer request's result.
+- Source preview no longer inherits pad 1's filter, level or mixer output, or plays the previous file while a new source is pending. Global controls still apply.
+- Right-channel-only audio is included in waveform amplitude, transient energy and key estimation.
+- Beat slicing and region movement follow the edited tempo map; grid tempo calculations are consistent outside the manual BPM control's range, subject to playback speed limits.
+- Linked pitch/speed is retained during grid playback. Overlapping glide changes retain the intended destination pitch instead of compounding from an unfinished glide.
+- A stem/analysis refresh does not recreate pads the user deliberately deleted. Existing projects default safely for the new analysis-complete flag.
+- Removing the first grid marker updates the grid origin. Half/double BPM operations participate in undo.
+- Truncated ID3 headers and frames extending beyond their declared tag boundary are rejected safely.
+- Chop opts into keyboard-release events on Mac/Linux; other editors retain their existing key-down-only delivery. Mac Chop explicitly registers for file drops. Native Mac runtime verification is still required.
+
+How to edit all pads
+Click Select all below the pad controls, then change filter, attack, release, pitch, speed, level, reverse or output. Typed values and resets apply to that same selection. Ctrl-click pads for a smaller group. Click a pad normally to return to individual editing. Key shift and tempo at the top are global controls. Selection editing assigns a shared value, not a relative offset preserving different per-pad values. Automation still targets individual host parameters.
+
+Verification
+13 plugin tests: DSP bounds/release/reverse/velocity/stretch, processed export/cancel/replacement, stem waveform mixing, selection/undo/state, source retry/right-channel analysis, deleted-pad preservation, source preview isolation, tempo-map slicing, glide, metadata parsing/import and SLAB message mapping.
+7 host tests including Chop loading/drop routing, state/project reopening, large-block auxiliary audio, upgrade categorization and simulated SLAB input/release (3 other existing tests share the test-name filter).
+1 mixer-routing signal test and 12 existing latency-compensation tests.
+Private Windows app build and both installed-file hashes were verified. The full Linux app cross-build passed; this is a compile check, not a Linux listening/runtime test. The initial isolated-plugin cross-build lacked the host's dependency feature combination and stopped on missing Wayland development metadata; the subsequent full host build used the established release configuration successfully.
+
+Still requires hands-on verification
+Actual Explorer dragging, visual behavior and listening with the user's samples; long-file performance; installed stem-model inference; physical SLAB/controller operation; native Mac build/runtime and Linux runtime. No screen control, microphone recording or audio-device testing was used for this audit.
+
+Remaining product limits
+SLAB is a general MIDI profile, without Serato's native handshake, display/LED feedback or complete controller support. Cue import is limited to the documented Markers2 formats; legacy tags, saved loops/Flips and cue colors are not supported. Grid markers represent consecutive bars. Serato-equivalent analysis, stem quality and stretch quality have not been established. Platform keyboard focus/repeat behavior also needs native testing.

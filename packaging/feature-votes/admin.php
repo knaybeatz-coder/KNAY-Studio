@@ -27,7 +27,10 @@ try {
         admin_login($db,$in['password'],$_SERVER['REMOTE_ADDR']??'unknown');reply(200,['csrf'=>$_SESSION['csrf']]);
     }
     if($action==='logout'){$_SESSION=[];session_destroy();setcookie('LEMON_OWNER','',['expires'=>time()-3600,'path'=>'/lemon-studio/features/','secure'=>true,'httponly'=>true,'samesite'=>'Strict']);reply(200,['ok'=>true]);}
+    if(str_starts_with($action,'feedback_')){reply(200,feedback_owner($db,$in));}
     if($action==='list'){reply(200,admin_board($db));}
+    if(str_starts_with($action,'owner_forum_')){reply(200,owner_forum_action($db,$in));}
+    if($action==='forum_review'){if(!is_int($in['thread']??0)||!is_int($in['offset']??0)){reply(400,['error'=>'Invalid page.']);}reply(200,forum_page($db,FORUM_OWNER,$in['thread']??0,$in['offset']??0,true));}
     if($action==='voters'){if(!is_int($in['id']??null)||!is_int($in['offset']??0)){reply(400,['error'=>'Invalid page.']);}reply(200,admin_voters($db,$in['id'],$in['offset']??0));}
     reply(200,admin_change($db,$in));
 }catch(DomainException $e){reply($e->getCode(),['error'=>$e->getMessage()]);}

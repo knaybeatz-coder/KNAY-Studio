@@ -1,0 +1,37 @@
+Lemon Chop / Serato Sample workflow comparison
+Checked 2 November 2026; local update, not a published release.
+
+Implemented in this pass
+- Numbered tempo anchors, rather than requiring every anchor to represent the next bar. Beat-line dragging, whole-grid slip, local adjustment, BPM scaling, save/cancel and migration of existing grids.
+- Markers2 cue colors, legacy Markers_ positions/colors with modern names retained when both tags exist, and saved loop regions imported as bounded pads 17–32.
+- Immediate MIDI creation of empty cues with 1/8-beat snap, cue selection from playing notes, and persistence even when saving immediately after capture.
+- Source-player seeking during preview; metronome restricted to source preview.
+- Slicer size/region changes update cues immediately, preserving favorites.
+- Trigger attack/release envelopes on new sources; older projects preserve their existing end fade. Zero Trigger release plays to cue end. Explicit menu switch allows adopting either behavior. Hold export keeps Hold semantics.
+- White group-control accents and default display values for mixed selections; parameter menus include half/double tempo and speed.
+
+Existing core features retained
+32 pads/voices; individual/group/all-pad controls; keyboard/mono/poly/velocity modes; Trigger/Sustain glide; independent pitch and time stretch; global key, detune and tempo; 16 stereo outputs with host mixer routing; transient/slicer/random/key-shift autoset; favorites; cue naming/copy/swap/trim; undo/redo; host automation; cancellable processed WAV export; load/drop/eject/locate; existing Lemon stem separation and stem waveform feedback.
+
+Remaining differences and verification boundaries
+- Pitch 'n Time and Serato Stems remain Serato's engines. Lemon uses Signalsmith and its existing stem separator. Matching controls is not evidence of equal sound quality. Comparative listening and production-project performance remain necessary.
+- Find Samples uses Lemon's transient detector, not Serato's musical-region algorithm. Waveform coloring and analysis are approximate.
+- SLAB support remains a general MIDI profile. No native handshake, displays, LEDs or complete controller integration is claimed. Physical hardware and documented protocol support are required to verify further work.
+- Ogg-specific Serato metadata, database-only cues, and compressed/unsynchronized ID3 tags are still unsupported. Interoperability tests use synthetic tags; real-library files need testing.
+- Serato Flip performances are a Serato DJ feature and are not documented as an import mode in the Sample manual. The earlier comparison incorrectly treated that as an established Sample parity requirement. Imported saved loop regions do not automatically repeat.
+- Native file-drag gestures, keyboard focus/repeat behavior, real stem inference and listening require hands-on tests. Synthetic checks and compilation do not certify full equivalence or bug-free operation.
+
+Primary behavior references
+https://support.serato.com/hc/en-us/articles/360002025835-Beatgrids
+https://support.serato.com/hc/en-us/articles/115000501614-Cues
+https://support.serato.com/hc/en-us/articles/115000489113-Autoset
+https://support.serato.com/hc/en-us/articles/115000489334-Source-Player
+https://support.serato.com/hc/en-us/articles/115000500413-Cue-parameters
+https://serato.com/sample
+
+Interoperability format references (independent format documentation)
+https://github.com/Holzhaus/serato-tags/blob/master/docs/serato_markers_.md
+https://github.com/Holzhaus/serato-tags/blob/master/docs/serato_markers2.md
+https://github.com/Holzhaus/serato-tags/blob/master/docs/fileformats.md
+
+Build, test, installation and source-backup evidence is recorded in PROJECT_HANDOFF.md. No public release is implied by this comparison.

@@ -251,6 +251,7 @@ fn relink(app: &mut App, before: &[(usize, String)]) -> usize {
         found += 1;
         let Some(ch) = app.state.project.channels.get_mut(*row) else { continue };
         ch.sample_path = Some(now.clone());
+        for warp in &mut app.state.project.audio_warps {if warp.rendered==*old {warp.rendered=now.clone();}}
         if ch.kind.is_sampler() {
             app.state.sample_loads.push((*row, now));
         }

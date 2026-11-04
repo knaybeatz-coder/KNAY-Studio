@@ -15,6 +15,7 @@ class FTP:
     def pwd(self):return '/'
     def cwd(self,p):pass
     def quit(self):pass
+    def delete(self,p):self.files.pop(p,None)
     def retrbinary(self,cmd,callback):
         p=cmd[5:]
         if p not in self.files:raise ftplib.error_perm('550 absent')
@@ -23,6 +24,10 @@ class FTP:
     def rename(self,a,b):self.files[b]=self.files.pop(a);self.events.append(b)
 
 class WorkflowTests(unittest.TestCase):
+    def setUp(self):
+        self.private=tempfile.TemporaryDirectory();self.override=patch.object(r,'PRIVATE',Path(self.private.name));self.override.start()
+    def tearDown(self):self.override.stop();self.private.cleanup()
+
     def test_relay_copies_only_planned_files_and_returns_receipt(self):
         with tempfile.TemporaryDirectory() as d:
             root=Path(d);plan_path=self.fixture(root);plan=json.loads(plan_path.read_text())
@@ -86,6 +91,21 @@ class WorkflowTests(unittest.TestCase):
                 if rel.startswith('platforms/'):self.assertEqual(len(verified),3)
             with patch.object(r,'connect',return_value=ftp),patch.object(r,'read_config',return_value={}),patch.object(r,'shared_folder',return_value=root/'shared'),patch.object(r,'verify_remote',side_effect=verify):r.publish(plan)
             self.assertEqual(ftp.events[-1],'platforms/mac-arm64.json');self.assertFalse(ftp.dirs & {'.publish-mac-arm64.lock'})
+    def test_interrupted_own_upload_lock_can_resume(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);plan=self.fixture(root);ftp=FTP();lock='.publish-mac-arm64.lock';ftp.dirs.add(lock)
+            r.PRIVATE.mkdir(exist_ok=True);(r.PRIVATE/'publisher-id.txt').write_text('this-computer')
+            ftp.files[lock+'/owner.json']=json.dumps({'publisher':'this-computer','scope':'mac-arm64'}).encode()
+            with patch.object(r,'connect',return_value=ftp),patch.object(r,'read_config',return_value={}),patch.object(r,'shared_folder',return_value=root/'shared'),patch.object(r,'verify_remote'):
+                r.publish(plan)
+            self.assertNotIn(lock,ftp.dirs);self.assertTrue((root/'PUBLISHED.json').exists())
+    def test_other_computers_upload_lock_is_preserved(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);plan=self.fixture(root);ftp=FTP();lock='.publish-mac-arm64.lock';ftp.dirs.add(lock)
+            ftp.files[lock+'/owner.json']=json.dumps({'publisher':'another-computer','scope':'mac-arm64'}).encode()
+            with patch.object(r,'connect',return_value=ftp),patch.object(r,'read_config',return_value={}):
+                with self.assertRaisesRegex(RuntimeError,'Another computer'):r.publish(plan)
+            self.assertIn(lock,ftp.dirs);self.assertFalse(ftp.events)
     def test_changed_staging_rejected_before_connection(self):
         with tempfile.TemporaryDirectory() as d:
             root=Path(d);plan=self.fixture(root);(root/'app.dmg').write_bytes(b'changed')

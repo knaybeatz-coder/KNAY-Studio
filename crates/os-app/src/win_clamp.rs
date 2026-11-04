@@ -45,6 +45,14 @@ pub fn keep_px(p: (i32, i32), w: i32, work: [i32; 4], k: f32) -> (i32, i32) {
     (p.0.min(work[2] - kw).max(work[0] + kw - w), p.1.min(work[3] - kt).max(work[1]))
 }
 
+/// Docked plugin frames retain a usable caption, not just their right-side buttons.
+/// Preserve fixed-size editor dimensions even when larger than the workspace.
+pub fn keep_plugin_px(p:(i32,i32),width:i32,work:[i32;4],scale:f32)->(i32,i32) {
+    let grab=((240.0*scale).round() as i32).min(width).min((work[2]-work[0]).max(1));
+    let title=((crate::plugin_window::TITLE_H*scale).ceil() as i32).min((work[3]-work[1]).max(1));
+    (p.0.min(work[2]-grab).max(work[0]+grab-width),p.1.min(work[3]-title).max(work[1]))
+}
+
 /// `r` moved fully into `work`, as little as it takes; too wide or too tall, it shrinks to the workspace, though not
 /// below `min`, and then starts at the workspace's left or top edge.
 pub fn inside(r: Rect, work: Rect, min: (f32, f32)) -> Rect {
@@ -188,7 +196,8 @@ const JOIN_EPS: f32 = 1.0;
 fn near(a: f32, b: f32) -> bool { (a-b).abs() <= JOIN_EPS }
 fn overlap(a: f32, b: f32, c: f32, d: f32) -> bool { b.min(d)-a.max(c) > JOIN_EPS }
 fn minimum(s: &State, w: Win) -> (f32,f32) {
-    if w == Win::ChannelRack { (views::rack::min_w(s), views::rack::MIN_H) } else { w.min_size() }
+    if w==Win::Mixer&&s.mixer.layout==crate::rack_mixer::VIEW {let (width,height)=w.min_size();(width,height.max(crate::rack_mixer::minimum_height(s).min(s.work_rect().h)))}
+    else if w == Win::ChannelRack { (views::rack::min_w(s), views::rack::MIN_H) } else { w.min_size() }
 }
 pub fn layout(s: &State) -> Layout {
     s.z.iter().filter_map(|&w| {
@@ -499,6 +508,27 @@ mod tests {
 
     /// Spec "Lemon Studio": at least 31 px of the width stays inside the workspace at the left and at the right, the
     /// top at least 15 px above the workspace's bottom, the title bar never above the workspace's top.
+    #[test]
+    fn plugin_title_recovery_keeps_a_drag_target() {
+        for scale in [1.,1.5,2.] {
+            let work=[100,60,1600,1000];
+            let width=(900.*scale) as i32;
+            let left=keep_plugin_px((-9000,-9000),width,work,scale);
+            let right=keep_plugin_px((9000,9000),width,work,scale);
+            assert_eq!(left.1,60);
+            assert!(left.0+width>=100+(240.*scale) as i32);
+            assert!(right.0<=1600-(240.*scale) as i32);
+            assert!(right.1+(crate::plugin_window::TITLE_H*scale).ceil() as i32<=1000);
+        }
+        // A removed monitor or a saved negative/off-screen position is recoverable;
+        // existing monitors left/above the primary remain valid destinations.
+        let screens=[[-1920,0,0,1080],[0,0,1920,1040],[0,-1080,1920,0]];
+        assert_eq!(bar_on_screens([-1800,100,-900,127],&screens),(-1800,100));
+        assert_eq!(bar_on_screens([50,-900,950,-873],&screens),(50,-900));
+        assert_eq!(bar_on_screens([50,-900,950,-873],&[[0,0,1920,1040]]),(50,0));
+        assert_eq!(bar_on_screens([0,-500,3000,-473],&[[0,0,1920,1040]]),(0,0));
+    }
+
     #[test]
     fn keep_holds_each_edge() {
         let w = 500.0;

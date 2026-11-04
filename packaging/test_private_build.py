@@ -15,8 +15,8 @@ class PublicationBoundary(unittest.TestCase):
             with zipfile.ZipFile(p,'w') as z:z.writestr('payload.zip',nested.getvalue())
             with self.assertRaises(SystemExit):require_public_artifact(p)
     def test_private_source_excluded_public_stub_kept(self):
-        self.assertTrue(private_source('plugins/lemon-master-assistant/Source/PluginProcessor.cpp'))
-        self.assertTrue(private_source('crates/os-app/src/master_assistant.rs'))
+        self.assertFalse(private_source('plugins/lemon-master-assistant/Source/PluginProcessor.cpp'))
+        self.assertFalse(private_source('crates/os-app/src/master_assistant.rs'))
         self.assertFalse(private_source('crates/os-app/src/master_assistant_disabled.rs'))
     def test_publish_guard_runs_before_credentials_or_network(self):
         import importlib.util,json

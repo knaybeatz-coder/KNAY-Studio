@@ -1,0 +1,9 @@
+Pending next publication; local Windows changes only.
+
+- Tempo dragging now uses six logical pixels per digit step instead of one; decimal-digit dragging and undo are preserved.
+- The main tempo button now offers right-click > Type in BPM. Decimal values from 10 to 522 are accepted; invalid values leave tempo unchanged. Undo/redo supported.
+- The toolbar overflow arrow now opens View. Mixer, Channel rack and other window commands remain accessible when their buttons do not fit on a small screen.
+- The sampler command formerly labelled Detect tempo is now labelled Estimate tempo from length and explicitly says it uses project tempo. This fixes a misleading label, NOT beat detection. True sampler rhythm detection remains unimplemented; Playlist loop fitting has a separate rhythm estimator.
+
+
+Merge these accurate notes into packaging/changelog.json with the actual release date/build before publication. No public release performed in this task.

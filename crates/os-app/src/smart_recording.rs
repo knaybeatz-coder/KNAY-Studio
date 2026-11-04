@@ -45,7 +45,7 @@ impl App {
     }
 
     fn smart_automation_live(&self)->bool {
-        Opt::Smart.on() && Opt::Automation.on() && !Opt::Audio.on() && !self.state.rec.audio && self.state.rec.armed
+        Opt::Smart.on() && Opt::Automation.on() && self.state.rec.armed
             && self.state.rec.count.is_none() && self.transport.playing() && !self.transport.paused()
     }
     pub(crate) fn smart_begin_host(&mut self,a:&Action) {
@@ -189,7 +189,7 @@ mod tests {
         assert_eq!(os_flp::project::load(&applied).unwrap().instrument_lanes,back.instrument_lanes);
         app.toggle_record();
         pl::run(&mut app,pl::Cmd::Record(Opt::Automation));
-        app.toggle_record();assert!(Opt::Automation.on()&&!Opt::Notes.on());
+        app.toggle_record();assert!(Opt::Automation.on()&&Opt::Notes.on());
     }
 
     #[test]
@@ -199,7 +199,7 @@ mod tests {
         app.transport.pretend_at(0.,true);
         crate::playlist::run(&mut app,crate::playlist::Cmd::Record(Opt::Automation));
         app.toggle_record();assert!(app.state.rec.armed&&app.state.playlist.popup.is_none());
-        assert!(!Opt::Notes.on()&&Opt::Automation.on()&&!Opt::Audio.on());
+        assert!(Opt::Notes.on()&&Opt::Automation.on()&&!Opt::Audio.on());
         app.state.rec.smart.origin=Some(0);app.transport.pretend_at(96.,true);
         app.smart_begin_host(&Action::Fader(1));
         crate::mixer::track_mut(&mut app.state,1).unwrap().volume=Some(0.25);

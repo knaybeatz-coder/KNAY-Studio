@@ -1,0 +1,86 @@
+{
+  "target_sha256": "33369e196ae66d05d20485f3c5e800707dc34a5ad89c27959250d60387b2ea55",
+  "format": "mono little-endian float32 excerpts from offline synthetic renders",
+  "fixtures": [
+    {
+      "label": "off",
+      "mode": 0,
+      "amount": 0,
+      "rate": 48000,
+      "start": 96000,
+      "samples": 256,
+      "byte_offset": 0,
+      "source_sha256": "a4e173b2bc7c219c3c27e7611e1459a43c55bbb21d00f93e26f242c6a467e840"
+    },
+    {
+      "label": "m2-a0.75",
+      "mode": 2,
+      "amount": 0.75,
+      "rate": 48000,
+      "start": 96000,
+      "samples": 256,
+      "byte_offset": 1024,
+      "source_sha256": "c1dcc561881f936d104ef8457bee7bfa539d504645372f6eb2966b3f0496d72b"
+    },
+    {
+      "label": "m5-a0.5",
+      "mode": 5,
+      "amount": 0.5,
+      "rate": 48000,
+      "start": 96000,
+      "samples": 256,
+      "byte_offset": 2048,
+      "source_sha256": "06616c2ae98d13f00e66ac0a54d4046e357e944c1b9bfb2a48185830fb51b0fd"
+    },
+    {
+      "label": "m10-a0.25",
+      "mode": 10,
+      "amount": 0.25,
+      "rate": 48000,
+      "start": 96000,
+      "samples": 256,
+      "byte_offset": 3072,
+      "source_sha256": "66604621503592396dcca0a17e305ccbe120b795f308051bbf2d0591a8b1bb5d"
+    },
+    {
+      "label": "m15-a0.75",
+      "mode": 15,
+      "amount": 0.75,
+      "rate": 48000,
+      "start": 96000,
+      "samples": 256,
+      "byte_offset": 4096,
+      "source_sha256": "ba74472adb5439e4c605430c628b590dff0fe79bfe03b18c217d2c81f627f282"
+    },
+    {
+      "label": "level-44100",
+      "mode": 0,
+      "amount": 0,
+      "rate": 44100,
+      "start": 44356,
+      "samples": 256,
+      "byte_offset": 5120,
+      "source_sha256": "67719582bbaefde25ddd33a595201ab63a47cd846d78d30b5ea24277b989960a"
+    },
+    {
+      "label": "level-48000",
+      "mode": 0,
+      "amount": 0,
+      "rate": 48000,
+      "start": 48256,
+      "samples": 256,
+      "byte_offset": 6144,
+      "source_sha256": "1fde2b424a2673b013f953b2e9c299a9cf2b804cec9d02fef542c87e7badd72f"
+    },
+    {
+      "label": "level-96000",
+      "mode": 0,
+      "amount": 0,
+      "rate": 96000,
+      "start": 96256,
+      "samples": 256,
+      "byte_offset": 7168,
+      "source_sha256": "0e0353cc8152180c20d10be2e27607dc840ff65bf3e52a4eda98cb55cba87b6b"
+    }
+  ]
+}

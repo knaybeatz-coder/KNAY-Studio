@@ -14,6 +14,7 @@
 //! - [`voices`]: a hosted instrument's voices as the host counts them.
 //! - [`wav`]: writing renders to disk.
 
+pub mod mpe;
 pub mod clock;
 pub mod effects;
 pub mod engine;
@@ -30,3 +31,5 @@ pub use clock::Clock;
 pub use engine::{Engine, EngineReport, PlayMode};
 pub use instrument::{ChannelLevels, ChannelVoicing, HostedEffect, Instrument, NoteLevels, SharedEffect, SharedInstrument, TransportInfo, TuningBend};
 pub use sample::{Sample, SampleLibrary};
+
+mod varispeed;

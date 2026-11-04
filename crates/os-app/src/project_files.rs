@@ -247,6 +247,7 @@ impl App {
             used.extend(self.plugins.sampler_path(row).filter(|p| !p.is_empty()).map(PathBuf::from));
             used.extend(ch.sample_path.as_deref().filter(|p| !p.is_empty()).map(|p| PathBuf::from(crate::plugins::resolve_sample(p))));
         }
+        used.extend(self.state.project.audio_warps.iter().flat_map(|w| [&w.source,&w.rendered]).filter(|p|!p.is_empty()).map(|p|PathBuf::from(crate::plugins::resolve_sample(p))));
         used
     }
 
@@ -482,4 +483,8 @@ mod tests {
             assert!(active(&app.state, m, row(m, l)), "{l}: saved");
         }
     }
+}
+
+#[cfg(test)]mod audit_tests {use super::*;
+ #[test]fn audit_cleanup_retains_warp_source_without_original_channel(){let mut a=App::new(None);let d=std::env::temp_dir().join(format!("audit-warp-cleanup-{}",std::process::id()));std::fs::create_dir_all(d.join("Samples")).unwrap();let p=d.join("Samples/source.wav");std::fs::write(&p,b"audio").unwrap();a.state.project.channels.clear();a.state.project.audio_warps.push(os_model::AudioWarp{source:p.to_string_lossy().into_owned(),rendered:String::new(),points:vec![]});assert!(!unused_files(&d,&a.used_files()).contains(&p));std::fs::remove_dir_all(d).unwrap();}
 }

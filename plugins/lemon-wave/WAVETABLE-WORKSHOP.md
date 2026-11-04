@@ -1,0 +1,15 @@
+# Wavetable Workshop
+
+Open TABLE EDIT at the top of Wave, or EDIT TABLE inside oscillator A or B. Everything stays in the instrument window.
+
+1. Draw directly in DRAW WAVEFORM. Drag the harmonic bars to adjust harmonics 1-64 while preserving their phase; higher existing harmonics remain. Edits are a draft and do not change the playing oscillator yet.
+2. Select frames in the bottom strip or with the Frame arrows. Add blank frames, duplicate, delete, move left/right, or insert a Tween between the selected frame and its next neighbor. Tables hold 1-128 frames. Normalize, Smooth, Invert and Reverse affect the selected frame. Undo/Redo retains up to 24 editing operations.
+3. The stacked view highlights the selected frame in yellow and the interpolated preview in white. Drag its slider to inspect transitions. This is a visual draft preview. Click Apply to Oscillator, then use Position on Synth to hear the table scan.
+4. To convert a recording, first select a Mini-Moog, 800DV or other recorded sound on Synth. Open EDIT TABLE (or Reload in the workshop). Drag across RECORDING to select the section, choose the output frame count, and click Extract. It uses the recording's Root pitch and nearby rising zero crossings to select periods. Complex/detuned recordings or inaccurate root estimates can need adjustment; this is not automatic pitch tracking or multisample mapping. The original recording remains available in the instrument library.
+5. Click USER BANK and TABLE NAME to type names. Ctrl+A replaces the field, Backspace removes characters, Enter finishes and Escape restores the field's previous text. Click Save to User Bank. Return to Synth > Wavetables: saved choices appear as Bank / Table. Existing files are preserved with numbered names when necessary.
+
+Apply embeds the edited table in the current native patch/project and switches that oscillator to wavetable mode. The other oscillator remains unchanged. Applying restores host state and can restart held notes/tails; apply between notes. Unapplied drafts are not saved with the project and are lost when the plugin instance is unloaded or recreated. Reload deliberately discards the draft and reloads the oscillator. A dirty draft must be applied or reloaded before switching A/B in the workshop.
+
+User banks live in LOCALAPPDATA/Lemon Studio/Lemon Wave/User Wavetables on Windows, as bounded .lwtable JSON files. Loaded tables travel inside native project/preset state. Bank files themselves remain user-local. The Windows inline naming path is implemented and compiled; other-platform input/build verification is not claimed for this update.
+
+Validation: drawing, spectral edits, sample-to-period extraction, frame/history operations, named-bank round trips/collision preservation, bank dropdown loading and missing-file preservation, draft-vs-applied state, real-audio state recall, layout bounds and software previews checked. Native CLAP/VST3 tests exercise an extracted Moog table with an edited harmonic. Live user listening and mouse/keyboard acceptance remain.

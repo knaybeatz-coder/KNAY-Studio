@@ -32,6 +32,7 @@ function admin_board(PDO $db): array {
 }
 function admin_change(PDO $db,array $in): array {
     $action=$in['action']??'';$id=$in['id']??null;
+    if(str_starts_with($action,'forum_')){return forum_moderate($db,$in);}
     if(in_array($action,['announcement_save','announcement_delete'],true)){return admin_announcement($db,$in);}
     if(!is_int($id)||$id<1){throw new DomainException('Select a suggestion.',400);}
     $db->exec('BEGIN IMMEDIATE');
@@ -106,4 +107,19 @@ function admin_announcement(PDO $db,array $in): array {
         query($db,'INSERT INTO moderation_log(created,action,target,detail) VALUES(?,?,?,?)',[time(),$action,(string)$id,$detail]);
         $db->exec('COMMIT');return admin_board($db);
     }catch(Throwable $e){$db->exec('ROLLBACK');throw $e;}
+}
+
+// The administrator actor has no bearer token and cannot be selected by public requests.
+function owner_forum_action(PDO $db,array $in): array {
+ $routes=['owner_forum_profile'=>'forum_profile','owner_forum_create'=>'forum_create','owner_forum_reply'=>'forum_reply','owner_forum_react'=>'forum_react'];
+ $action=$in['action']??'';
+ if($action==='owner_forum_profile_read'){return forum_profile($db,FORUM_OWNER);}
+ if(!isset($routes[$action])){throw new DomainException('Invalid administrator action.',400);}
+ $in['action']=$routes[$action];$db->exec('BEGIN IMMEDIATE');
+ try {
+  query($db,'INSERT OR IGNORE INTO users(id,created) VALUES(?,?)',[FORUM_OWNER,time()]);
+  $page=forum_handle($db,$in,FORUM_OWNER,'owner-dashboard');
+  query($db,'INSERT INTO moderation_log(created,action,target,detail) VALUES(?,?,?,?)',[time(),$action,(string)($page['topic']['id']??0),$action==='owner_forum_profile'?'Updated administrator profile':'Administrator community action']);
+  $db->exec('COMMIT');return $page;
+ }catch(Throwable $e){$db->exec('ROLLBACK');throw $e;}
 }

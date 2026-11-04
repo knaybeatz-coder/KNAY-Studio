@@ -463,3 +463,12 @@ fn hosts_a_plugin_from_env() {
         assert!(p.load_state(&s));
     }
 }
+
+#[test]
+fn mpe_member_channels_and_reset_are_preserved() {
+    let (_m,mut p)=synth();assert!(p.activate(48000));clear();
+    for b in [[0x91,60,100],[0x92,60,90],[0xb1,74,110],[0xe2,0,96],[0xd1,80,0]]{p.midi(0,b);}
+    let(mut l,mut r)=(vec![0.;64],vec![0.;64]);p.process(48000,&mut l,&mut r);
+    let messages=probe(|p|p.midi.clone());assert!(messages.contains(&(0,0xb1,74,110)));assert!(messages.contains(&(0,0xe2,0,96)));assert!(messages.contains(&(0,0xd1,80,0)));
+    clear();p.reset();p.process(48000,&mut l,&mut r);let messages=probe(|p|p.midi.clone());for ch in [1,2]{assert!(messages.contains(&(0,0xb0|ch,120,0)));}
+}

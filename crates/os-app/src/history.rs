@@ -53,6 +53,16 @@ pub const PROJECT_INFO: &str = "Project info";
 /// What a step changes, as it is on the other side of the step.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Snap {
+    ChannelEnabled(usize,bool),
+    PitchFollow(usize,bool,i32),
+    AudioWarps(Vec<os_model::AudioWarp>),
+    StackLinks(usize,Vec<u16>),
+    ClipFxOwners(Vec<u16>),
+    MpeConfig(Vec<(u16,os_model::mpe::Config)>),
+    ClipFxTargets(Vec<os_model::Automation>,Vec<os_model::InitControl>,Vec<os_model::PeakLink>),
+    StackInstrument(Box<RackSide>,usize,Vec<u8>),
+    Tempo(f64),
+    Ara(usize, Option<String>, Option<Vec<u8>>),
     MixerMove { from:u16,to:u16,arrangements:Vec<os_model::Arrangement>,lanes:Vec<(u16,u16,u16,u16)> },
     ChannelRoute(usize,u16),
     InstrumentLanes(Vec<(u16,u16,u16,u16)>),
@@ -75,6 +85,7 @@ pub enum Snap {
     TuneEnabled(u16,bool),
     PeakLinks(Vec<os_model::PeakLink>),
     MixerChannel(Box<crate::mixer::ChannelCopy>),
+    RackStrips(Vec<crate::mixer::ChannelCopy>),
     /// Parameter `.1` of hosted plugin instance `.0` (normalized), set by Lemon Studio itself (`crate::params`).
     Param(usize, usize, f64),
     /// What a sample load changes on channel `row`: its sample, its name ("Auto name channels"), its root note and its
@@ -192,6 +203,8 @@ pub struct Settings {
 /// instruments as the delete found them (row, `Plugins::available` index, saved state), hosted again by an undo.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Rows {
+    pub mpe_channels:Vec<(u16,os_model::mpe::Config)>,
+    pub clip_fx_channels:Vec<u16>,
     pub original_values: std::collections::HashMap<u16, f64>,
     pub full: bool,
     pub gone: Vec<usize>,
@@ -213,6 +226,8 @@ impl Rows {
     pub fn now(s: &State, full: bool, gone: Vec<usize>, back: Vec<(usize, usize, Vec<u8>)>) -> Rows {
         let (p, r) = (&s.project, &s.rack);
         Rows {
+            mpe_channels:p.mpe.channels.clone(),
+            clip_fx_channels:p.clip_fx_channels.clone(),
             original_values: s.playlist.original_values.clone(),
             full,
             gone,
@@ -248,6 +263,8 @@ impl Rows {
         };
         let m = |r: usize| map.get(r).copied().flatten();
         let p = &mut s.project;
+        p.mpe.channels=self.mpe_channels;
+        p.clip_fx_channels=self.clip_fx_channels;
         (p.channels, p.patterns, p.automations) = (self.channels, self.patterns, self.automations);
         (p.arrangements, p.init_controls) = (self.arrangements, self.init_controls);
         s.playlist.original_values = self.original_values;
@@ -319,6 +336,8 @@ impl RackSide {
 }
 
 impl Snap {
+    pub fn ara(s:&State,row:usize)->Option<Self>{let c=s.project.channels.get(row)?;Some(Self::Ara(row,c.plugin.clone(),c.plugin_state.clone()))}
+
     /// Pattern `number` as it is now.
     pub fn pattern(s: &State, number: u16) -> Snap {
         let p = s.project.pattern(number);
@@ -340,13 +359,25 @@ impl Snap {
     /// What this covers, as the project has it now.
     fn now(&self, s: &State) -> Snap {
         match self {
+            Snap::ClipFxTargets(..)=>Snap::ClipFxTargets(s.project.automations.clone(),s.project.init_controls.clone(),s.project.peak_links.clone()),
+            Snap::MpeConfig(_)=>Snap::MpeConfig(s.project.mpe.channels.clone()),
+            Snap::ClipFxOwners(_)=>Snap::ClipFxOwners(s.project.clip_fx_channels.clone()),
+            Snap::StackLinks(row,_)=>Snap::StackLinks(*row,s.project.channels.get(*row).map(|c|c.layer_children.clone()).unwrap_or_default()),
+            Snap::StackInstrument(r,index,blob)=>{
+                let current=s.project.channels.get(r.row).and_then(|_|s.params.lists.get(&r.row)).and_then(|l|l.plugin.upgrade()).and_then(|p|p.lock().ok()?.save_state()).unwrap_or_else(||blob.clone());
+                Snap::StackInstrument(Box::new(RackSide::now(s,r.row)),*index,current)
+            },
+            Snap::AudioWarps(_)=>Snap::AudioWarps(s.project.audio_warps.clone()),
+            Snap::Tempo(_) => Snap::Tempo(s.tempo),
             Snap::MixerMove{from,to,..}=>Snap::MixerMove{from:*to,to:*from,arrangements:s.project.arrangements.clone(),lanes:s.project.instrument_lanes.clone()},
             Snap::InstrumentLanes(_)=>Snap::InstrumentLanes(s.project.instrument_lanes.clone()),
+            Snap::Ara(row,..) => Self::ara(s,*row).unwrap_or_else(||self.clone()),
             Snap::Pattern { number, .. } => Snap::pattern(s, *number),
             Snap::Playlist(_) => Snap::Playlist(Box::new(crate::playlist::capture(s))),
             Snap::Knob(id, _) => Snap::Knob(*id, knob_value(s, *id)),
             // A track or an instance gone since is left as the step has it (`put` does nothing then).
             Snap::Fader(t, _) => crate::mixer::track(s, *t).map_or_else(|| self.clone(), |m| Snap::Fader(*t, m.volume)),
+            Snap::RackStrips(v) => Snap::RackStrips(v.iter().filter_map(|c|crate::mixer::channel_copy(s,c.track.index)).collect()),
             Snap::MixerChannel(c) => crate::mixer::channel_copy(s,c.track.index).map(|c|Snap::MixerChannel(Box::new(c))).unwrap_or_else(||self.clone()),
             Snap::ChannelLayout(t,_) => crate::mixer::track(s,*t).map_or_else(||self.clone(),|m|Snap::ChannelLayout(*t,m.channel_layout)),
             Snap::PeakLinks(_)=>Snap::PeakLinks(s.project.peak_links.clone()),
@@ -358,6 +389,8 @@ impl Snap {
             Snap::StripProfile(t,_) => crate::mixer::track(s,*t).map_or_else(||self.clone(),|m|Snap::StripProfile(*t,m.strip[5])),
             Snap::AllEffects(_) => Snap::AllEffects(s.mixer.all_fx_bypassed),
             Snap::Effects(t, _, _) => crate::mixer::track(s, *t).map_or_else(|| self.clone(), |m| Snap::Effects(*t, m.slots_enabled, s.mixer.all_fx_bypassed)),
+            Snap::ChannelEnabled(row,_) => s.project.channels.get(*row).map_or_else(||self.clone(),|c|Snap::ChannelEnabled(*row,c.enabled)),
+            Snap::PitchFollow(row,..) => s.project.channels.get(*row).map_or_else(||self.clone(),|c|Snap::PitchFollow(*row,c.misc.main_pitch,c.misc.pitch_follow_offset)),
             Snap::Param(key, i, _) => crate::params::param_value(s, *key, *i).map_or_else(|| self.clone(), |v| Snap::Param(*key, *i, v)),
             // A channel gone since is left as the step has it (`put` does nothing then).
             Snap::Sample { row, .. } => Snap::sample(s, *row).unwrap_or_else(|| self.clone()),
@@ -416,10 +449,19 @@ impl Snap {
             Snap::Several(v) => v.iter_mut().for_each(|x| x.rescale(from, to)),
             // A channel or an initial value holds no ticks; a timebase step's are at its own timebase.
             Snap::Knob(..)
+            | Snap::ClipFxTargets(..)
+            | Snap::MpeConfig(..)
+            | Snap::ClipFxOwners(..)
+            | Snap::StackLinks(..)
+            | Snap::StackInstrument(..)
+            | Snap::AudioWarps(..)
+            | Snap::Tempo(..)
             | Snap::MixerMove{..}
             | Snap::InstrumentLanes(..)
             | Snap::ChannelRoute(..)
             | Snap::Fader(..)
+            | Snap::Ara(..)
+            | Snap::RackStrips(..)
             | Snap::MixerChannel(..)
             | Snap::StripBypass(..)
             | Snap::StripProfile(..)
@@ -431,6 +473,8 @@ impl Snap {
             | Snap::DriveType(..)
             | Snap::AllEffects(..)
             | Snap::Effects(..)
+            | Snap::ChannelEnabled(..)
+            | Snap::PitchFollow(..)
             | Snap::Param(..)
             | Snap::Sample { .. }
             | Snap::Channel { .. }
@@ -461,12 +505,24 @@ impl Snap {
     /// Puts this into the project. A pattern's step also shows that pattern, as the piano roll's undo always did.
     fn put(self, s: &mut State) {
         match self {
+            Snap::ClipFxTargets(a,i,p)=>{s.project.automations=a;s.project.init_controls=i;crate::peak_link::restore_removed(s,&p);s.project.peak_links=p;},
+            Snap::MpeConfig(v)=>s.project.mpe.channels=v,
+            Snap::ClipFxOwners(v)=>s.project.clip_fx_channels=v,
+            Snap::StackLinks(row,v)=>{if let Some(c)=s.project.channels.get_mut(row){c.layer_children=v;}},
+            Snap::StackInstrument(r,index,blob)=>{
+                let (row,back)=(r.row,r.ch.is_some()&&r.row==s.project.channels.len());
+                put_rack(s,*r);
+                if back{s.rows_moved.push(((0..s.project.channels.len()).map(Some).collect(),vec![(row,index,blob)]));}
+            },
+            Snap::AudioWarps(v)=>s.project.audio_warps=v,
+            Snap::Tempo(v) => s.tempo=v,
             Snap::Pattern { number, notes, controls, length } => {
                 s.pattern = number;
                 let p = crate::patterns::pat_mut(s, number);
                 (p.notes, p.controls, p.length) = (notes, controls, length);
                 s.piano.clear_selection();
             }
+            Snap::Ara(row,plugin,state) => {if let Some(ch)=s.project.channels.get_mut(row){ch.plugin=plugin;ch.plugin_state=state;}},
             Snap::Playlist(p) => crate::playlist::restore(s, *p),
             Snap::Knob(id, v) => set_knob_value(s, id, v),
             Snap::Fader(t, v) => {
@@ -474,9 +530,15 @@ impl Snap {
                     m.volume = v;
                 }
             }
+            Snap::ChannelEnabled(row,on) => {if let Some(c)=s.project.channels.get_mut(row){c.enabled=on;}},
+            Snap::PitchFollow(row,on,offset) => {
+                if let Some(c)=s.project.channels.get_mut(row){c.misc.main_pitch=on;c.misc.pitch_follow_offset=offset;}
+                if let Some(i)=s.params.lists.get(&row).and_then(|l|l.params.iter().position(|p|p.name=="Affected by the main pitch")){crate::params::set_param_value(s,row,i,f64::from(on));}
+            }
             Snap::Param(key, i, v) => {
                 crate::params::set_param_value(s, key, i, v);
             }
+            Snap::RackStrips(v) => {for c in v {crate::mixer::put_channel(s,c);}},
             Snap::MixerChannel(c) => crate::mixer::put_channel(s,*c),
             Snap::MixerMove{from,to,arrangements,lanes}=>{crate::mixer::reorder(s,from,to,false);s.project.arrangements=arrangements;s.project.instrument_lanes=lanes;},
             Snap::InstrumentLanes(v)=>s.project.instrument_lanes=v,
@@ -611,7 +673,7 @@ fn put_replaced(s: &mut State, r: Replaced) {
 }
 
 /// The model's value of a knob: the channels' volume and pan as stored (exact), the others as the knob reads them.
-fn knob_value(s: &State, id: KnobId) -> f64 {
+pub(crate) fn knob_value(s: &State, id: KnobId) -> f64 {
     match id {
         KnobId::ChanVol(i) => s.project.channels.get(i).map_or(0.0, |c| c.volume),
         KnobId::ChanPan(i) => s.project.channels.get(i).map_or(0.0, |c| c.pan),
@@ -634,6 +696,8 @@ fn knob_name(id: KnobId) -> &'static str {
         KnobId::ChanPan(_) => "Channel panning",
         KnobId::MasterVol => "Main volume",
         KnobId::MasterPitch => "Main pitch",
+        KnobId::Varispeed => "Varispeed",
+        KnobId::ChanPitch(_) => "Channel pitch",
         KnobId::MixPan(_) => "Mixer track panning",
         KnobId::MixSep(_) => "Mixer track stereo separation",
         KnobId::SlotMix(..) => "Effect mix level",
@@ -859,7 +923,7 @@ pub fn fader(s: &mut State, track: u16, wheel: bool) {
 
 /// After Lemon Studio set parameter `index` of plugin instance `key` from `before` to `to` (Type in value, the
 /// parameter menu's Set... and Paste value): a step, "Plugin parameter", unless Undo knob tweaks is off or the value
-/// stays. A plugin editor's own changes make none.
+/// stays. Editor gestures use the same entry, once at the first changed value.
 pub fn param(s: &mut State, key: usize, index: usize, before: Option<f64>, to: f64) {
     let Some(v) = before.filter(|&v| v != to && prefs::check(&prefs::UNDO_KNOB_TWEAKS)) else { return };
     record(s, PLUGIN_PARAMETER, Snap::Param(key, index, v));

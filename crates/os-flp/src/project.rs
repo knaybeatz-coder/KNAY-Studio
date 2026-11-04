@@ -840,14 +840,21 @@ pub fn load(file: &FlpFile) -> Result<Project, ProjectError> {
     p.mixer = load_mixer(events, &l, enc);
     read_strip_chunk(file, &mut p);
     read_parametric_chunk(file, &mut p);
+    read_pitch_controls(file,&mut p);
     read_peak_links(file,&mut p);
     read_channel_layouts(file,&mut p);
     read_strip_bypass(file,&mut p);
     read_comp_groups(file, &mut p);
     read_frozen_tracks(file, &mut p);
     read_extra_fx(file, &mut p);
+    read_audio_warps(file,&mut p);
+    read_rack_strips(file,&mut p);
     read_instrument_lanes(file,&mut p);
-    for c in &file.chunks {if c.tag==Tag(*b"LSHK") {if let ChunkBody::Raw(d)=&c.body {if d.len()==4&&d[0]==1&&d[1]<12&&(67..=88).contains(&d[2]) {p.harmony=Some((d[1],d[2],d[3]&15));}}}}
+    read_pattern_speeds(file,&mut p);
+    read_marker_colors(file,&mut p);
+    read_clip_fx_owners(file,&mut p);
+    read_mpe(file,&mut p);
+    for c in &file.chunks {if c.tag==Tag(*b"LSHK") {if let ChunkBody::Raw(d)=&c.body {if d.len()==4&&d[0]==1&&d[1]<12&&(67..=88).contains(&d[2]) {p.harmony=Some((d[1],d[2],d[3]&31));}}}}
     Ok(p)
 }
 
@@ -911,6 +918,7 @@ fn load_channel(events: &[Event], loc: &ChannelLoc, enc: TextEnc) -> Channel {
 fn load_misc(block: &[Event]) -> ChannelMisc {
     let find = |id: u8| block.iter().find(|e| e.id == id);
     let mut m = ChannelMisc::default();
+    m.pitch_range = 2; // Older files without a range retain the historical default.
     if let Some(d) = find(id::CH_ADJUST).and_then(Event::data).filter(|d| d.len() >= 20) {
         let v = |i: usize| i32::from_le_bytes(d[4 * i..4 * i + 4].try_into().unwrap()) as f32;
         m.levels = [v(0) / 6400.0, (v(1) - 12800.0) / 12800.0, v(3) / 256.0, v(4) / 256.0];
@@ -1356,6 +1364,7 @@ fn decode_note(r: &[u8]) -> Note {
     let u16_at = |o: usize| u16::from_le_bytes([r[o], r[o + 1]]);
     let u32_at = |o: usize| u32::from_le_bytes(r[o..o + 4].try_into().unwrap());
     Note {
+        expression:0,
         position: u32_at(0),
         channel: u16_at(6),
         length: u32_at(8),
@@ -1443,6 +1452,7 @@ fn decode_clip(r: &[u8]) -> Clip {
     let n = r.len().min(CLIP_RECORD_LEN);
     raw[..n].copy_from_slice(&r[..n]);
     Clip {
+        pattern_speed:1.0,
         position: u32_at(0),
         length: u32_at(8),
         track: 499u16.saturating_sub(u16_at(12)),
@@ -2722,16 +2732,17 @@ pub fn apply(project: &Project, file: &mut FlpFile) -> Result<(), ProjectError> 
         }
         // A plugin channel's plugin (201) and state (213) (spec: flp/events/plugins.md §1-2). A state for a channel
         // that had none goes after the colour flag (41), where FL keeps it.
-        if ch.kind == ChannelKind::Plugin && ch.plugin != old.plugin {
-            if let (Some(i), Some(n)) = (loc.plugin_name, &ch.plugin) {
-                set_data(&mut events[i], encode_text(n, enc));
+        if (ch.kind == ChannelKind::Plugin || ara_channel(ch) || ara_channel(old)) && ch.plugin != old.plugin {
+            if let Some(i) = loc.plugin_name {
+                set_data(&mut events[i], encode_text(ch.plugin.as_deref().unwrap_or(""), enc));
             }
         }
         if ch.plugin_state != old.plugin_state {
+            if ch.plugin_state.is_none() && ara_channel(old) {if let Some(i)=loc.state {removals.push(i);}}
             if let Some(st) = &ch.plugin_state {
                 match loc.state {
                     Some(i) => set_data(&mut events[i], st.clone()),
-                    None if ch.kind == ChannelKind::Plugin => {
+                    None if ch.kind == ChannelKind::Plugin || ara_channel(ch) => {
                         let at = loc.color_flag.or(loc.color).or(loc.name).or(loc.plugin_rec).map_or(loc.start + 2, |i| i + 1);
                         inserts.push((at, Event::new(id::PLUGIN_STATE, Value::var(st.clone()))));
                     }
@@ -3256,13 +3267,20 @@ pub fn apply(project: &Project, file: &mut FlpFile) -> Result<(), ProjectError> 
     }
     write_strip_chunk(project, file);
     write_parametric_chunk(project, file);
+    write_pitch_controls(project,file);
     write_peak_links(project,file);
     write_channel_layouts(project,file);
     write_strip_bypass(project,file);
     write_comp_groups(project, file);
     write_frozen_tracks(project, file);
     write_extra_fx(project, file);
+    write_audio_warps(project,file);
+    write_rack_strips(project,file);
     write_instrument_lanes(project,file);
+    write_pattern_speeds(project,file);
+    write_marker_colors(project,file);
+    write_clip_fx_owners(project,file);
+    write_mpe(project,file);
     Ok(())
 }
 
@@ -3581,10 +3599,14 @@ fn channel_type_code(kind: ChannelKind) -> u8 {
     }
 }
 
-/// One channel block in the minimal form FL 26 loads (spec: flp/events/channels.md; every record not written here
-/// takes FL's default).
+/// Lemon's ARA archive remains on its audio channel, separately from ordinary VST3 inserts.
+fn ara_channel(ch:&Channel)->bool {
+    ch.kind==ChannelKind::AudioClip && ch.plugin.as_deref()==Some("Lemon ARA")
+}
+
+/// One channel block; unrepresented settings retain the file format defaults.
 fn channel_block_events(ch: &Channel, auto: Option<&Automation>, enc: TextEnc) -> Result<Vec<Event>, ProjectError> {
-    let plugin = (ch.kind == ChannelKind::Plugin).then_some(ch.plugin.as_deref()).flatten().filter(|p| !p.is_empty());
+    let plugin = (ch.kind == ChannelKind::Plugin || ara_channel(ch)).then_some(ch.plugin.as_deref()).flatten().filter(|p| !p.is_empty());
     if matches!(ch.kind, ChannelKind::Other(_)) || (ch.kind == ChannelKind::Plugin && plugin.is_none()) {
         return Err(ProjectError::Mismatch(format!(
             "channel {}: creating unknown channels or plugin channels without a plugin is not supported",
@@ -3782,13 +3804,20 @@ pub fn create(project: &Project) -> Result<FlpFile, ProjectError> {
     };
     write_strip_chunk(project, &mut file);
     write_parametric_chunk(project, &mut file);
+    write_pitch_controls(project,&mut file);
     write_peak_links(project,&mut file);
     write_channel_layouts(project,&mut file);
     write_strip_bypass(project,&mut file);
     write_comp_groups(project, &mut file);
     write_frozen_tracks(project, &mut file);
     write_extra_fx(project, &mut file);
+    write_audio_warps(project,&mut file);
+    write_rack_strips(project,&mut file);
     write_instrument_lanes(project,&mut file);
+    write_pattern_speeds(project,&mut file);
+    write_marker_colors(project,&mut file);
+    write_clip_fx_owners(project,&mut file);
+    write_mpe(project,&mut file);
     Ok(file)
 }
 
@@ -6553,4 +6582,143 @@ fn read_extra_fx(file:&FlpFile,p:&mut Project) {
             d=&d[n+z..];
         }
     }
+}
+
+fn write_pitch_controls(p: &Project, file: &mut FlpFile) {
+    file.chunks.retain(|c| c.tag != Tag(*b"LPCH"));
+    let mut d = vec![1]; d.extend(p.varispeed_cents.to_le_bytes());
+    for c in &p.channels { d.extend(c.index.to_le_bytes()); d.extend(c.misc.pitch_follow_offset.to_le_bytes()); d.push(c.misc.pitch_range); }
+    file.chunks.push(Chunk { tag: Tag(*b"LPCH"), body: ChunkBody::Raw(d) });
+}
+fn read_pitch_controls(file: &FlpFile, p: &mut Project) {
+    for c in &file.chunks {
+        if c.tag != Tag(*b"LPCH") { continue; }
+        let ChunkBody::Raw(d) = &c.body else { continue; };
+        if d.len() < 3 || d[0] != 1 { continue; }
+        p.varispeed_cents = i16::from_le_bytes([d[1],d[2]]).clamp(-1200,1200);
+        for r in d[3..].chunks_exact(7) {
+            let id = u16::from_le_bytes([r[0],r[1]]);
+            if let Some(c) = p.channels.iter_mut().find(|c| c.index == id) { c.misc.pitch_follow_offset = i32::from_le_bytes(r[2..6].try_into().unwrap()).clamp(-24000,24000); c.misc.pitch_range=r[6].clamp(1,48); }
+        }
+    }
+}
+
+fn write_rack_strips(p:&Project,file:&mut FlpFile){
+    file.chunks.retain(|c|c.tag!=Tag(*b"LRCK")&&c.tag!=Tag(*b"LHST"));let mut data=vec![1];
+    for m in &p.mixer {if let Some(h)=&m.rack_strip {data.extend(m.index.to_le_bytes());data.extend([h.slot,u8::from(h.native_bypassed),u8::from(h.eq_on)]);}}
+    if data.len()>1 {file.chunks.push(Chunk{tag:Tag(*b"LRCK"),body:ChunkBody::Raw(data)});}
+}
+fn read_rack_strips(file:&FlpFile,p:&mut Project){
+    // Retire the rejected proxy-strip experiment without leaving native processing disabled.
+    for c in &file.chunks {if c.tag!=Tag(*b"LHST"){continue;}let ChunkBody::Raw(d)=&c.body else{continue};if d.first()!=Some(&1)||d.len()>2_000_000{continue;}
+        if let Ok(serde_json::Value::Array(entries))=serde_json::from_slice(&d[1..]){for e in entries {let Some(n)=e.get(0).and_then(|v|v.as_u64()).filter(|n|*n<=u16::MAX as u64)else{continue};let Some(h)=e.get(1)else{continue};let Some(k)=h.get("slot").and_then(|v|v.as_u64()).filter(|k|*k<64&&*k!=10)else{continue};
+            if let Some(m)=p.mixer.iter_mut().find(|m|m.index==n as u16){if let (Some(native),Some(eq))=(h.get("native_bypassed").and_then(|v|v.as_bool()),h.get("eq_on").and_then(|v|v.as_bool())){m.strip_bypassed=native;m.slot_on[10]=eq;m.slot_on[k as usize]=false;}}
+        }}
+    }
+
+    for c in &file.chunks {if c.tag!=Tag(*b"LRCK"){continue;}let ChunkBody::Raw(d)=&c.body else{continue};
+        if d.first()!=Some(&1)||(d.len()-1)%5!=0{continue;}
+        for e in d[1..].chunks_exact(5){let n=u16::from_le_bytes([e[0],e[1]]);let k=e[2];if k>=64||k==10||e[3]>1||e[4]>1{continue;}
+            if let Some(m)=p.mixer.iter_mut().find(|m|m.index==n){if m.slots[k as usize].is_some(){m.rack_strip=Some(os_model::RackStrip{slot:k,native_bypassed:e[3]!=0,eq_on:e[4]!=0});}}
+        }
+    }
+}
+
+fn write_audio_warps(p:&Project,file:&mut FlpFile){
+    file.chunks.retain(|c|c.tag!=Tag(*b"LSWP"));
+    if p.audio_warps.is_empty(){return;}
+    let entries:Vec<_>=p.audio_warps.iter().map(|w|serde_json::json!({"source":w.source,"rendered":w.rendered,"points":w.points})).collect();
+    if let Ok(data)=serde_json::to_vec(&serde_json::json!({"version":1,"warps":entries})) {file.chunks.push(Chunk{tag:Tag(*b"LSWP"),body:ChunkBody::Raw(data)});}
+}
+fn read_audio_warps(file:&FlpFile,p:&mut Project){
+    for c in &file.chunks {if c.tag!=Tag(*b"LSWP"){continue;}let ChunkBody::Raw(data)=&c.body else{continue};
+        let Ok(v)=serde_json::from_slice::<serde_json::Value>(data) else{continue};
+        if v["version"].as_u64()!=Some(1){continue;}
+        for w in v["warps"].as_array().into_iter().flatten().take(10000){
+            let (Some(source),Some(rendered),Some(points))=(w["source"].as_str(),w["rendered"].as_str(),w["points"].as_array()) else{continue};
+            if points.len()<2||points.len()>1024{continue;}
+            let points:Option<Vec<(f64,f64)>>=points.iter().map(|p|Some((p[0].as_f64()?,p[1].as_f64()?))).collect();
+            let Some(points)=points else{continue};
+            if points.iter().any(|(s,b)|!s.is_finite()||!b.is_finite()||*s<0.||*b<0.)||points[0].1!=0.||points.windows(2).any(|w|w[1].0<=w[0].0||w[1].1<=w[0].1){continue;}
+            p.audio_warps.push(os_model::AudioWarp{source:source.into(),rendered:rendered.into(),points});
+        }
+    }
+}
+
+const PATTERN_SPEEDS:Tag=Tag(*b"LSPS");
+fn write_pattern_speeds(p:&Project,file:&mut FlpFile){
+    file.chunks.retain(|c|c.tag!=PATTERN_SPEEDS);let mut data=vec![1];
+    for a in &p.arrangements {
+        let lists=std::iter::once((u32::MAX,a.clips.as_slice())).chain(a.tracks.iter().filter_map(|t|t.frozen.as_deref().map(|clips|(t.number,clips))));
+        for (track,clips) in lists {for (index,c) in clips.iter().enumerate(){if matches!(c.source,ClipSource::Pattern(_)) && c.pattern_rate()!=1. {
+            data.extend(a.number.to_le_bytes());data.extend(track.to_le_bytes());data.extend((index as u32).to_le_bytes());data.extend(c.pattern_rate().to_le_bytes());
+        }}}
+    }
+    if data.len()>1{file.chunks.push(Chunk{tag:PATTERN_SPEEDS,body:ChunkBody::Raw(data)});}
+}
+fn read_pattern_speeds(file:&FlpFile,p:&mut Project){
+    for c in &file.chunks{if c.tag!=PATTERN_SPEEDS{continue;}let ChunkBody::Raw(data)=&c.body else{continue;};if data.first()!=Some(&1){continue;}
+        for r in data[1..].chunks_exact(18){
+            let arr=u16::from_le_bytes(r[0..2].try_into().unwrap());let track=u32::from_le_bytes(r[2..6].try_into().unwrap());let index=u32::from_le_bytes(r[6..10].try_into().unwrap()) as usize;let rate=f64::from_le_bytes(r[10..18].try_into().unwrap());
+            if !rate.is_finite()||!((1./64.)..=64.).contains(&rate){continue;}
+            let Some(a)=p.arrangements.iter_mut().find(|a|a.number==arr)else{continue;};
+            let clips=if track==u32::MAX{Some(&mut a.clips)}else{a.tracks.iter_mut().find(|t|t.number==track).and_then(|t|t.frozen.as_mut())};
+            if let Some(clip)=clips.and_then(|c|c.get_mut(index)).filter(|c|matches!(c.source,ClipSource::Pattern(_))){clip.pattern_speed=rate;}
+        }
+    }
+}
+
+const MARKER_COLORS:Tag=Tag(*b"LSMC");
+fn write_marker_colors(p:&Project,file:&mut FlpFile){
+    file.chunks.retain(|c|c.tag!=MARKER_COLORS);let mut data=vec![1];
+    for a in &p.arrangements {for (i,m) in a.markers.iter().enumerate(){if let Some(color)=m.color {
+        data.extend(a.number.to_le_bytes());data.extend((i as u32).to_le_bytes());data.extend((color&0xffffff).to_le_bytes());
+    }}}
+    if data.len()>1{file.chunks.push(Chunk{tag:MARKER_COLORS,body:ChunkBody::Raw(data)});}
+}
+fn read_marker_colors(file:&FlpFile,p:&mut Project){
+    for c in &file.chunks {if c.tag!=MARKER_COLORS{continue;}let ChunkBody::Raw(data)=&c.body else{continue;};if data.first()!=Some(&1){continue;}
+        for r in data[1..].chunks_exact(10){let a=u16::from_le_bytes(r[0..2].try_into().unwrap());let i=u32::from_le_bytes(r[2..6].try_into().unwrap()) as usize;let color=u32::from_le_bytes(r[6..10].try_into().unwrap());
+            if let Some(m)=p.arrangements.iter_mut().find(|arr|arr.number==a).and_then(|arr|arr.markers.get_mut(i)){m.color=Some(color&0xffffff);}
+        }
+    }
+}
+
+const CLIP_FX_OWNERS:Tag=Tag(*b"LSCF");
+fn write_clip_fx_owners(p:&Project,file:&mut FlpFile){
+    file.chunks.retain(|c|c.tag!=CLIP_FX_OWNERS);let mut data=vec![1];
+    for m in p.mixer.iter().filter(|m|m.clip_fx){
+        let owner=p.channels.iter().find(|c|c.mixer_track==m.index&&p.clip_fx_channels.contains(&c.index)).map_or(u16::MAX,|c|c.index);
+        data.extend(owner.to_le_bytes());data.extend(m.index.to_le_bytes());
+    }
+    if data.len()>1{file.chunks.push(Chunk{tag:CLIP_FX_OWNERS,body:ChunkBody::Raw(data)});}
+}
+fn read_clip_fx_owners(file:&FlpFile,p:&mut Project){
+    for chunk in &file.chunks{if chunk.tag!=CLIP_FX_OWNERS{continue;}let ChunkBody::Raw(data)=&chunk.body else{continue;};if data.first()!=Some(&1){continue;}
+        for pair in data[1..].chunks_exact(4){let id=u16::from_le_bytes(pair[..2].try_into().unwrap());let bus=u16::from_le_bytes(pair[2..].try_into().unwrap());
+            if let Some(m)=p.mixer.iter_mut().find(|m|m.index==bus&&bus!=0){m.clip_fx=true;}else{continue;}
+            if id!=u16::MAX&&!p.clip_fx_channels.contains(&id)&&p.channels.iter().any(|c|c.index==id&&c.kind.is_sampler()&&c.mixer_track==bus){p.clip_fx_channels.push(id);}
+        }
+    }
+}
+
+// Native MPE extension. Legacy FL note records remain unchanged.
+const MPE_DATA:Tag=Tag(*b"LSME");
+fn write_mpe(p:&Project,file:&mut FlpFile){
+ file.chunks.retain(|c|c.tag!=MPE_DATA);
+ if p.mpe.channels.is_empty()&&p.patterns.iter().all(|p|p.notes.iter().all(|n|n.expression==0)){return;}
+ let mut d=vec![1];d.extend((p.mpe.channels.len()as u16).to_le_bytes());
+ for &(id,c)in &p.mpe.channels{let c=c.valid();d.extend(id.to_le_bytes());d.extend([c.enabled as u8,c.upper as u8,c.members,c.bend]);for v in [c.sensitivity,c.pressure,c.slide]{d.extend(v.to_le_bytes());}}
+ let notes:Vec<_>=p.patterns.iter().flat_map(|pat|pat.notes.iter().enumerate().filter_map(|(i,n)|p.mpe.get(n.expression).map(|e|(pat.number,i,e)))).collect();
+ d.extend((notes.len()as u32).to_le_bytes());for(pat,i,e)in notes{d.extend(pat.to_le_bytes());d.extend((i as u32).to_le_bytes());for lane in &e.lanes{d.extend((lane.len()as u32).to_le_bytes());for p in lane{d.extend(p.at.to_le_bytes());d.extend(p.value.to_le_bytes());d.push(p.smooth as u8);}}}
+ file.chunks.push(Chunk{tag:MPE_DATA,body:ChunkBody::Raw(d)});
+}
+fn read_mpe(file:&FlpFile,p:&mut Project){
+ fn parse(d:&[u8])->Option<(os_model::mpe::Data,Vec<(u16,usize,u32)>)>{
+  struct Read<'a>(&'a[u8]);impl Read<'_>{fn bytes<const N:usize>(&mut self)->Option<[u8;N]>{let x=self.0.get(..N)?.try_into().ok()?;self.0=&self.0[N..];Some(x)}fn u8(&mut self)->Option<u8>{Some(self.bytes::<1>()?[0])}fn u16(&mut self)->Option<u16>{Some(u16::from_le_bytes(self.bytes()?))}fn u32(&mut self)->Option<u32>{Some(u32::from_le_bytes(self.bytes()?))}fn f32(&mut self)->Option<f32>{let v=f32::from_le_bytes(self.bytes()?);v.is_finite().then_some(v)}}
+  if d.len()>32*1024*1024{return None;}let mut r=Read(d);if r.u8()?!=1{return None;}let mut data=os_model::mpe::Data::default();let mut links=vec![];
+  for _ in 0..r.u16()?{let id=r.u16()?;let c=os_model::mpe::Config{enabled:r.u8()?!=0,upper:r.u8()?!=0,members:r.u8()?,bend:r.u8()?,sensitivity:r.f32()?,pressure:r.f32()?,slide:r.f32()?};data.set_config(id,c);}
+  let count=r.u32()?;if count>1_000_000{return None;}for _ in 0..count{let pat=r.u16()?;let note=r.u32()?as usize;let mut e=os_model::mpe::Expression::default();for lane in 0..3{let n=r.u32()?;if n>100_000{return None;}for _ in 0..n{let at=r.f32()?;let value=r.f32()?;let smooth=r.u8()?!=0;e.lanes[lane].push(os_model::mpe::Point{at:at.clamp(0.,1.),value:if lane==0{value.clamp(-96.,96.)}else{value.clamp(0.,1.)},smooth});}e.lanes[lane].sort_by(|a,b|a.at.total_cmp(&b.at));}let id=data.add(e);links.push((pat,note,id));}Some((data,links))
+ }
+ for c in &file.chunks{if c.tag!=MPE_DATA{continue;}let ChunkBody::Raw(d)=&c.body else{continue;};let Some((mut data,links))=parse(d)else{continue;};data.channels.retain(|(id,_)|p.channels.iter().any(|c|c.index==*id));for(pat,index,id)in links{if let Some(n)=p.patterns.iter_mut().find(|p|p.number==pat).and_then(|p|p.notes.get_mut(index)){n.expression=id;}}p.mpe=data;}
 }

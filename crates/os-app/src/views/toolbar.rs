@@ -17,8 +17,8 @@ use crate::toolbar::{place, At, BarHit, Moving, Panel, Placed, Target, Tile, PAN
 
 /// The ▶ arrow's width at the band's right end.
 pub const MORE_W: f32 = 18.0;
-/// The arrow's hint, short enough for the hint panel. A click on it does nothing (spec: ui/ui-scaling.md, Lemon Studio).
-pub const MORE_HINT: &str = "Widen the window or lower Toolbars scaling";
+/// The overflow arrow provides access to windows hidden by a narrow toolbar.
+pub const MORE_HINT: &str = "More windows and toolbar options";
 
 /// Where the panels of a band `width` px wide must end to show, when all of them need `full` (`toolbar::natural_width`;
 /// 1440 for the classic layout, whose last utility button ends at x 1437): anywhere when all of them fit, else before
@@ -41,7 +41,7 @@ pub struct Opts {
     pub separators: bool,
     /// Square buttons without face and edges (§3).
     pub flat: bool,
-    /// The floating hint bar at the window's bottom-left (§4).
+    /// The compact hint field after Project Info.
     pub hint_bar: bool,
     /// Toolbar and menu bar hidden, the browser and workspace up to the window's top (§5).
     pub hidden: bool,
@@ -49,7 +49,7 @@ pub struct Opts {
 
 impl Default for Opts {
     fn default() -> Self {
-        Opts { separators: true, flat: false, hint_bar: false, hidden: false }
+        Opts { separators: true, flat: false, hint_bar: true, hidden: false }
     }
 }
 
@@ -62,7 +62,7 @@ impl Opts {
         Opts {
             separators: flag("toolbar_separators", d.separators),
             flat: flag("toolbar_flat_buttons", d.flat),
-            hint_bar: flag("toolbar_hint_bar", d.hint_bar),
+            hint_bar: flag("toolbar_inline_hint", d.hint_bar),
             hidden: false,
         }
     }
@@ -72,7 +72,7 @@ impl Opts {
         use crate::settings_file::set_flag;
         set_flag("toolbar_separators", self.separators);
         set_flag("toolbar_flat_buttons", self.flat);
-        set_flag("toolbar_hint_bar", self.hint_bar);
+        set_flag("toolbar_inline_hint", self.hint_bar);
     }
 }
 
@@ -94,42 +94,6 @@ pub fn band(s: &State, width: f32) -> Rect {
     Rect::new(0.0, 0.0, width, s.bar.layout.height())
 }
 
-/// The floating hint bar: 400 x 82 at the window's left edge, its bottom 2 px above the window's (§4).
-pub fn hint_bar_rect(s: &State) -> Rect {
-    Rect::new(0.0, s.screen.1 - 84.0, 400.0, 82.0)
-}
-
-/// The floating hint bar (§4): a near-black panel with the hint at its top left and a round grip at its right, over
-/// every window. Clicks on it go nowhere. A hint too long for a line wraps, as many lines as the panel holds (long
-/// hints were not measured on FL; the panel is tall enough for several lines: Lemon Studio's choice).
-pub fn paint_hint_bar(ui: &mut Ui, s: &State, f: &FrameInfo) {
-    let t = ui.t;
-    let r = hint_bar_rect(s);
-    ui.hit(r, Action::Swallow, "");
-    let (edge, mid) = (t.s(0x141618), t.s(0x111213));
-    let half = (r.h / 2.0).round();
-    ui.c.fill_rect_gradient(Rect::new(r.x, r.y, r.w, half), edge, mid, 0.0);
-    ui.c.fill_rect_gradient(Rect::new(r.x, r.y + half, r.w, r.h - half), mid, edge, 0.0);
-    let hint: &str = if !f.hint.is_empty() { &f.hint } else { s.message.as_deref().unwrap_or("") };
-    let font = Font::new(14);
-    let (w, lh) = (r.w - 50.0, ui.c.line_height(font));
-    let chars: Vec<char> = hint.chars().collect();
-    let mut y = r.y + 5.0;
-    for (start, n) in super::settings::wrap(ui, font, hint, w) {
-        if y + lh > r.bottom() - 4.0 {
-            break;
-        }
-        let line: String = chars[start..start + n].iter().collect();
-        ui.c.text_clip(font, r.x + 7.0, y, w, t.text, line.trim_end());
-        y += lh;
-    }
-    let (cx, cy) = (r.right() - 22.0, r.cy());
-    ui.c.fill_circle(cx, cy, 11.0, t.s(0x24272a));
-    for (dx, dy) in [(-3.0, -3.0), (3.0, -3.0), (-3.0, 3.0), (3.0, 3.0)] {
-        ui.c.fill_circle(cx + dx, cy + dy, 1.3, t.s(0x5c6164));
-    }
-}
-
 fn btn(x: f32, y: f32) -> Rect {
     Rect::new(x, y, 30.0, 33.0)
 }
@@ -144,22 +108,41 @@ struct Ctx<'a> {
     preview: bool,
 }
 
+pub(super) fn visible_layout(s:&State)->crate::toolbar::Layout {
+    let mut layout=s.bar.layout.clone();
+    if !s.bar.editing {
+        for row in &mut layout.rows {row.retain(|p|!matches!(p,Panel::Caption|Panel::Hint|Panel::Cpu));
+            if row.contains(&Panel::Utilities)&&row.contains(&Panel::Windows){row.retain(|p|*p!=Panel::Utilities);let at=row.iter().position(|p|*p==Panel::Windows).unwrap();row.insert(at,Panel::Utilities);}
+        }
+        if s.toolbar.hint_bar {
+            let row=layout.rows.iter_mut().find(|row|row.contains(&Panel::Utilities));
+            if let Some(row)=row {let at=row.iter().position(|p|*p==Panel::Utilities).unwrap()+1;row.insert(at,Panel::Hint);}
+            else if let Some(row)=layout.rows.first_mut(){row.push(Panel::Hint);}
+        }
+    }
+    layout
+}
+
 /// The band in its own px, `width` of them wide (`views::paint` scales it by Toolbars scaling). In each row the panels
 /// that would end past `room` are left out, from the first one that does not fit.
 pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo, width: f32) {
     let t = ui.t;
     let lemon = super::lemon(ui);
     let editing = s.bar.editing;
-    let mut visible_layout = s.bar.layout.clone();
-    if !editing { for row in &mut visible_layout.rows { row.retain(|p| *p != Panel::Caption); } }
+    let visible_layout = visible_layout(s);
     let l = &visible_layout;
     let action_font = Font::new(12);
     let update_w = ui.c.text_width(action_font, "Update").ceil() + 12.0;
     let donate_w = ui.c.text_width(action_font, "Donate").ceil() + 12.0;
+    let feedback_w=ui.c.text_width(action_font,"Report a bug").ceil()+20.;
     let ai_w=48.;
     let window_w = 104.0;
-    let actions_w = ai_w + if crate::updates::ENABLED { update_w + donate_w + 12.0 } else { 0.0 } + 6.0 + 32.0 + window_w;
+    let show_cpu=crate::settings_file::flag("toolbar_cpu_visible",true);
+    let mini_cpu_w = if show_cpu {54.}else{0.};
+    // KNAY build: no Update / Donate / Report buttons (the updater and Michael Lane's services are off).
+    let actions_w = mini_cpu_w + ai_w + if crate::updates::ENABLED { update_w + donate_w + feedback_w + 24.0 } else { 6.0 } + 32.0 + window_w;
     let content_width = (width - actions_w).max(100.0);
+    s.toolbar_content_width.set(content_width);
     let fit = room(content_width, crate::toolbar::natural_width(l, editing));
     let (rows, h) = (l.rows.len(), l.height());
     // Separator lines: off from the Toolbars menu (spec: ui/toolbar-menu.md §2).
@@ -190,7 +173,7 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo, width: f32) {
     for row in 0..rows {
         for p in placed.iter().filter(|p| p.row == row) {
             let a = p.at();
-            let shows = if p.panel.repeats() { p.x + p.w <= fit } else { a.x(p.panel.first_end()) <= fit };
+            let shows = if p.panel==Panel::Hint {p.x+64.<=fit} else if p.panel.repeats() { p.x + p.w <= fit } else { a.x(p.panel.first_end()) <= fit };
             if !shows {
                 break;
             }
@@ -222,7 +205,16 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo, width: f32) {
     }
 
     {
-        let ai=Rect::new(width-actions_w+2.,8.,ai_w,24.);
+        let cr=Rect::new(width-actions_w+2.,8.,48.,24.);
+        if show_cpu {ui.c.fill_rrect(cr,3.,t.sunken);
+        ui.hit(cr,Action::CpuPanel,s.cpu.hint());
+        let load=s.cpu.now.load;
+        let ink=if load>=100{t.meter_clip}else if load>=75{t.meter_high}else{t.text_dim};
+        ui.c.text_center(Font::new(10),Rect::new(cr.x,cr.y+2.,cr.w,15.),ink,&format!("CPU {}%",load.min(999)));
+        ui.c.fill_rect(Rect::new(cr.x+4.,cr.bottom()-5.,40.,2.),t.toolbar_line);
+        ui.c.fill_rect(Rect::new(cr.x+4.,cr.bottom()-5.,40.*(load as f32/100.).min(1.),2.),ink);
+        }
+        let ai=Rect::new(width-actions_w+2.+mini_cpu_w,8.,ai_w,24.);
         let hover=ui.hit(ai,Action::Ai,if !s.ai.enabled {"AI control is off — connect an assistant"}else if s.ai.client.is_empty(){"AI control enabled — waiting for an approved assistant"}else{"AI assistant connected — manage or disconnect"});
         ui.c.fill_rrect(ai,3.,if hover{t.button_hi}else{t.sunken});
         let chip=Rect::new(ai.x+6.,ai.y+7.,10.,10.);let ink=if s.ai.enabled{t.accent}else{t.text_dim};
@@ -233,13 +225,16 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo, width: f32) {
         if crate::updates::ENABLED {
         let r = Rect::new(ai.right()+6., 8.0, update_w, 24.0);
         let (label, hint) = crate::updates::display();
-        ui.hit(r, Action::Updates, if !cfg!(windows) { "Open the latest downloads".to_string() } else if hint.is_empty() { "Automatic updates: check now".to_string() } else { hint });
+        ui.hit(r, Action::Updates, if hint.is_empty() { "Automatic updates: check now".to_string() } else { hint });
         ui.c.fill_rrect(r, 3.0, t.sunken);
         ui.c.text_clip(action_font, r.x + 6.0, r.y + 5.0, r.w - 12.0, t.text, label);
         let donate = Rect::new(r.right() + 6.0, r.y, donate_w, r.h);
         ui.hit(donate, Action::Donate, "Donate through Michael Lane's PayPal.me page");
         ui.c.fill_rrect(donate, 3.0, t.sunken);
         ui.c.text_clip(action_font, donate.x + 6.0, donate.y + 5.0, donate.w - 12.0, t.text, "Donate");
+        let report=Rect::new(donate.right()+6.,r.y,feedback_w,r.h);
+        ui.hit(report,Action::FeatureVote(0,30),"Report a bug or send feedback: review technical details before submitting");
+        ui.c.fill_rrect(report,3.,t.accent);ui.c.text_center(action_font,report,t.sunken,"Report a bug");
         }
     }
     // Window controls remain at the far right, outside the customizable panels.
@@ -255,12 +250,12 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo, width: f32) {
         icons::draw(ui.c,icon,r.inset(6.),t.glyph);
     }
     // Panels left out (spec: ui/ui-scaling.md §1 "Toolbars scaling"): the ▶ arrow at the band's right end, in the logo's
-    // place. Hovering it says why; a click does nothing.
+    // place. Open View so hidden window buttons remain accessible.
     let mid = (h / 2.0).floor();
     if fit.is_finite() {
         let r = Rect::new(content_width - MORE_W, 0.0, MORE_W, h);
-        ui.hit(r, Action::Swallow, MORE_HINT);
-        os_ui::kit::triangle(ui.c, r.cx(), mid, 5.0, os_ui::kit::Dir::Right, t.glyph);
+        ui.hit(r, Action::MenuSub(menus::VIEW,11), "Toolbar options · some controls are hidden at this width");
+        ui.c.text_center(Font::new(14),r,t.glyph,"…");
         return;
     }
     if !l.logo {
@@ -334,16 +329,27 @@ fn caption(ui: &mut Ui, c: &Ctx) {
     }
 }
 
-/// Hint panel: project title + hint / message.
+/// Two-line hints; project/template names belong in the project title, not here.
 fn hint_panel(ui: &mut Ui, c: &Ctx) {
     let (t, a, s, f) = (ui.t, c.a, c.s, c.f);
-    let hp = a.span(72.0, 192.0, 4.0, 36.0);
+    let mut hp = a.span(72.0, 72.0+Panel::Hint.width()-7., 4.0, 36.0);
+    hp.w=hp.w.min((c.fit-hp.x-2.).max(0.));
     sunken(ui, hp, t.sunken);
     ui.hit(hp, Action::DragWindow, "Hint bar");
-    ui.c.text_clip(Font::new(13), a.x(76.0), a.y(6.0), 110.0, t.text_dim.shade(-0.05), &f.title);
     let hint: &str = if !f.hint.is_empty() { &f.hint } else { s.message.as_deref().unwrap_or("") };
-    ui.c.text_clip(Font::new(14), a.x(77.0), a.y(19.0), 110.0, t.text, hint);
-
+    let mut font=Font::new(13);
+    for size in (9..=13).rev() {
+        font=Font::new(size);
+        if ui.c.line_height(font)*2.<=hp.h-4. {break;}
+    }
+    let line_height=ui.c.line_height(font);
+    ui.c.push_clip(hp.inset(2.));
+    let chars:Vec<char>=hint.chars().collect();
+    let lines=super::settings::wrap(ui,font,hint,hp.w-10.);
+    for (row,(start,n)) in lines.into_iter().take(2).enumerate() {
+        ui.c.text_clip(font,hp.x+5.,hp.y+2.+row as f32*line_height,hp.w-10.,t.text,&chars[start..start+n].iter().collect::<String>());
+    }
+    ui.c.pop_clip();
 }
 
 /// Transport group: PAT / SONG, play, stop, record and the tempo (to the tempo box's right edge, x 570).
@@ -695,7 +701,7 @@ fn utilities(ui: &mut Ui, c: &Ctx) -> bool {
         (Icon::SaveRender, "Export audio... (Ctrl+R)"),
         (Icon::Info, "Project info (F11)"),
     ];
-    for (i, (icon, hint)) in utils.into_iter().filter(|(icon, _)| *icon == Icon::SaveRender || (*icon == Icon::Info && !crate::settings_file::flag("declutter_toolbar", false))).enumerate() {
+    for (i, (icon, hint)) in utils.into_iter().filter(|(icon, _)| *icon == Icon::SaveRender || *icon == Icon::Info).enumerate() {
         let r = a.r(btn(1209.0 + 33.0 * i as f32, 4.0));
         if r.right() > c.fit {
             return false;
@@ -756,9 +762,9 @@ fn volume(ui: &mut Ui, c: &Ctx) {
 fn pitch(ui: &mut Ui, c: &Ctx) {
     use crate::knobs::KnobId;
     let (t, a, s) = (ui.t, c.a, c.s);
-    ui.hit(a.span(340.0, 376.0, 45.0, 77.0), Action::Knob(KnobId::MasterPitch), s.knob_text(KnobId::MasterPitch));
+    ui.hit(a.span(340.0, 376.0, 45.0, 77.0), Action::Knob(KnobId::Varispeed), s.knob_text(KnobId::Varispeed));
     let (cx, cy) = (a.x(358.0), a.y(61.0));
-    super::knob(ui, cx, cy, 14.0, s.knob(KnobId::MasterPitch), true, t.glyph, t.button_hi);
+    super::knob(ui, cx, cy, 14.0, s.knob(KnobId::Varispeed), true, t.glyph, t.button_hi);
     for k in 0..20 {
         let ang = 0.75 * std::f32::consts::PI + 1.5 * std::f32::consts::PI * k as f32 / 19.0;
         ui.c.fill_circle(cx + 17.5 * ang.cos(), cy + 17.5 * ang.sin(), 0.7, t.glyph_dim);
@@ -1182,13 +1188,10 @@ mod tests {
         assert_eq!(bst(0.125, 120.0, 96), (1, 2, 0));
     }
 
-    use super::{room, MORE_HINT, MORE_W};
+    use super::MORE_HINT;
     use crate::app::{Action, App, Win};
     use crate::prefs::{choice, set_choice, TOOLBARS_SCALING};
     use os_ui::{Canvas, Rect};
-
-    /// The classic layout's width.
-    const FULL_W: f32 = 1440.0;
 
     fn hit(app: &App, a: &Action) -> Rect {
         app.hits.iter().rev().find(|h| &h.action == a).map(|h| h.rect).unwrap_or_else(|| panic!("no hit for {a:?}"))
@@ -1310,45 +1313,21 @@ mod tests {
         set_choice(&TOOLBARS_SCALING, 0);
     }
 
-    /// Panels that don't fit are left out from the right; the ▶ arrow at the band's right end says why when hovered and
-    /// does nothing when clicked (spec: ui/ui-scaling.md §1). Everything fits at Main on 1920 px.
+    /// Narrow toolbars keep the hidden window commands reachable through View.
     #[test]
     fn panels_that_do_not_fit_leave_an_arrow() {
-        assert_eq!((room(FULL_W, FULL_W), room(FULL_W - 1.0, FULL_W)), (f32::INFINITY, FULL_W - 1.0 - MORE_W));
-        let more = |app: &App| app.hits.iter().rev().find(|h| h.hint == MORE_HINT).map(|h| (h.rect, h.action.clone()));
-        let Ok(mut c) = Canvas::new(1920, 1080, 1.0) else { return };
-        let mut app = App::new(None);
-        app.paint(&mut c, None);
-        assert_eq!(more(&app), None);
-        assert!(has(&app, &Action::Monitor) && has(&app, &Action::CpuPanel) && has(&app, &Action::PatternPrev));
-        assert!(app.hits.iter().any(|h| h.hint == "About KNAY Studio"));
-        // No news panel: Lemon Studio has no online service.
-        assert!(!app.hits.iter().any(|h| h.action == Action::Placeholder("News")));
-
-        // 200 %: 960 band px. Row 1 ends after the time display, row 2 after the snap combo.
-        set_choice(&TOOLBARS_SCALING, 5);
-        app.invalidate();
-        app.paint(&mut c, None);
-        let (r, action) = more(&app).expect("the arrow");
-        assert_eq!((r, action), (Rect::new(1920.0 - 2.0 * MORE_W, 0.0, 2.0 * MORE_W, 162.0), Action::Swallow));
-        assert!(has(&app, &Action::Clock) && has(&app, &Action::GlobalSnap));
-        assert!(!has(&app, &Action::Monitor) && !has(&app, &Action::CpuPanel) && !has(&app, &Action::PatternPrev));
-        assert!(!app.hits.iter().any(|h| h.hint == "About KNAY Studio"));
-        app.mouse_move(r.cx(), r.cy());
-        assert_eq!(app.hint, MORE_HINT);
-        let before = (app.state.message.clone(), app.state.menu_open, app.state.settings.open);
-        app.mouse_down();
-        app.mouse_up();
-        assert_eq!((app.state.message.clone(), app.state.menu_open, app.state.settings.open), before, "a click does nothing");
-
-        // Main on a narrower window: the same rule (the CPU panel fits, the last buttons don't).
-        set_choice(&TOOLBARS_SCALING, 0);
-        let Ok(mut narrow) = Canvas::new(1300, 800, 1.0) else { return };
-        app.invalidate();
-        app.paint(&mut narrow, None);
-        let (r, _) = more(&app).expect("the arrow");
-        assert_eq!(r, Rect::new(1300.0 - MORE_W, 0.0, MORE_W, 81.0));
-        assert!(has(&app, &Action::CpuPanel) && has(&app, &Action::PatternPrev));
-        assert!(!app.hits.iter().any(|h| h.hint == "About KNAY Studio" || h.hint == "Project info (F11)"));
+        for width in [900, 1100, 1300] {
+            let mut c = Canvas::new(width, 800, 1.0).unwrap();
+            let mut app = App::new(None);
+            app.paint(&mut c, None);
+            let h = app.hits.iter().rev().find(|h| h.hint == MORE_HINT).expect("overflow arrow");
+            let r = h.rect;
+            assert_eq!(h.action, Action::Menu(super::menus::VIEW));
+            assert!(r.x >= 0. && r.right() <= width as f32);
+            app.mouse_move(r.cx(), r.cy());
+            app.mouse_down();
+            app.mouse_up();
+            assert_eq!(app.state.menu_open, Some(super::menus::VIEW));
+        }
     }
 }

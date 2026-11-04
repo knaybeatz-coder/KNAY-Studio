@@ -32,7 +32,12 @@ for name,source in sources:
     dest=release/name;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(source,dest)
     files.append(dict(name=name,sha256=hashlib.sha256(dest.read_bytes()).hexdigest(),size=dest.stat().st_size))
 label=f'{str(v)[:4]}.{str(v)[4:6]}.{str(v)[6:8]}.{int(str(v)[8:])}'
-m=dict(product='lemon-studio-michael-lane-'+a.platform,version=v,label=label,notes='Native .lmn project files with legacy .flp support; closed voting indicators and disabled voting controls; private community moderation support; recent bounce, comping and piano-roll selection fixes.',files=files)
+history=json.loads((root/'packaging/changelog.json').read_text(encoding='utf-8'))
+section=next((s for s in history['sections'] if str(v) in s['title']),None)
+if section is None:raise SystemExit('Missing release changelog entry')
+notes=(section['title']+' — '+' '.join(section['changes'][:2]))[:3000]
+m=dict(product='lemon-studio-michael-lane-'+a.platform,version=v,label=label,notes=notes,files=files)
+
 payload=json.dumps(m,separators=(',',':'),ensure_ascii=True)
 signed=json.dumps(dict(payload=payload,signature=key.sign(payload.encode()).hex()),indent=2)
 (release/'signed.json').write_text(signed)

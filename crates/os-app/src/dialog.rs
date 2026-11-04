@@ -67,6 +67,8 @@ pub enum Then {
     ExportFolder,
     OpenProject,
     LoadTheme,
+    CommunityAvatar,
+    PluginPicture(String),
     /// The Arpeggiate dialog's folder button (spec: ui/piano-arpeggiate.md §1).
     ArpPattern,
     /// The Quantize dialog's folder button (spec: ui/piano-quantize.md §1).
@@ -90,6 +92,7 @@ pub enum Then {
     DeletePreset(usize, PathBuf),
     /// Where to save the toolbar's layout as a preset (spec: ui/toolbar-menu.md §8).
     SaveToolbarPreset,
+    MarkerProfile(u8),
     /// The delete question for this toolbar preset file: Yes deletes it.
     DeleteToolbarPreset(PathBuf),
     /// Load sample... for this rack row.
@@ -208,6 +211,8 @@ pub fn spans(parts: &[&str]) -> Vec<(String, bool)> {
 }
 
 pub enum Body {
+    ClipFx(u16,usize),
+    Warp(crate::warp::Form),
     Ai,
     Headphones(crate::headphones::Form),
     RoutePicker(crate::route_picker::Form),
@@ -239,6 +244,8 @@ impl Modal {
 /// The parts of a dialog that take clicks.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DHit {
+    ClipFx(crate::clip_effects::Command),
+    Warp(crate::warp::Command),
     AiEnable,
     AiApprove(bool),
     AiRemember,
@@ -278,6 +285,9 @@ pub enum DHit {
     Accept,
     Cancel,
     /// Manage shortcuts: a row's box (opens its list), an entry of the open list, Reset all and Apply.
+    SamplePreview,
+    CommandShortcut(usize),
+    CommandPage,
     Shortcut(usize),
     ShortcutChoice(usize),
     ResetAll,
@@ -481,6 +491,7 @@ impl App {
         }
         self.modal_changed();
         let then = match m.body {
+            Body::ClipFx(..) | Body::Warp(_)=>{self.drag=None;return;},
             Body::Msg(m) => {
                 // Ok with Remember my choice ticked turns the message off; Cancel never does.
                 if let Some((entry, true)) = m.remember {
@@ -491,6 +502,7 @@ impl App {
                 m.then
             }
             Body::File(f) => {
+                if matches!(f.then,Then::RackSample(_)) && f.preview_last.is_some(){crate::browser_preview::dismiss(self);}
                 if let Reply::File(Some(p)) = &reply {
                     f.remember(p);
                 }
@@ -523,7 +535,7 @@ impl App {
         Some(match &self.state.dialogs.last()?.body {
             Body::Msg(m) => Reply::Button(m.escape()),
             Body::File(_) => Reply::File(None),
-            Body::Shortcuts(_) => Reply::Button(Answer::Cancel),
+            Body::ClipFx(..) | Body::Warp(_) | Body::Shortcuts(_) => Reply::Button(Answer::Cancel),
             Body::TimeSig(_) => Reply::Button(Answer::Cancel),
             Body::Project(_) | Body::Headphones(_) | Body::RoutePicker(_) | Body::Ai => Reply::Button(Answer::Cancel),
         })
@@ -532,7 +544,7 @@ impl App {
     fn top_file(&mut self) -> Option<&mut FileDlg> {
         match &mut self.state.dialogs.last_mut()?.body {
             Body::File(f) => Some(f),
-            Body::Msg(_) | Body::Shortcuts(_) | Body::TimeSig(_) | Body::Project(_) | Body::Headphones(_) | Body::RoutePicker(_) | Body::Ai => None,
+            Body::ClipFx(..) | Body::Warp(_) | Body::Msg(_) | Body::Shortcuts(_) | Body::TimeSig(_) | Body::Project(_) | Body::Headphones(_) | Body::RoutePicker(_) | Body::Ai => None,
         }
     }
 
@@ -605,7 +617,7 @@ impl App {
             DHit::Button(i) => {
                 let a = match &m.body {
                     Body::Msg(msg) => msg.buttons.get(i).copied().filter(|a| !(*a==Answer::Ok && matches!(msg.then,Then::StemChoose(_,0)))),
-                    Body::File(_) | Body::Shortcuts(_) | Body::TimeSig(_) | Body::Project(_) | Body::Headphones(_) | Body::RoutePicker(_) | Body::Ai => None,
+                    Body::ClipFx(..) | Body::Warp(_) | Body::File(_) | Body::Shortcuts(_) | Body::TimeSig(_) | Body::Project(_) | Body::Headphones(_) | Body::RoutePicker(_) | Body::Ai => None,
                 };
                 if let Some(a) = a {
                     self.answer(Reply::Button(a));
@@ -614,6 +626,13 @@ impl App {
             // Manage shortcuts: Apply keeps the form and closes; a box opens or closes its list; an entry is picked
             // (a swap within its group, `Form::pick`); Reset all fills in the defaults.
             DHit::Apply => self.answer(Reply::Button(Answer::Ok)),
+            DHit::ClipFx(c)=>crate::clip_effects::command(self,c),
+            DHit::Warp(c)=>crate::warp::command(self,c),
+            DHit::CommandShortcut(i)=>{if let Body::Shortcuts(f)=&mut m.body{f.capture=Some(i);f.open=None;f.notice="Press a shortcut. Backspace clears; Esc cancels.".into();}}
+            DHit::CommandPage=>{if let Body::Shortcuts(f)=&mut m.body{f.page=(f.page+1)%crate::shortcuts::COMMANDS.len().div_ceil(crate::shortcuts::COMMAND_PAGE);f.capture=None;}}
+            DHit::SamplePreview => {
+                if let Body::File(f)=&mut m.body {f.preview=!f.preview;if !f.preview {crate::browser_preview::dismiss(self);}else{f.preview_last=None;}}
+            }
             DHit::Shortcut(_) | DHit::ShortcutChoice(_) | DHit::ResetAll => {
                 let Body::Shortcuts(f) = &mut m.body else { return };
                 match h {
@@ -712,7 +731,8 @@ impl App {
         let shift = self.shift;
         let Some(m) = self.state.dialogs.last_mut() else { return };
         match &mut m.body {
-            Body::Ai=>{if matches!(key,Key::Named(NamedKey::Escape)){self.answer(Reply::Button(Answer::Cancel));}}
+            Body::Warp(_)=>{if matches!(key,Key::Named(NamedKey::Escape)){self.answer(Reply::Button(Answer::Cancel));}else if matches!(key,Key::Named(NamedKey::Delete|NamedKey::Backspace)){crate::warp::command(self,crate::warp::Command::Delete);}}
+            Body::ClipFx(..) | Body::Ai=>{if matches!(key,Key::Named(NamedKey::Escape)){self.answer(Reply::Button(Answer::Cancel));}}
             Body::RoutePicker(f)=>{
                 if matches!(key,Key::Named(NamedKey::Escape)){self.answer(Reply::Button(Answer::Cancel));}
                 else if f.search.key(key,ctrl,alt){f.filter();}
@@ -769,6 +789,7 @@ impl App {
             },
             // Manage shortcuts: Esc closes an open list, else the window (as its ×).
             Body::Shortcuts(f) => {
+                if f.capture_key(key,ctrl,alt,shift){return;}
                 if matches!(key, Key::Named(NamedKey::Escape)) && f.open.take().is_none() {
                     self.answer(Reply::Button(Answer::Cancel));
                 }
@@ -789,6 +810,17 @@ impl App {
                 }
             }
         }
+    }
+
+    pub(crate) fn sample_dialog_preview(&mut self) {
+        let Some(Modal{body:Body::File(f),..})=self.state.dialogs.last_mut() else{return};
+        if !matches!(f.then,Then::RackSample(_))||!f.preview{return;}
+        let path=f.sel.and_then(|i|f.entries.get(i)).filter(|e|!e.dir).map(|e|f.dir.join(&e.name));
+        if path==f.preview_last{return;}
+        f.preview_last=path.clone();
+        if let Some(path)=path.filter(|p|p.extension().is_some_and(|e|["wav","mp3","flac","ogg","aif","aiff","wv"].iter().any(|x|e.eq_ignore_ascii_case(x)))) {
+            self.preview_sample(&path.to_string_lossy());
+        }else{crate::browser_preview::dismiss(self);}
     }
 
     /// The wheel over a dialog: scrolls the file list.
@@ -836,7 +868,7 @@ impl App {
     pub fn top_message(&self) -> Option<(String, String)> {
         match &self.state.dialogs.last()?.body {
             Body::Msg(m) => Some((m.title.clone(), m.plain())),
-            Body::File(_) | Body::Shortcuts(_) | Body::TimeSig(_) | Body::Project(_) | Body::Headphones(_) | Body::RoutePicker(_) | Body::Ai => None,
+            Body::ClipFx(..) | Body::Warp(_) | Body::File(_) | Body::Shortcuts(_) | Body::TimeSig(_) | Body::Project(_) | Body::Headphones(_) | Body::RoutePicker(_) | Body::Ai => None,
         }
     }
 }
@@ -887,5 +919,22 @@ pub mod fake {
             }
             f.answer.take()
         })
+    }
+}
+
+#[cfg(test)] mod community_preview_tests {
+    use super::*;
+    #[test] fn community_sampler_preview_cancel_keeps_channel() {
+        let mut app=App::new(None);app.state.project=crate::app::test_project();
+        let before=app.state.project.clone();
+        let mut f=crate::filedlg::FileDlg::new(crate::filedlg::Mode::Open,"Load sample","audio",Then::RackSample(0));
+        f.dir=std::env::temp_dir();f.entries=vec![crate::filedlg::Entry{name:"lemon-preview-test.wav".into(),dir:false,size:0,modified:None}];f.sel=Some(0);
+        app.state.dialogs.push(Modal::new(Body::File(Box::new(f))));
+        // Queue decoding only: never open an audio device in this test.
+        app.sample_dialog_preview();assert!(app.state.browser_preview.path.is_some());
+        assert_eq!(app.state.project,before);
+        app.answer(Reply::File(None));
+        assert!(app.state.browser_preview.path.is_none());assert!(!app.state.browser_preview.busy());
+        assert_eq!(app.state.project,before);assert!(app.state.sample_loads.is_empty());
     }
 }

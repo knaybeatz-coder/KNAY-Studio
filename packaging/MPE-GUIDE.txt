@@ -1,0 +1,27 @@
+Lemon Studio Michael Lane Edition - MPE
+Local Windows development update, 3 November 2026
+
+Getting started
+1. Load an MPE-capable instrument. Enable its MPE mode or expressive patch mappings where required.
+2. In the Piano Roll options, choose Edit > MPE / Note expression > Enable MPE for this instrument. The selected-note context menu also offers MPE / Note expression.
+3. Match the controller and instrument's zone, member count and pitch range. The default is the lower zone: manager MIDI channel 1, members 2-16, +/-48 semitones per note. An upper zone uses manager channel 16 and members below it. One zone is selected per Lemon instrument channel.
+4. Enable Show expression lanes. Select one note to edit its Pitch, Pressure and Slide curves. The lane spans the complete selected note, with its key/start position and duration labelled. Draw with the left mouse button; right-click removes the nearest point. Linear/Stepped controls new points, the range button zooms the pitch display, and Clear removes the selected note's expression. Expand the existing event panel if it is too small.
+5. Arm note recording and play the controller normally. Simultaneous notes, including unisons, record independently. Pressure and Slide need an audible mapping in the chosen instrument patch.
+
+Configuration
+Pitch sensitivity multiplies the recorded bend; Pressure and Slide response shape their 0-1 curves. Configuration belongs to the instrument channel and is saved with the project. Undo, copying notes, slicing and chopping preserve independent curve data. Ordinary channels remain unchanged with MPE disabled.
+The status message/panel tooltip reports the plugin's advertised delivery path. Native delivery does not guarantee a particular patch uses pressure or timbre. Unsupported instruments cannot acquire MPE synthesis merely by enabling this option.
+
+Files and playback
+Native projects preserve all three lanes and the channel configuration. MIDI export writes MPE zone/bend setup, distinct member-channel notes and expression messages. Import recognizes MPE zone declarations, including a conductor-track setup. To import a file without zone declarations into the Piano Roll, enable the matching MPE configuration on the destination first.
+Pattern-clip rate changes scale the performance; trimming preserves the retained curve segment. Allocation is limited to the configured member channels (up to 15); when scheduled polyphony exceeds the available members, the oldest scheduled voice is replaced. Live voices reserve their members. Layered instruments must each support the expression sent to them.
+Use the normal Stop/Panic controls to release notes. Mute, seek, pause/resume, engine updates and zone changes are covered by focused release checks.
+
+Verification
+Synthetic tests cover recording independent unisons, note editing/copy/undo, slicing, panel hit bounds, native save/reopen and malformed-extension handling, MIDI round trips, upper/lower zones, sustain, allocation, engine pause/resume/update/drop, VST2 channel preservation, and native VST3/CLAP note identities.
+Installed Serum 2 was rendered offline without an editor or audio device: MPE bend produced the expected octave and release returned to silence. This does not certify every preset, plugin or physical controller. Hardware performance, listening and final visual acceptance remain the user's check.
+
+Technical references
+https://steinbergmedia.github.io/vst3_dev_portal/pages/Technical%2BDocumentation/About%2BMIDI/Index.html
+https://github.com/free-audio/clap/blob/main/include/clap/events.h
+https://docs.juce.com/master/classjuce_1_1MPEMessages.html

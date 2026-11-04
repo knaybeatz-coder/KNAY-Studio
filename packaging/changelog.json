@@ -1,0 +1,270 @@
+{
+  "title": "Change Log",
+  "intro": "The recorded history of the Michael Lane edition, from 28 October 2026. Related iterations are grouped into user-facing changes. Dates describe development; public build numbers identify published milestones. Original Lemon Studio development predates this edition.",
+  "sections": [
+    {
+      "date": "2026-11-03",
+      "title": "Feedback inbox, channel controls and piano-roll improvements \u00b7 public build 2026110307",
+      "changes": [
+        "Added a prominent Report a bug button and a dedicated feedback page for bugs, feature requests and questions, with reviewable app/audio details and optional private attachments.",
+        "Added report IDs, reproduction details, affected-user confirmations, followed-report updates, public fix statuses and a maintainer triage inbox.",
+        "Fixed Global Pitch Follow synchronization and saving for sampler channels, with working undo and redo.",
+        "Improved hosted plugin parameter gesture undo and Windows Ctrl+Z forwarding to the host.",
+        "Projects now restore their saved detached-window layout; traditional mixer strip bodies follow their track colors.",
+        "Added saved piano-roll keyboard style selection: FL 11-style labeled rows or the piano-shaped keyboard.",
+        "Channel Rack G buttons now use readable text colors; a header G toggles global pitch follow across instrument channels.",
+        "Selected channel volume, pan and pitch controls move together while preserving relative offsets; on/off and pitch-follow switches support grouped edits and undo. Ctrl+wheel changes channel pitch by an octave within its limits.",
+        "Added channel-name drag-and-drop into the browser to save uniquely named plugin presets, with the preset library tab visible.",
+        "Added an optional Trim toggle for sample previews and new sample imports. It is off by default and preserves original files and existing project clips.",
+        "Lemon Wave adds a scrollable effects rack with up to 16 reorderable modules, 13 processor types and independent A/B oscillator routing."
+      ]
+    },
+    {
+      "date": "2026-11-03",
+      "title": "Community organization, toolbar controls and playback fixes \u00b7 public build 2026110306",
+      "changes": [
+        "Public build 2026110306: organized Bugs, Fixes, Issues into categories, moved bug reports from voting with votes and comments preserved, and removed completed reports from public view. Replies can be collapsed and expanded.",
+        "Simplified the Community voting header. Main menus now group related commands into shorter submenus. The toolbar options button opens toolbar controls directly.",
+        "The compact Hint Bar sits after Project Info and its toggle hides that same field. CPU and Memory now hides or shows the compact CPU display next to AI. Removed the duplicate bottom-left hint panel.",
+        "Change Log entries are grouped by calendar date, combining updates released on the same day while preserving the recorded history.",
+        "Fixed playlist scroll repaint corruption when the playlist extends beyond the visible workspace. Audio and MIDI notes can be recorded together into separate destinations.",
+        "Cleaned up Channel Rack and clip menus, with automatic Audio and Automation groups for recorded/imported clips.",
+        "Mixer insert, delete and reorder operations preserve existing processing state. Copies of sample clips keep their linked inline automation.",
+        "Improved ARA transport, tempo, time-signature and playback-state notifications. Reduced plugin-lock contention and made audio wait budgets account for queued audio.",
+        "Reduced redundant window painting when switching monitors. Windows hosted-plugin DPI editor reopening waits until playback stops; detached pointer updates are coalesced.",
+        "Available for Windows, Linux x64, Apple-silicon Mac and Intel Mac, including the current built-in Lemon Wave. Linux is compiled and packaged without runtime/audio testing. Exact device-specific crackling, vendor ARA behavior, Masterdesk presets and Tahoe updater reports remain open pending reproduction."
+      ]
+    },
+    {
+      "date": "2026-11-03",
+      "title": "Threaded community replies, browser controls and compact CPU meter \u00b7 public build 2026110305",
+      "changes": [
+        "Community replies now stay with their original messages, with nested reply spacing, quoted context and a clear composer reply target. Pagination follows the conversation, including replies posted from the owner dashboard.",
+        "Individual forum reports can be marked Completed without deleting their messages or closing the whole discussion. Existing discussions and reply links are preserved.",
+        "Added a draggable sample-browser scrollbar and Up/Down sample selection with automatic preview in Samples and Favorites.",
+        "Added a compact CPU audio-load percentage and meter to the single-row toolbar. Double-click opens plugin performance; right-click offers monitoring and audio settings.",
+        "Starting playback stops browser sample audition, including pending preview loads, preventing preview audio from doubling the beginning of a song.",
+        "Opened and exported ZIP projects now appear in Recent Projects, alongside the editable extracted project.",
+        "The Update button now shows checking, downloading, restart, retry and up-to-date states on every platform. Mac updates check the app location before downloading and explain when the app must be moved from its DMG to a writable Applications folder.",
+        "Includes all changes from build 2026110304 and the current built-in Lemon Wave. Available for Windows, Linux x64, Apple-silicon Mac and Intel Mac. Linux is compiled and packaged; live device-specific crackling, Tahoe update failure, ARA vendor playback and Masterdesk preset reports still need reproduction."
+      ]
+    },
+    {
+      "date": "2026-11-03",
+      "title": "Community bug fixes and project window recall \u00b7 public build 2026110304",
+      "changes": [
+        "Restored Mode Buttons and Song Position when enabled in the toolbar editor, including the typing-keyboard piano button.",
+        "Shift-dragging playlist clips now selects the new copies instead of leaving the original clips selected.",
+        "Mouse-played piano notes are released when the main window loses focus, preventing a held key after focus changes.",
+        "Projects saved with this build remember the playlist, mixer, piano-roll and channel-rack layout. Windows also restores hosted plugin editor positions and open/closed state after plugins finish loading; matching plugin identities are checked. Existing projects without layout data keep their previous behavior.",
+        "Detached Windows channel-strip editors now receive an explicit redraw after window movement or display-scale changes. The specific Waves multi-monitor report still needs live confirmation.",
+        "Includes the longer channel-strip faders and separated pan, mute/solo, Record and FX controls from build 2026110303.",
+        "Includes the current Lemon Wave wavetable workshop, same-window selectors, tabbed envelope/LFO editing and modulation drag feedback. Public downloads do not bundle personal recorded-synth libraries.",
+        "Available for Windows, Linux x64, Apple-silicon Mac and Intel Mac. Linux is compiled and packaged without runtime/audio testing. Vendor-specific Masterdesk preset behavior remains unverified."
+      ]
+    },
+    {
+      "date": "2026-11-03",
+      "title": "Lemon Wave sound browser and audio reliability \u00b7 public build 2026110302",
+      "changes": [
+        "Lemon Wave now includes six named basic waves, a visible wavetable browser and My Samples for user-local recorded synth notes. Samples and imported tables are embedded in saved patches. Personal recordings and third-party libraries are not included in public downloads.",
+        "Expanded Wave with four drawable 65-point LFOs, eight modulation routes, four macros, dotted/triplet timing, drag-to-assign modulation and visual modulation feedback. Includes curved AHDSR envelopes, SVF 12/24 filter choices, fourteen factory choices and 109 stable host controls; existing native patches remain supported.",
+        "Fixed live-input timing when a mixer bus also receives audio through a latency-producing effect. Monitoring now follows the receiving track\u2019s delay compensation.",
+        "Fixed multi-output instruments combining unavailable outputs into the final mixer insert. Outputs without a valid following track stay unconnected.",
+        "MPE seeking now respects Play truncated notes on transport, while pause/resume retains its existing independent-note behavior.",
+        "Fixed internal fallback effects retaining old settings after a live engine refresh; unchanged internal effects retain their DSP history.",
+        "Improved unsaved-change and autosave tracking for reported hosted-plugin edits, and stop saving when a hosted plugin cannot supply its state.",
+        "Project and backup saves now use temporary-file replacement and report backup failures. Cleanup protects original warp sources, and ZIP imports use independent extraction folders rather than reusing stale equal-size files.",
+        "Recording overflow now preserves elapsed time with silence for missing frames instead of shifting subsequent audio earlier. Lost-input warnings remain; missing audio cannot be recovered.",
+        "Redesigned the download page with Michael Lane Edition directly below Lemon Studio, a detailed feature overview, the updated Wave section and the full searchable Change Log. Complete DAW builds and matching source are published on the website and GitHub.",
+        "Includes Windows, Linux x64, Apple-silicon Mac and Intel Mac packages. Mac is ad-hoc signed, not notarized; Intel checks use Rosetta and Linux runtime/audio testing remains unperformed. Existing ARA and third-party compatibility limitations remain."
+      ]
+    },
+    {
+      "date": "2026-11-03",
+      "title": "Lemon Wave, MPE and clip effects \u00b7 public build 2026110301",
+      "changes": [
+        "Lemon Wave is now included directly in Lemon Studio and organized under Instruments / Synth on fresh installations and upgrades. The new instrument interface adds dual wavetable oscillators, table import, warp controls, phase/random/unison blend, two modulation rows and eight factory presets. Existing saved Wave patches remain supported.",
+        "Built-in instruments and effects are categorized without a plugin scan; Master Assistant is grouped under Utility. Installed copies of built-in Wave are not duplicated.",
+        "Added per-note MPE pitch, pressure and slide editing, live recording, independent unison playback, lower/upper zone settings, response controls, native project recall and expressive MIDI import/export. Compatible instruments and patch mappings are required; physical controllers and every third-party patch have not been tested.",
+        "Added individual audio Clip Effects with independent plugin chains, bypass, copy/paste settings, parameter automation and project recall. Clip FX uses available mixer inserts and leaves source audio unchanged.",
+        "Added instrument layering on an existing channel, preserving the original instrument and giving added instruments independent settings and mixer levels.",
+        "Added Piano Roll channel Mute/Solo, selected-note Move/Copy to another channel, and independent Playlist pattern-clip stretching.",
+        "Added optional Browser Single Folder View, preview-only Normalize/Reverse, and a hidden-by-default Parameters browser tab enabled through Browser settings.",
+        "Added named marker profiles with save/merge/replace and subdued marker colors.",
+        "Slowed tempo dragging and added decimal BPM entry with undo. Fixed narrow-toolbar overflow access. Sampler tempo estimation is now labelled as a length-based estimate, not a rhythm detector.",
+        "Includes the integrated Master Assistant, Lemon Chop and prior mixer/workflow improvements. Complete source and DAW downloads are also published to the Michael Lane Edition GitHub repository.",
+        "Added a separate Intel Mac package alongside Apple-silicon Mac, Windows and Linux x64. Mac builds are ad-hoc signed, not notarized. Intel compatibility is checked under Rosetta, not on physical Intel hardware; Linux audio/runtime testing remains unperformed. ARA compatibility limitations remain."
+      ]
+    },
+    {
+      "date": "2026-11-02",
+      "title": "Master Assistant and Michael Lane Edition \u00b7 public build 2026110204",
+      "changes": [
+        "Published the integrated Lemon Master Assistant: mastering EQ, dynamic EQ, multiband compression, stereo imaging and maximizer, with dedicated master controls and settings saved in projects. The native engine is included in installations and automatic updates.",
+        "Added the channel-strip mixer view, hosting original Waves plugin interfaces above analog-style faders, with improved fitting, section-aligned paging and Abbey Road TG12345 paging. Waves is the currently tested focus; third-party plugins are not included.",
+        "Added routing by dragging channels onto hosted plugin panels and polished mixer spacing, metal separators, illuminated polarity/swap controls, pan and stereo separation controls.",
+        "Added tempo undo, selected-pattern following, sampler file-dialog previews and editable shortcuts for common commands.",
+        "Added manual audio warp markers with project persistence, undo and rendering while preserving the source and pitch.",
+        "Improved Parametric EQ 2 HQ mode and parameter smoothing; preserved rejected imported plugin state for recovery without claiming universal FLP plugin-setting compatibility.",
+        "Added the Lemon Wave wavetable instrument foundation and factory presets.",
+        "Identified this edition consistently as Michael Lane Edition and linked its public source fork while preserving original Lemon Studio and dependency credits.",
+        "Added the shared website and in-app Change Log and improved narrow community-tab labels.",
+        "Known issues remain: Auto-Tune ARA compatibility and Melodyne transport behavior. Linux packages are compiled; Linux audio/runtime testing has not been performed."
+      ]
+    },
+    {
+      "date": "2026-11-02",
+      "title": "Lemon Chop, pitch and workflow \u00b7 public build 2026110203",
+      "changes": [
+        "Added Lemon Chop, a separate slicing instrument with cue pads, automatic slicing, editable cue regions, pad names/favorites, reverse, pitch/stretch controls and undo/redo.",
+        "Integrated optional local stem separation into Chop, with selectable stem mixes and source-region export; saved Chop state reopens with the project.",
+        "Added Chop to Instruments / Sampler for existing and new profiles without duplicate entries after rescans.",
+        "Fixed loading audio into Chop from the sample browser, plugin frame and Explorer drops; reloading the same source refreshes analysis.",
+        "Added a searchable visual plugin picker with favorites, real editor previews and instrument/effect filtering appropriate to the destination.",
+        "Added cancellable automatic plugin preview capture on Windows, with isolated helpers, progress, timeouts and cached results.",
+        "Simplified channel rack context menus and added direct access to the instrument picker.",
+        "Moved Global Pitch to compact channel rack controls; added per-channel pitch ranges and a global-follow switch that preserves pitch when toggled.",
+        "Added master tape-style Varispeed, changing pitch and duration together for the complete mix and exports.",
+        "Added reversible channel Consolidate / Bounce to Audio, including an effects-rendered option and a keep-mixer-live option; preserves the muted original and provides undo.",
+        "Added actual waveform previews for bounced audio in the channel rack.",
+        "Added Scale Notes Only to the piano roll for all 22 scales and 12 roots; out-of-scale MIDI is preserved and returns when filtering is disabled.",
+        "Fixed playback continuity while trimming audio clips and made resize edges take priority over clip-body actions.",
+        "Fixed non-Windows compilation of the preview helper. Windows, Linux x64 and Apple-silicon Mac packages were published as 2026110203; preparation build 2026110202 was not published."
+      ]
+    },
+    {
+      "date": "2026-11-02",
+      "title": "ARA, community and browser \u00b7 public build 2026110201",
+      "changes": [
+        "Added source-based ARA 2 editor integration, playback and project archives for compatible audio editors.",
+        "Added host-frame resizing for resizable VST3 editors and isolated ARA diagnostics.",
+        "Known issues: Auto-Tune Pro 11 ARA compatibility and Melodyne transport behavior remain unresolved; ARA support does not imply every editor works correctly.",
+        "Added Community forum beside Voting, with threads, replies, likes/dislikes, optional display names and profile pictures.",
+        "Grouped feature suggestions into Active voting, Planned, In progress, Completed, Rejected and Voting closed; closed suggestions retain their history.",
+        "Added forum moderation and administrator profiles, posting and replies through the owner dashboard.",
+        "Improved browser refresh and sample preview gestures; restored mixer Alt-click EQ reset.",
+        "Placed multiple imported samples on available Playlist tracks instead of stacking them on the same occupied row.",
+        "Added 18 verified direct-download plugin entries, bringing the curated catalog to 93 entries.",
+        "Published Windows, Linux x64 and Apple-silicon Mac build 2026110201."
+      ]
+    },
+    {
+      "date": "2026-11-01",
+      "title": "Community, instruments and editing",
+      "changes": [
+        "Added the Plugin Downloads browser with a curated catalog, preview images, hover cards and supported portable installation; expanded the catalog with 25 directly downloadable freeware plugins.",
+        "Added shared feature voting with anonymous identities, one vote per idea, changing votes, search and offline cached reading.",
+        "Added public suggestion statuses, owner comments and announcements, plus a protected owner moderation dashboard.",
+        "Added an independent STRIP bypass switch and compact temporary EQ/low-cut/gate value readouts.",
+        "Added reversible Playlist instrument Freeze / Unfreeze and independent track Bounce; fixed assigned-track bounce rendering.",
+        "Added Quick Sidechain and expandable, scrolling mixer effect slots.",
+        "Added monitor-only headphone correction with searchable AutoEq profiles; correction stays out of exports.",
+        "Added a miniature mixer routing picker to sample controls and clip menus; fixed macOS picker focus.",
+        "Added opt-in local AI control with an authenticated control interface.",
+        "Separated development and production profiles and their sample libraries; fresh public profiles no longer inherit personal library paths.",
+        "Added optional Lemon Studio Starter Pack installation and an empty sample-library starting point.",
+        "Made fresh launches show the mixer above the Playlist.",
+        "Adopted .lmn as the native project extension while preserving supported existing project opening.",
+        "Fixed common editing shortcuts and routed keys to the focused editor.",
+        "Enabled piano-roll Ctrl-click and marquee selection with any note tool; repaired MIDI drops, controller import and event editing.",
+        "Kept audio comp edits independent from automation cuts.",
+        "Fixed ASIO monitoring continuity using driver-owned buffers and preserved input across very small callback batches.",
+        "Separated and right-aligned application window controls; improved toolbar hints and repainting of mixer values.",
+        "Added traditional mixer layouts, clearer section separators and recovery of plugin title bars.",
+        "Simplified mixer view choices, added a browser audition panel and Playlist waveform-detail controls.",
+        "Restored Playlist tool buttons and organized working Piano Roll options.",
+        "Public builds 2026110101\u20132026110106 followed these updates during the day; later mixer/browser changes were included in the 2 November release."
+      ]
+    },
+    {
+      "date": "2026-10-31",
+      "title": "Mixing, stems and cross-platform downloads",
+      "changes": [
+        "Added vocal SnapTune pitch correction with an explicit bypass switch, manual key/scale and voice range, plus Learn key suggestions.",
+        "Added Follow audio level / Duck linking for supported native and hosted parameters, with source, depth and release controls.",
+        "Added independent Stereo / Mid / Side / Left / Right processing per EQ band, saved with project and A/B state.",
+        "Added signed automatic Windows updates, an Updates control and a compact Donate link; added the Michael Lane edition startup label.",
+        "Opened the common download page with Windows, Linux and Mac downloads and matching source archives.",
+        "Added the shared source/build workflow and native Apple-silicon Mac packaging; published cross-platform build 2026103103.",
+        "Added compact dedicated mixer EQ with a spectrum display, Pre/Post routing and independent tone controls.",
+        "Kept dedicated EQ active when plugin Effects slots are bypassed; EQ retains its own enable control.",
+        "Added mouse-wheel EQ band-width editing and improved Master navigation-button spacing.",
+        "Defaulted imported samples to Master without moving mixer selection when sample settings open.",
+        "Restored optional browser tabs through the browser menu; added configurable auto-hide, off by default.",
+        "Strengthened Tame resonance reduction while retaining stereo linkage and transient handling.",
+        "Made every fader in fresh template sessions start at unity without changing saved-song mixes or marking a fresh session modified.",
+        "Set fresh mixer Effects defaults off, retained enabled FX returns, and allowed Playlist track families to move together.",
+        "Improved EQ unit labels, continuous knob scaling, vocal-strip alignment and spacing around faders and controls.",
+        "Added separate editable instrument/effect folder databases and cascading nested plugin menus; fixed application close behavior over open menus.",
+        "Added optional local stem separation with on-demand runtime setup and a choice of individual stems or combinations to save/add.",
+        "Fixed pattern click selection, VST3 note releases and channel-rack submenu anchoring.",
+        "Added compact mixer view and kept recording in the selected pattern.",
+        "Added Make Unique with undo for chopped audio clips.",
+        "Added signed automatic updates for Mac and Linux; older versions need one manual updater-enabled installation.",
+        "Published builds 2026103104 and 2026103105 as the day\u2019s later updates were packaged. Linux was compiled and packaged; Linux runtime/audio testing was not performed."
+      ]
+    },
+    {
+      "date": "2026-10-30",
+      "title": "Vocal controls and workspace",
+      "changes": [
+        "Added vocal-only DeBess processing.",
+        "Fixed personal sample-library browsing.",
+        "Added independent plugin editor windows for multi-monitor workflows.",
+        "Added explicit mixer channel layouts and improved compact-control alignment.",
+        "Simplified mixer channel context menus and improved mixer navigation spacing.",
+        "Changed sound-shaping defaults to neutral settings."
+      ]
+    },
+    {
+      "date": "2026-10-29",
+      "title": "Recording, comping and audio workflow",
+      "changes": [
+        "Added recursive browser search and nested plugin folders; expanded the starter templates with FX-send layouts.",
+        "Added joined window dividers, browser reflow and resize-edge snapping.",
+        "Improved Windows startup visibility and added a completion chime.",
+        "Added Tap tempo through the BPM context menu.",
+        "Added mixer section jump buttons, restored centered FX bypass and refined recording-arm/FX placement.",
+        "Improved mixer visual spacing and made native strip controls respond consistently to drags.",
+        "Moved Low Cut and Gate before Drive; added Tube, Tape, Soft and Clip drive styles with saved state and undo.",
+        "Simplified fixed Master controls and repositioned All Effects.",
+        "Implemented 16-point sinc live sample interpolation and a 512-point offline-export default; replaced misleading audio-settings placeholders with descriptions of implemented behavior.",
+        "Added non-destructive audio take lanes and comping, retaining original takes with saved comp selections and undo/redo.",
+        "Added a direct Comp tool and overlap-triggered take lanes; improved the compact Playlist header and live audio-clip editing.",
+        "Turned typing-keyboard note input off at startup and kept subsequent recordings on the same track.",
+        "Fixed Playlist startup origin, improved vertical zoom-handle behavior and bounded monitoring backlog during playback transitions.",
+        "Smoothed recording transitions and added independent take solo.",
+        "Improved mixer dragging, established native public defaults and prepared the Windows installer and Mac source handoff."
+      ]
+    },
+    {
+      "date": "2026-10-28",
+      "title": "Michael Lane edition begins",
+      "changes": [
+        "Established this customized edition from the existing Lemon Studio project; the original project predates this changelog.",
+        "Added a native starter-template workflow, template names for new sessions and mixer-first startup; repaired Windows settings-folder handling and installed factory-template support.",
+        "Simplified the toolbar and Playlist editing controls; moved the mixer plugin inspector to the left and improved plugin categories and scrolling.",
+        "Added Samples and Favorites browsing with persistent favorites and sample preview/drag support.",
+        "Set B to the normal editing pointer, C to Slice and E to Select; Ctrl temporarily selects, and Escape closes the front window while retaining the Playlist.",
+        "Added Make it fit length choices, source tempo analysis, pitch-preserving stretching and transparent audio clips.",
+        "Fixed fitting drift for active sampler voices and made explicit fitting use live Stretch Pro timing.",
+        "Added mixer-input recording and live monitoring through the actual mixer, effects, buses and Master; later expanded to simultaneous input recording.",
+        "Added automatic MIDI/automation capture when Record is enabled and no mixer audio input is armed.",
+        "Added independent mixer-chain multi-core processing.",
+        "Fixed Waves editor loading with Unicode paths.",
+        "Added slim stereo meters, analog VU options, clearer strip borders, color accents and per-channel/global Effects bypass.",
+        "Added native mixer strip processing, meter switching, Alt-click resets and window edge snapping; removed redundant mixer controls.",
+        "Added linked transparent automation overlays with curve selection and a separate visibility switch.",
+        "Added automation targets for native strip controls, sends and slot mix, with saved baselines and Return to original value.",
+        "Added sampler-to-mixer routing drag with Playlist name/color adoption and undo.",
+        "Combined the toolbar into a single row and added global pitch automation.",
+        "Added one-shot automation capture for the next moved supported control.",
+        "Added mixer boundary insertion and channel copy/paste including processing and outgoing routes; retargeted automation when channels move.",
+        "Added grouped mixer faders and improved instrument MIDI recording, arm-only recording and later MIDI continuation.",
+        "Improved piano-roll slice priority and added a native harmony/chord workspace with Simple/Complex views and hosted instrument preview.",
+        "Expanded the native mixer strip and refined Tame resonance control."
+      ]
+    }
+  ]
+}

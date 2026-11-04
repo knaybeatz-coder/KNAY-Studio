@@ -11,15 +11,21 @@ root = Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(root/"packaging"))
 from private_build import require_public_binary
 parser = argparse.ArgumentParser()
+parser.add_argument('--binary', type=Path)
 parser.add_argument('--output', required=True, type=Path)
 parser.add_argument('--key', type=Path, default=Path.home()/'.lemon-studio-release/update-signing-key.pem')
-parser.add_argument('--notes', default='Native .lmn project files with legacy .flp support; closed voting indicators and disabled voting controls; private community moderation support; recent bounce, comping and piano-roll selection fixes.')
+parser.add_argument('--notes')
 args = parser.parse_args()
 out = args.output.resolve()
 if out == root or root in out.parents:
     raise SystemExit('Stage releases outside the source checkout.')
 version = int(re.search(r'pub const VERSION: u64 = (\d+);', (root/'crates/os-app/src/updates.rs').read_text()).group(1))
-exe = root/'target/release/lemonstudio.exe'
+if args.notes is None:
+    history=json.loads((root/'packaging/changelog.json').read_text(encoding='utf-8'))
+    section=next((s for s in history['sections'] if str(version) in s['title']),None)
+    if section is None:raise SystemExit('Missing release changelog entry')
+    args.notes=(section['title']+' — '+' '.join(section['changes'][:2]))[:3000]
+exe = args.binary or root/'target/release/lemonstudio.exe'
 require_public_binary(exe)
 actual = subprocess.check_output([str(exe),'--update-version'],text=True).strip()
 if actual != str(version): raise SystemExit('Rebuild the executable after changing its version.')

@@ -555,6 +555,7 @@ impl EventList {
         self.events.borrow_mut().clear();
     }
 
+    pub fn sort(&self){self.events.borrow_mut().sort_by_key(|e|e.sample_offset);}
     pub fn push(&self, e: Event) {
         self.events.borrow_mut().push(e);
     }

@@ -136,6 +136,8 @@ struct LayerAdds {
 struct ClipShape {
     /// Frames of the clip already past when the voice starts (playback started inside the clip).
     since: u64,
+    /// Voice age at which the clip clock was last rebased after a trim.
+    age_origin: u64,
     /// The clip's length in frames.
     total: u64,
     fade_in: u64,
@@ -148,9 +150,11 @@ struct ClipShape {
 }
 
 impl ClipShape {
+    fn position(&self, age: u64) -> u64 { self.since + age.saturating_sub(self.age_origin) }
+
     /// The gain `age` frames after the voice started.
     fn at(&self, age: u64) -> f32 {
-        let t = self.since + age;
+        let t = self.position(age);
         let mut g = f64::from(self.gain);
         if self.fade_in > 0 && t < self.fade_in {
             g *= os_model::fade_curve(t as f64 / self.fade_in as f64, self.tension_in);
@@ -267,6 +271,8 @@ struct ChannelState {
     fine: i32,
     root: u8,
     main: Option<i32>,
+    main_follow: bool,
+    main_offset: i32,
     init_main: Option<i32>,
     pitched: bool,
     /// Values at the start of playback, restored when control points are replayed from the top.
@@ -307,6 +313,7 @@ struct ChannelState {
     init_adjust: Adjust,
     /// A layer channel: its children and how it hands its notes on.
     layer: Option<layers::Layer>,
+    stack: Vec<usize>,
     /// The envelopes, LFOs and filter its hosted instrument gets (one that runs them on its voices).
     voicing: crate::instrument::ChannelVoicing,
     /// A hosted instrument's channel: the layer whose note it was given last. A hosted instrument hears that layer's
@@ -681,6 +688,7 @@ fn handed_on(level: f32) -> i64 {
 }
 
 struct MixTrack {
+    runtime_id: u64,
     /// Fader (0..16000, 12800 = unity), pan (-6400..6400) and stereo separation (-64..64, positive merges) as stored;
     /// automation rewrites them, then the matrix (spec: audio/mixer.md).
     vol: i32,
@@ -695,6 +703,7 @@ struct MixTrack {
     /// The track's "effect slots enabled" switch: when off no slot runs (spec: audio/mixer.md).
     slots_enabled: bool,
     parametric_pre: bool,
+    strip_slot: Option<usize>,
     /// The three-band equaliser, after the slots and before the fader.
     eq: os_dsp::mixer::TrackEq,
     strip: os_dsp::channel_strip::ChannelStrip,
@@ -721,6 +730,8 @@ struct MixTrack {
     /// What the engine itself plays into the track (sampler voices, the metronome) waits here for the latest path
     /// into it (delay compensation).
     pad: pdc::Pad,
+    /// Independent live-input delay preserves monitoring during song fades and pauses.
+    input_pad: pdc::Pad,
 }
 
 /// A mixer track's settings as the project stores them.
@@ -757,6 +768,8 @@ struct FxSlot {
     /// Switched on during the song: the effect is emptied before it runs again.
     fresh: bool,
     fx: Fx,
+    /// Initial internal-effect identity/settings used to decide whether DSP history is reusable.
+    own_source: Option<os_model::SlotPlugin>,
     /// The delay the effect last reported (read after it processes), and the pad its dry part waits in for it (spec:
     /// audio/delay-compensation.md "A slot's dry part").
     delay: u32,
@@ -785,6 +798,7 @@ impl FxSlot {
             mix,
             dry: Glide::new(os_dsp::mixer::dry_level(mix)),
             fresh: false,
+            own_source: None,
             fx,
             delay,
             dry_pad: pdc::Pad::default(),
@@ -819,6 +833,7 @@ impl MixTrack {
     fn unity() -> MixTrack {
         let unity = [[1.0, 0.0], [0.0, 1.0]];
         MixTrack {
+            runtime_id: 0,
             vol: 12800,
             pan: 0,
             sep: 0,
@@ -828,6 +843,7 @@ impl MixTrack {
             polarity: false,
             slots_enabled: true,
             parametric_pre: false,
+            strip_slot: None,
             eq: os_dsp::mixer::TrackEq::default(),
             strip: Default::default(),
             custom_strip: true,
@@ -854,6 +870,7 @@ impl MixTrack {
             },
             latency: (0.0, 0.0),
             pad: pdc::Pad::default(),
+            input_pad: pdc::Pad::default(),
         }
     }
 
@@ -979,6 +996,7 @@ pub struct Engine {
     audition_held: Vec<(usize,u16)>,
     audition_frame: u64,
     mixer_input: Option<Box<dyn MixerInput>>,
+    input_bus: Vec<Vec<f32>>,
     rate: u32,
     /// The main volume's gain `curve(stored / 12800)` and its ramp (spec: audio/mixer.md "Main volume"). Playback
     /// multiplies the master by it; an export does not (FL applies it after writing the tick), but the tail test sees it.
@@ -991,6 +1009,7 @@ pub struct Engine {
     /// Mixer tracks in processing order: every track before the tracks it sends to.
     order: Vec<usize>,
     parallel: mix_workers::State,
+    mpe:Vec<(usize,crate::mpe::Playback)>,
     triggers: Vec<Trigger>,
     next_trigger: usize,
     /// Audio clips already under way where playback starts, moved to that tick (spec: audio/audio-clips.md,
@@ -1068,6 +1087,8 @@ pub struct Engine {
     /// one (`render_held`: the position stays at that tick and frame all through it). With delay compensation the
     /// position is that of the stream `lag` frames earlier, where what is heard was made.
     out: Vec<f32>,
+    varispeed: crate::varispeed::Varispeed,
+    speed_ratio: f64,
     out_pos: usize,
     out_tick: f64,
     out_frame: u64,
@@ -1147,6 +1168,7 @@ pub struct Engine {
     /// Every mixer track's post-fader output, tick after tick, while capturing (`set_track_capture`; an export's Split
     /// mixer tracks).
     capture: Option<Vec<Vec<f32>>>,
+    capture_speed: Vec<crate::varispeed::Varispeed>,
     capture_tracks: Option<Vec<usize>>,
     /// Plugin delay compensation: the pads not kept with the tracks, the head of the stream skipped, the values
     /// waiting for late audio (spec: audio/delay-compensation.md).
@@ -1208,6 +1230,9 @@ impl Engine {
         // as any pan edit (`continue_from`).
         let pan_law = laws::PanLaw::from_event(project.panning_law);
 
+        let stacks:Vec<_>=(0..project.channels.len()).map(|r|os_model::instrument_stack(project,r).into_iter().skip(1).collect::<Vec<_>>()).collect();
+        let mut stack_enabled:Vec<_>=project.channels.iter().map(|c|c.enabled).collect();
+        for (row,children) in stacks.iter().enumerate(){if !project.channels[row].enabled {for &child in children {stack_enabled[child]=false;}}}
         let mut channels: Vec<ChannelState> = project
             .channels
             .iter()
@@ -1249,7 +1274,8 @@ impl Engine {
                 };
                 let env_on = ch.kind == ChannelKind::Sampler;
                 let adjust = Adjust::of(ch);
-                let volume = if ch.enabled { laws::channel_gain(ch.volume) * f64::from(adjust.mult) } else { 0.0 };
+                let enabled=stack_enabled[row];
+                let volume = if enabled { laws::channel_gain(ch.volume) * f64::from(adjust.mult) } else { 0.0 };
                 // Stretching (spec: audio/time-stretch.md): resample plays the sample faster or slower; the other methods
                 // play a stretched copy, made once per library (the realtime ones one copy per key, made below). A
                 // library that leaves stretching to the host's sampler plugin plays them by resampling instead, at the
@@ -1282,7 +1308,7 @@ impl Engine {
                 let src_ratio = played.map_or(1.0, |(_, r)| f64::from(r) / f64::from(rate)) * speed;
                 let insert = usize::from(ch.mixer_track).min(n_tracks - 1);
                 let knob = f64::from(ch.pitch_cents);
-                let main = ch.misc.main_pitch.then(|| i32::from(project.main_pitch.unwrap_or(0)));
+                let main = (ch.misc.main_pitch || ch.misc.pitch_follow_offset != 0).then(|| ch.misc.pitch_follow_offset + if ch.misc.main_pitch { i32::from(project.main_pitch.unwrap_or(0)) } else { 0 });
                 let mut state = ChannelState {
                     sample,
                     length,
@@ -1291,7 +1317,7 @@ impl Engine {
                     pan_law,
                     insert,
                     base_rate: src_ratio,
-                    enabled: ch.enabled,
+                    enabled,
                     src_ratio,
                     knob,
                     init_knob: knob,
@@ -1300,6 +1326,8 @@ impl Engine {
                     root: ch.misc.root,
                     main,
                     init_main: main,
+                    main_follow: ch.misc.main_pitch,
+                    main_offset: ch.misc.pitch_follow_offset,
                     pitched,
                     init: (volume, ch.pan, src_ratio),
                     vol_v: ch.volume,
@@ -1320,6 +1348,7 @@ impl Engine {
                     adjust,
                     init_adjust: adjust,
                     layer: (ch.kind == ChannelKind::Layer).then(|| layers::Layer::of(ch)),
+                    stack: stacks[row].clone(),
                     voicing: crate::instrument::ChannelVoicing::of(ch, ppq),
                     via: None,
                 };
@@ -1358,13 +1387,15 @@ impl Engine {
                         match crate::effects::from_slot(&slot.name, &slot.state, rate) {
                             Some(mut fx) => {
                                 fx.set_tempo(tempo);
-                                effects.push(FxSlot::new(k, m.slot_on[k], mix_level(m.slot_mix[k]), Fx::Own(fx)));
+                                let mut effect = FxSlot::new(k, m.slot_on[k], mix_level(m.slot_mix[k]), Fx::Own(fx));
+                                effect.own_source = Some(slot.clone());
+                                effects.push(effect);
                                 report.effects_active += 1;
                             }
                             None => report.effects_bypassed += 1,
                         }
                     }
-                    effects.sort_by_key(|e| if e.slot == 10 {if m.parametric_pre {0}else{65}} else {e.slot+1});
+                    effects.sort_by_key(|e| if m.rack_strip.as_ref().is_some_and(|h|h.slot as usize==e.slot){0}else if e.slot == 10 {if m.parametric_pre {1}else{66}} else {e.slot+2});
                     let routes = if m.index == 0 {
                         vec![]
                     } else {
@@ -1380,15 +1411,17 @@ impl Engine {
                             .collect()
                     };
                     let mut t = MixTrack {
+                        runtime_id: m.runtime_id,
                         vol: (m.volume.unwrap_or(0.8) * 16000.0).round() as i32,
                         pan: (m.pan.unwrap_or(0.0) * 6400.0).round() as i32,
                         sep: (m.stereo_separation.unwrap_or(0.0) * 64.0).round() as i32,
-                        on: m.enabled,
+                        on: m.enabled && (!m.clip_fx || project.arrangement().is_some_and(|a|a.clips.iter().any(|clip|!clip.muted && a.tracks.get(usize::from(clip.track)).is_none_or(|t|t.enabled) && matches!(clip.source,ClipSource::Channel(id) if project.channels.iter().any(|c|c.index==id&&c.mixer_track==m.index&&c.enabled))))),
                         law: pan_law,
                         swap: m.swap,
                         polarity: m.polarity,
                         slots_enabled: m.slots_enabled,
                         parametric_pre: m.parametric_pre,
+                        strip_slot: m.rack_strip.as_ref().map(|h|h.slot as usize),
                         eq: os_dsp::mixer::TrackEq::new(m.eq, rate).with_smoothing(m.channel_layout!=0),
                         custom_strip: m.channel_layout!=0,
                         strip_bypassed: m.strip_bypassed,
@@ -1419,6 +1452,10 @@ impl Engine {
         controls.sort_by_key(|c| c.tick); // stable: equal ticks keep their order
         let (mut sched, end_tick) = schedule(project, mode, &mut report);
         sched.sort_by_key(|s| s.tick);
+        let mut mpe=vec![];
+        for (row,ch) in project.channels.iter().enumerate(){let config=project.mpe.config(ch.index);if !config.enabled{continue;}let notes=sched.iter().filter(|n|n.channel==row&&n.cut.is_none()&&!n.slide).map(|n|crate::mpe::Scheduled{start:n.tick,end:if n.len>0{n.tick+n.len}else{end_tick.max(n.tick+1)},key:n.key.min(127)as u8,velocity:n.velocity,release:n.release,expression:project.mpe.get(n.expression).map(|e|e.window(0.,if n.expression_len>0{n.len as f32/n.expression_len as f32}else{1.})).unwrap_or_default(),fine:laws::fine_pitch_cents(n.fine)as f32/100.}).collect();mpe.push((row,crate::mpe::Playback::new(config,notes).with_chase(false)));}
+        sched.retain(|n|n.cut.is_some()||!mpe.iter().any(|v|v.0==n.channel));
+
         let mut triggers: Vec<Trigger> = sched
             .into_iter()
             .filter_map(|n: Sched| {
@@ -1460,6 +1497,7 @@ impl Engine {
                         let total = Clock::frame_of_tick(rate, ppq, tick_tempo, n.tick + n.len) - Clock::frame_of_tick(rate, ppq, tick_tempo, n.tick);
                         ClipShape {
                             since: 0,
+                            age_origin: 0,
                             total,
                             fade_in: ms(fx.fade_in.0),
                             fade_out: ms(fx.fade_out.0),
@@ -1580,6 +1618,7 @@ impl Engine {
             tracks,
             order,
             parallel: mix_workers::State::new(),
+            mpe,
             triggers,
             next_trigger: 0,
             late: Vec::new(),
@@ -1598,6 +1637,7 @@ impl Engine {
             live_only: false,
             awake: false,
             mixer_input: None,
+            input_bus: Vec::new(),
             tail_done: false,
             held: false,
             count_in: 0,
@@ -1622,6 +1662,8 @@ impl Engine {
                 (beats.saturating_mul(steps), 16)
             }),
             out: Vec::with_capacity(8192),
+            speed_ratio: 2f64.powf(project.varispeed_cents.clamp(-1200,1200) as f64 / 1200.0),
+            varispeed: crate::varispeed::Varispeed::new(2f64.powf(project.varispeed_cents.clamp(-1200,1200) as f64 / 1200.0)),
             out_pos: 0,
             out_tick: 0.0,
             out_frame: 0,
@@ -1659,6 +1701,7 @@ impl Engine {
             insert_fx: true,
             master_fx: true,
             capture: None,
+            capture_speed: Vec::new(),
             capture_tracks: None,
             pdc,
             pad_buf: Vec::new(),
@@ -1746,7 +1789,7 @@ impl Engine {
         }
         t.effects.retain(|e| e.slot != slot);
         t.effects.push(FxSlot::new(slot, t.slot_on[slot], t.slot_mix[slot], Fx::Hosted(fx)));
-        t.effects.sort_by_key(|e| if e.slot == 10 {if t.parametric_pre {0}else{65}} else {e.slot+1});
+        t.effects.sort_by_key(|e| if t.strip_slot==Some(e.slot){0}else if e.slot == 10 {if t.parametric_pre {1}else{66}} else {e.slot+2});
         self.pdc.due = true;
     }
 
@@ -1765,6 +1808,11 @@ impl Engine {
 
     /// Ticks hosted plugins missed since the last call (each one still busy elsewhere after the tick's wait), heard as
     /// a gap on its channel or mixer track.
+    /// Total plugin-wait allowance per tick, bounded by the feeder's queued audio.
+    pub fn set_plugin_wait_budget(&mut self, budget: Duration) {
+        self.busy_wait = budget.min(Duration::from_millis(20));
+    }
+
     pub fn take_missed(&mut self) -> u64 {
         std::mem::take(&mut self.missed)
     }
@@ -1800,6 +1848,13 @@ impl Engine {
     /// next tick as it came; a channel without one takes pitch bend (0xE0) as a bend of ±`bend_cents` from the centre
     /// on top of its pitch, and ignores the rest.
     pub fn midi(&mut self, channel: usize, bytes: [u8; 3], bend_cents: f64) {
+        if let Some((_,p))=self.mpe.iter_mut().find(|p|p.0==channel){let events=p.live_message(bytes);let children=self.channels.get(channel).map(|c|c.stack.clone()).unwrap_or_default();for b in events{self.midi_one(channel,b,0.);for &child in &children{self.midi_one(child,b,0.);}}return;}
+
+        let children=self.channels.get(channel).map(|c|c.stack.clone()).unwrap_or_default();
+        for child in children {self.midi_one(child,bytes,bend_cents);}
+        self.midi_one(channel,bytes,bend_cents);
+    }
+    fn midi_one(&mut self, channel: usize, bytes:[u8;3],bend_cents:f64){
         let Some(ch) = self.channels.get_mut(channel) else { return };
         if ch.instrument.0.is_some() {
             self.tail_done = false;
@@ -1845,6 +1900,11 @@ impl Engine {
     }
 
     pub fn note_for(&mut self, channel: usize, key: u16, velocity: u8, frames: u64) {
+        let children=self.channels.get(channel).map(|c|c.stack.clone()).unwrap_or_default();
+        self.note_for_one(channel,key,velocity,frames);
+        for child in children {self.note_for_one(child,key,velocity,frames);}
+    }
+    fn note_for_one(&mut self,channel:usize,key:u16,velocity:u8,frames:u64){
         if !self.has_instrument(channel) {
             return;
         }
@@ -1873,6 +1933,7 @@ impl Engine {
 
     pub fn set_track_capture(&mut self, on: bool) {
         self.capture = on.then(|| vec![Vec::new(); self.tracks.len()]);
+        self.capture_speed = (0..self.tracks.len()).map(|_|crate::varispeed::Varispeed::new(self.speed_ratio)).collect();
         self.pdc.taken = self.pdc.handed;
     }
 
@@ -1883,7 +1944,9 @@ impl Engine {
     pub fn take_track_audio(&mut self) -> Vec<Vec<f32>> {
         let n = 2 * (self.pdc.handed - self.pdc.taken) as usize;
         self.pdc.taken = self.pdc.handed;
-        self.capture.as_mut().map(|c| c.iter_mut().map(|t| t.drain(..n.min(t.len())).collect()).collect()).unwrap_or_default()
+        let mut tracks: Vec<Vec<f32>> = self.capture.as_mut().map(|c| c.iter_mut().map(|t| t.drain(..n.min(t.len())).collect()).collect()).unwrap_or_default();
+        for (audio, speed) in tracks.iter_mut().zip(&mut self.capture_speed) { speed.process(audio,self.speed_ratio); }
+        tracks
     }
 
     /// Renders ticks `from` to `to` only: playback starts at `from` (`seek_tick`) and the song ends at `to`.
@@ -1941,6 +2004,7 @@ impl Engine {
     /// Set it before seeking.
     pub fn set_truncated_on_transport(&mut self, on: bool) {
         self.truncated_on_transport = on;
+        for (_, playback) in &mut self.mpe { playback.chase_notes = on; }
     }
 
     /// Drop the scheduled notes: the engine only plays live notes (`note_on`).
@@ -2002,6 +2066,7 @@ impl Engine {
     /// notes, an open editor): its held notes would ring there for as long as it is paused.
     pub fn release_instruments(&mut self) {
         self.send_held_offs();
+        for(_,p)in &mut self.mpe{p.released();}
         self.relaunch_clips |= self.inst_offs.iter().any(|o| o.3.is_some());
         self.inst_offs.clear();
         let channels = &self.channels;
@@ -2014,6 +2079,11 @@ impl Engine {
     /// Start a live note on channel `channel` (rack position) at the next tick; it rings until
     /// `note_off` (or the sample ends). Velocity 0..=128, 100 = unity.
     pub fn note_on(&mut self, channel: usize, key: u16, velocity: u8) {
+        let children=self.channels.get(channel).map(|c|c.stack.clone()).unwrap_or_default();
+        self.note_on_one(channel,key,velocity);
+        for child in children {self.note_on_one(child,key,velocity);}
+    }
+    fn note_on_one(&mut self,channel:usize,key:u16,velocity:u8){
         let Some(ch) = self.channels.get(channel) else { return };
         self.tail_done = false;
         if ch.instrument.0.is_some() {
@@ -2032,7 +2102,7 @@ impl Engine {
             Some(i) => ((i + 1) as u16, 1.0),
             None => (0, laws::playback_rate(key, 0)),
         };
-        self.note_off(channel, key); // retrigger
+        self.note_off_one(channel, key); // retrigger
         self.voices.push(Voice {
             origin: None,
             channel,
@@ -2062,6 +2132,11 @@ impl Engine {
 
     /// Release a live note with a short fade.
     pub fn note_off(&mut self, channel: usize, key: u16) {
+        let children=self.channels.get(channel).map(|c|c.stack.clone()).unwrap_or_default();
+        self.note_off_one(channel,key);
+        for child in children {self.note_off_one(child,key);}
+    }
+    fn note_off_one(&mut self,channel:usize,key:u16){
         if self.has_instrument(channel) && self.sounding.iter().any(|&(c, k, end)| c == channel && k == key && end == u64::MAX) {
             self.inst_live.push((channel, key.min(127) as u8, -1.0));
         }
@@ -2079,6 +2154,8 @@ impl Engine {
         }
         self.sounding.retain(|&(c, k, end)| !(c == channel && k == key && end == u64::MAX));
     }
+
+    pub fn speed_ratio(&self) -> f64 { self.speed_ratio }
 
     pub fn sample_rate(&self) -> u32 {
         self.rate
@@ -2180,6 +2257,7 @@ impl Engine {
     /// from where their sample has got to. Notes before it are not triggered, except, with "Play truncated notes on
     /// transport" on (`set_truncated_on_transport`), those still going at it: they start afresh on it.
     pub fn seek_tick(&mut self, tick: u64) {
+        for (_, playback) in &mut self.mpe { playback.resume_tick = None; }
         self.clock = Clock::at_tick(self.rate, self.ppq, self.tick_tempo(), tick);
         self.tick = tick;
         self.landed = true;
@@ -2207,6 +2285,7 @@ impl Engine {
         self.pdc.restart();
         for t in &mut self.tracks {
             t.pad.clear();
+            t.input_pad.clear();
             for r in &mut t.routes {
                 r.pad.clear();
             }
@@ -2233,7 +2312,7 @@ impl Engine {
                 let since = at - frame(t.tick);
                 let from = t.from + since as f64 * t.rate * ch.base_rate;
                 let total = t.cut.map_or(u64::MAX, |c| frame(c) - frame(t.tick));
-                let plain = ClipShape { since: 0, total, fade_in: 0, fade_out: 0, tension_in: 0.0, tension_out: 0.0, gain: 1.0, declick: 0 };
+                let plain = ClipShape { since: 0, age_origin: 0, total, fade_in: 0, fade_out: 0, tension_in: 0.0, tension_out: 0.0, gain: 1.0, declick: 0 };
                 let declick = (LATE_START_SECONDS * f64::from(self.rate)).round() as u64;
                 let shape = Some(ClipShape { since, declick, ..t.shape.unwrap_or(plain) });
                 (from < frames).then(|| Trigger { tick, from, start: (from / frames) as f32, shape, ..*t })
@@ -2304,17 +2383,29 @@ impl Engine {
         }
     }
 
+    /// Follow another selected pattern at the same loop phase, releasing the former pattern's notes.
+    pub fn continue_pattern_from(&mut self,old:&mut Engine){
+        self.continue_from(old);
+        self.release_instruments();self.voices.clear();self.sounding.clear();self.inst_live.clear();
+        let tick=self.tick_position() as u64%self.end_tick().max(1);
+        self.seek_tick(tick);
+    }
+
     /// Take over playback from `old` (built from an earlier version of the project) at its position: the tick it
     /// already rendered plays out, ringing voices keep playing, notes before the position are not retriggered, and
     /// effect states carry over when the mixer layout is unchanged. Edits are heard from the next tick: ringing voices
     /// take the new channel volume / pan and mixer levels (ramped). A tempo change keeps the tick position and sizes
     /// the ticks after it.
     pub fn continue_from(&mut self, old: &mut Engine) {
+        for(row,p)in &mut self.mpe{if let Some((_,previous))=old.mpe.iter_mut().find(|v|v.0==*row){p.adopt(previous);}}
+        for(row,p)in &mut old.mpe{if !self.mpe.iter().any(|v|v.0==*row){for b in p.shutdown(){old.inst_midi.push((*row,b));for &child in &old.channels[*row].stack{old.inst_midi.push((child,b));}}}}
+
+        self.varispeed = std::mem::take(&mut old.varispeed);
         for (link,env) in &mut self.peak_links{if let Some((_,previous))=old.peak_links.iter().find(|(l,_)|l.source==link.source&&l.target==link.target){*env=*previous;}}
 
         self.looping = old.looping;
         self.loop_range = old.loop_range;
-        self.truncated_on_transport = old.truncated_on_transport;
+        self.set_truncated_on_transport(old.truncated_on_transport);
         // The metronome carries on, with a click that is sounding (rebuilt at a new rate).
         self.metronome = old.metronome.take().map(|m| if m.rate() == self.rate { m } else { crate::metronome::Metronome::new(m.switch().clone(), self.rate) });
         // So does a tap's click (a tap usually changes the tempo while its click sounds).
@@ -2378,6 +2469,18 @@ impl Engine {
         self.inst_live = std::mem::take(&mut old.inst_live);
         self.audition=std::mem::take(&mut old.audition);self.audition_held=std::mem::take(&mut old.audition_held);self.audition_frame=old.audition_frame;
         self.inst_midi = std::mem::take(&mut old.inst_midi);
+        // A detached stack member must not retain live notes or a sustain pedal whose
+        // release will now go only to its former parent.
+        let mut detached=std::collections::BTreeSet::new();
+        for (row,previous) in old.channels.iter().enumerate(){for &child in &previous.stack {
+            if child<n && !self.channels.get(row).is_some_and(|c|c.stack.contains(&child)){detached.insert(child);}
+        }}
+        for child in detached {
+            let keys:Vec<_>=self.sounding.iter().filter(|&&(c,_,end)|c==child&&end==u64::MAX).map(|&(_,k,_)|k).collect();
+            for key in keys {self.note_off_one(child,key);}
+            for channel in 0..16 {self.midi_one(child,[0xb0|channel,64,0],200.);self.midi_one(child,[0xb0|channel,123,0],200.);}
+        }
+
         // A controller's pitch bend stays on its channel.
         for (new, o) in self.channels.iter_mut().zip(&old.channels) {
             if o.bend != 0.0 {
@@ -2403,16 +2506,30 @@ impl Engine {
         // Reconcile only Playlist audio voices. Keep their sample position and voice ID on
         // gain/fade edits; stop muted/removed clips and start newly audible clips in place.
         let mut active = self.clips_under_way(tick);
-        let take = |active: &mut Vec<Trigger>, channel, origin| {
-            active.iter().position(|t| t.channel == channel && t.origin == origin)
-                .map(|i| active.remove(i))
+        let previous = old.clips_under_way(tick);
+        let take = |active: &mut Vec<Trigger>, channel, origin: Option<ClipOrigin>| {
+            let exact = active.iter().position(|t| t.channel == channel && t.origin == origin);
+            // A trim changes the clip's bounds, but not the source frame audible now.
+            // Match that frame (within rounding to one sample) so dragging either edge
+            // keeps the existing voice, phase and envelopes instead of retriggering it.
+            let trimmed = || {
+                let before = previous.iter().find(|t| t.channel == channel && t.origin == origin)?;
+                active.iter().position(|t| t.channel == channel
+                    && t.origin.map(|o| o.0) == origin.map(|o| o.0)
+                    && t.rate == before.rate && (t.from - before.from).abs() <= 1.0)
+            };
+            exact.or_else(trimmed).map(|i| active.remove(i))
         };
         for v in &mut self.voices {
             if v.origin.is_none() { continue; }
             if let Some(t) = take(&mut active, v.channel, v.origin) {
-                if let (Some(old), Some(new)) = (v.shape.as_mut(), t.shape) {
-                    *old = ClipShape { since: old.since, declick: old.declick, ..new };
+                if let (Some(shape), Some(new)) = (v.shape.as_mut(), t.shape) {
+                    *shape = if v.origin == t.origin {
+                        ClipShape { since: shape.since, age_origin: shape.age_origin, declick: shape.declick, ..new }
+                    } else { ClipShape { age_origin: v.age, declick: 0, ..new } };
                 }
+                v.origin = t.origin;
+                v.cut = t.cut;
             } else { v.cut = Some(tick); v.origin = None; }
         }
         for v in &mut self.inst_shapes {
@@ -2423,7 +2540,13 @@ impl Engine {
             }
             if let Some(t) = take(&mut active, v.channel, v.origin) {
                 if let Some(new) = t.shape {
-                    v.shape = ClipShape { since: v.shape.since, declick: v.shape.declick, ..new };
+                    v.shape = if v.origin == t.origin {
+                        ClipShape { since: v.shape.since, age_origin: v.shape.age_origin, declick: v.shape.declick, ..new }
+                    } else { ClipShape { age_origin: v.age, declick: 0, ..new } };
+                }
+                v.origin = t.origin;
+                for off in &mut self.inst_offs {
+                    if off.1 == v.channel && off.3 == Some(v.voice) { off.0 = t.cut.unwrap_or(off.0); }
                 }
             } else {
                 v.origin = None;
@@ -2453,8 +2576,16 @@ impl Engine {
         // The main volume glides from where it was.
         self.main_glide = old.main_glide;
         self.exporting = old.exporting;
-        if self.rate == old.rate && self.tracks.len() == old.tracks.len() {
-            for (new, o) in self.tracks.iter_mut().zip(&mut old.tracks) {
+        let new_ids: Vec<_> = self.tracks.iter().map(|t|t.runtime_id).collect();
+        if self.rate == old.rate {
+            // Track numbers move during insertion/removal. Match surviving tracks by
+            // identity so a new track never inherits its neighbour's filter/delay history.
+            let old_ids: Vec<_> = old.tracks.iter().map(|t|t.runtime_id).collect();
+            for (index, new) in self.tracks.iter_mut().enumerate() {
+                let previous = if new.runtime_id == 0 {old.tracks.get(index).filter(|t|t.runtime_id==0).map(|_|index)}
+                    else {old_ids.iter().position(|id|*id==new.runtime_id)};
+                let Some(previous)=previous else {continue};
+                let o=&mut old.tracks[previous];
                 new.gains = o.gains;
                 new.vu = o.vu;
                 new.strip.inherit(&o.strip);
@@ -2462,11 +2593,13 @@ impl Engine {
                 if let (Some(next),Some(previous))=(&new.tune,&mut o.tune) {previous.configure(next.amount,next.key,next.scale,next.voice,next.learn,next.enabled);new.tune=o.tune.take();}
                 // The pads keep what they hold while the mixer is laid out as before.
                 new.pad = std::mem::take(&mut o.pad);
+                new.input_pad = std::mem::take(&mut o.input_pad);
                 // Sends and slot mix levels glide on from where they were.
-                if new.routes.len() == o.routes.len() && new.routes.iter().zip(&o.routes).all(|(a, b)| a.dest == b.dest) {
-                    for (a, b) in new.routes.iter_mut().zip(&mut o.routes) {
-                        a.glide = b.glide;
-                        a.pad = std::mem::take(&mut b.pad);
+                for a in &mut new.routes {
+                    let dest_id=new_ids.get(a.dest).copied();
+                    if let Some(b)=o.routes.iter_mut().find(|b|old_ids.get(b.dest).copied()==dest_id && dest_id.is_some()) {
+                        a.glide=b.glide;
+                        a.pad=std::mem::take(&mut b.pad);
                     }
                 }
                 // Own effects keep their state (delay lines, envelopes) when the slot layout is unchanged; the new
@@ -2478,7 +2611,8 @@ impl Engine {
                         a.dry_pad = std::mem::take(&mut b.dry_pad);
                         a.key_pad = std::mem::take(&mut b.key_pad);
                         a.main_pad = std::mem::take(&mut b.main_pad);
-                        if let (Fx::Own(_), Fx::Own(_)) = (&a.fx, &b.fx) {
+                        if matches!((&a.fx, &b.fx), (Fx::Own(_), Fx::Own(_)))
+                            && a.own_source.is_some() && a.own_source == b.own_source {
                             std::mem::swap(&mut a.fx, &mut b.fx);
                         }
                     }
@@ -2620,7 +2754,7 @@ impl Engine {
             }
             Target::MainPitch => {
                 let cents=(2400.0*v-1200.0).round().clamp(-1200.0,1200.0) as i32;
-                for ch in &mut self.channels {if ch.main.is_some(){ch.main=Some(cents);ch.retune(ch.knob);}}
+                for ch in &mut self.channels {if ch.main_follow{ch.main=Some(cents + ch.main_offset);ch.retune(ch.knob);}}
             }
             Target::ChannelPitch(c) => {
                 if let Some(ch) = self.channels.get_mut(usize::from(c)) {
@@ -2821,6 +2955,10 @@ impl Engine {
         let song_end = !self.looping && !self.live_only && self.end_tick > 0 && tick + 1 == self.end_tick;
         self.release_notes(tick, song_end);
         self.start_notes(tick);
+        let mut mpe_events=vec![];
+        for (row,p) in &mut self.mpe{p.pitch_offset=self.channels.get(*row).map_or(0.,ChannelState::hosted_shift);let on=!self.live_only&&self.channels.get(*row).is_some_and(|c|c.enabled);for b in p.tick(tick,on){mpe_events.push((*row,b));}}
+        for(row,b)in mpe_events{let children=self.channels.get(row).map(|c|c.stack.clone()).unwrap_or_default();self.midi_one(row,b,0.);for child in children{self.midi_one(child,b,0.);}}
+
         self.audition_tick(len);
         let (channels, w) = (&self.channels, self.sinc_w);
         let bus = &mut self.bus;
@@ -3069,6 +3207,11 @@ impl Engine {
     /// A slide note on a layer moves the voices the layer's notes started, on all its children; a slide note on a
     /// child does not move those (spec: audio/note-rules.md "Layer channels").
     fn start_slide(&mut self, t: Trigger) {
+        let children=self.channels[t.channel].stack.clone();
+        self.start_slide_one(t);
+        for child in children {self.start_slide_one(Trigger{channel:child,..t});}
+    }
+    fn start_slide_one(&mut self,t:Trigger){
         let n = t.end.map_or(0, |e| e.saturating_sub(t.tick)).min(u64::from(u32::MAX - 1)) as u32;
         let key = t.key.min(127) as u8;
         let is_layer = self.channels[t.channel].layer.is_some();
@@ -3128,6 +3271,11 @@ impl Engine {
 
     /// Starts one note or audio clip: a voice of the engine's sampler, or a note at the channel's instrument.
     fn start_trigger(&mut self, t: Trigger, step: u64) {
+        let children=self.channels[t.channel].stack.clone();
+        self.start_trigger_one(t,step);
+        for child in children {self.start_trigger_one(Trigger{channel:child,..t},step);}
+    }
+    fn start_trigger_one(&mut self,t:Trigger,step:u64){
         self.sounding.push((t.channel, t.key, t.end.unwrap_or(t.tick + step)));
         if self.channels[t.channel].plugin {
             if self.channels[t.channel].instrument.0.is_some() {
@@ -3384,7 +3532,7 @@ impl Engine {
             if !voiced && self.inst_shapes.iter().any(|s| s.channel == c) {
                 let shapes = &self.inst_shapes;
                 for f in 0..n {
-                    let ended = |s: &InstClip| s.shape.since + s.age + f as u64 >= s.shape.total;
+                    let ended = |s: &InstClip| s.shape.position(s.age + f as u64) >= s.shape.total;
                     let playing = shapes.iter().any(|s| s.channel == c && !ended(s));
                     let g: f32 = shapes.iter().filter(|s| s.channel == c && !(playing && ended(s))).map(|s| s.shape.at(s.age + f as u64)).product();
                     l[f] *= g;
@@ -3417,6 +3565,17 @@ impl Engine {
                     }
                 }
             }
+            for port in 0..inst.extra_outputs().min(15) {
+                let target = ch.insert + port + 1;
+                if target >= self.bus.len() { break; }
+                l.fill(0.);r.fill(0.);
+                if !inst.extra_output(port,l,r) {continue;}
+                self.channel_activity[c]|=l.iter().zip(r.iter()).any(|(a,b)|(a*gl).abs().max((b*gr).abs())>0.00001);
+                let padded=&mut self.pad_buf;padded.clear();
+                padded.extend(l.iter().zip(r.iter()).flat_map(|(&a,&b)|[a*gl,b*gr]));
+                if let Some(p)=self.pdc.aux_pad.get_mut(c).and_then(|p|p.get_mut(port)) {p.run(padded);}
+                for (o,s) in self.bus[target].iter_mut().zip(padded.iter()) {*o+=*s;}
+            }
         }
         self.inst_events.clear();
         // A clip's shape is kept half a second past its end (the choke's own fade).
@@ -3424,7 +3583,7 @@ impl Engine {
         for s in &mut self.inst_shapes {
             s.age += n as u64;
         }
-        self.inst_shapes.retain(|s| s.shape.since + s.age < s.shape.total.saturating_add(tail));
+        self.inst_shapes.retain(|s| s.shape.position(s.age) < s.shape.total.saturating_add(tail));
         self.inst_active = active;
         if active {
             self.inst_tail = u64::from(self.rate) * INSTRUMENT_TAIL_SECONDS;
@@ -3488,7 +3647,13 @@ impl Engine {
     fn mix(&mut self, frames: usize, song: &TransportInfo) {
         if !self.exporting {
             if let Some(input) = &mut self.mixer_input {
-                input.render(self.rate, &mut self.bus);
+                self.input_bus.resize_with(self.bus.len(), Vec::new);
+                for b in &mut self.input_bus { b.clear(); b.resize(frames * 2, 0.0); }
+                input.render(self.rate, &mut self.input_bus);
+                for ((input, bus), track) in self.input_bus.iter_mut().zip(&mut self.bus).zip(&mut self.tracks) {
+                    track.input_pad.run(input);
+                    for (dst, sample) in bus.iter_mut().zip(input) { *dst += *sample; }
+                }
             }
         }
         let limit = os_dsp::glide::engine_limit(self.rate);
@@ -3512,7 +3677,7 @@ impl Engine {
                 let slots_enabled = track.slots_enabled && if t == 0 { self.master_fx } else { self.insert_fx };
                 for fx in &mut track.effects {
                     // The dedicated mixer EQ is independent of the ten plugin slots' bypass.
-                    if fx.slot != 10 && !slots_enabled { continue; }
+                    if fx.slot != 10 && Some(fx.slot)!=track.strip_slot && !slots_enabled { continue; }
                     let feed = |s: Option<usize>| s.and_then(|s| keys.get(s)?.as_deref()).filter(|k| k.len() == buf.len());
                     let key = feed(fx.key).map(|k| (k, &mut *key_buf));
                     let main = feed(fx.main).map(|k| (k, &mut *main_buf));
@@ -3742,6 +3907,8 @@ impl Engine {
     /// A note off to its instrument for every note held there: scheduled notes that have not ended, live notes, and
     /// voices whose notes have not ended.
     fn send_held_offs(&self) {
+        for(row,p)in &self.mpe{let events=p.offs();let mut rows=vec![*row];rows.extend(self.channels.get(*row).map(|c|c.stack.clone()).unwrap_or_default());for row in rows{if let Some(Ok(mut inst))=self.channels.get(row).and_then(|ch|ch.instrument.0.as_ref()).map(|i|i.lock()){for &b in &events{inst.midi(0,b);}}}}
+
         // The key each note was given to its instrument as (moved by the channel pitch, `InstTuning`).
         let sent = |c: usize, key: u8| self.inst_tuning.get(c).map_or(key, |t| t.sent(key));
         // Audio clips a hosted instrument plays end with a choke of their voice: a note off would leave a sample
@@ -4156,6 +4323,9 @@ fn processing_order(tracks: &[MixTrack]) -> Vec<usize> {
 /// A scheduled note on the song's tick line.
 #[derive(Debug, Clone, Copy)]
 struct Sched {
+    expression:u32,
+    expression_len:u64,
+    release:u8,
     origin: Option<ClipOrigin>,
     tick: u64,
     channel: usize,
@@ -4185,6 +4355,9 @@ struct Sched {
 impl Sched {
     fn note(tick: u64, n: &os_model::Note) -> Self {
         Sched {
+            expression:n.expression,
+            expression_len:u64::from(n.length),
+            release:n.release,
             origin: None,
             tick,
             channel: usize::from(n.channel),
@@ -4270,12 +4443,36 @@ fn push_note(out: &mut Vec<Sched>, start: i64, n: &os_model::Note, project: &Pro
 /// next clip of the same pattern taking the pattern over, or its end).
 #[derive(Debug, Clone, Copy)]
 struct PatternPlay {
+    rate:f64,
     pattern: u16,
     from: u64,
     len: u64,
     origin: i64,
     end: u64,
     starts_until: u64,
+}
+
+impl PatternPlay {
+    fn scaled_tick(self,tick:i64)->i64 {
+        let start=self.origin+self.from as i64;
+        start+((tick-start) as f64/self.rate).round() as i64
+    }
+}
+fn push_pattern_note(out:&mut Vec<Sched>,play:PatternPlay,n:&os_model::Note,project:&Project,swing:bool,cap:Option<u64>){
+    if play.rate==1. {push_note(out,play.origin,n,project,swing,cap);return;}
+    let start=out.len();push_note(out,play.origin,n,project,swing,None);
+    let mut written=start;
+    for i in start..out.len() {
+        let mut note=out[i];
+        let tick=play.scaled_tick(note.tick as i64);
+        if tick<0||tick as u64>=play.starts_until {continue;}
+        note.tick=tick as u64;
+        note.expression_len=(note.expression_len as f64/play.rate).round() as u64;
+        if note.len>0 {note.len=(note.len as f64/play.rate).round().max(1.) as u64;}
+        if let Some(cap)=cap {if note.len>0 {note.len=note.len.min(cap.saturating_sub(note.tick));}}
+        out[written]=note;written+=1;
+    }
+    out.truncate(written);
 }
 
 /// The pattern clips that play, with their windows. A clip whose start offset is negative (uncut) plays the whole
@@ -4300,13 +4497,13 @@ fn pattern_plays(project: &Project, clips: &[os_model::Clip]) -> Vec<PatternPlay
             continue;
         }
         let (from, len) = match c.window {
-            Some(w) => (w.0.max(0.0).round() as u64, u64::from(c.length)),
+            Some(w) => (w.0.max(0.0).round() as u64, (f64::from(c.length)*c.pattern_rate()).round() as u64),
             None => (0, pattern_length(project, n)),
         };
         let start = u64::from(c.position);
-        let end = start + len;
+        let end = start + (len as f64/c.pattern_rate()).round() as u64;
         let takeover = later.iter().take_while(|&&(_, _, m)| m == n).map(|&(_, d, _)| u64::from(d.position)).find(|&p| p > start);
-        out.push(PatternPlay { pattern: n, from, len, origin: i64::from(c.position) - from as i64, end, starts_until: end.min(takeover.unwrap_or(u64::MAX)) });
+        out.push(PatternPlay { rate:c.pattern_rate(), pattern: n, from, len, origin: i64::from(c.position) - from as i64, end, starts_until: end.min(takeover.unwrap_or(u64::MAX)) });
     }
     out
 }
@@ -4331,7 +4528,7 @@ fn schedule_controls(project: &Project, mode: PlayMode) -> Vec<(u64, usize, u16,
             // Points inside a clip's window act, placed with the clip like notes.
             for play in pattern_plays(project, clips) {
                 for p in points(play.pattern).iter().filter(|p| u64::from(p.position) >= play.from && u64::from(p.position) < play.from + play.len) {
-                    let tick = play.origin + i64::from(p.position);
+                    let tick = play.scaled_tick(play.origin + i64::from(p.position));
                     if tick >= 0 && (tick as u64) < play.starts_until {
                         out.push((tick as u64, usize::from(p.channel()), p.param(), p.value));
                     }
@@ -4406,16 +4603,16 @@ fn schedule(project: &Project, mode: PlayMode, report: &mut EngineReport) -> (Ve
                     let cap = truncated.then_some(play.end);
                     if p >= play.from && p < play.from + play.len {
                         // Starts inside the window: from its place in the clip, unless the pattern was taken over.
-                        if play.origin + (p as i64) < play.starts_until as i64 {
-                            push_note(&mut out, play.origin, note, project, true, cap);
+                        if play.scaled_tick(play.origin + (p as i64)) < play.starts_until as i64 {
+                            push_pattern_note(&mut out,play,note,project,true,cap);
                         }
                     } else if truncated && p < play.from && note.length > 0 && p + u64::from(note.length) > play.from {
                         // Began before the window and reaches into it: starts at the clip's position, for the part
                         // inside the window.
                         let inside = (p + u64::from(note.length)).min(play.from + play.len) - play.from;
                         let cut = os_model::Note { position: play.from as u32, length: inside as u32, ..*note };
-                        if play.origin + (play.from as i64) < play.starts_until as i64 {
-                            push_note(&mut out, play.origin, &cut, project, false, cap);
+                        if play.scaled_tick(play.origin + (play.from as i64)) < play.starts_until as i64 {
+                            push_pattern_note(&mut out,play,&cut,project,false,cap);
                         }
                     }
                 }
@@ -4439,7 +4636,7 @@ fn schedule(project: &Project, mode: PlayMode, report: &mut EngineReport) -> (Ve
                         // An audio clip plays its channel's sample from the window start (milliseconds), cut at the clip end.
                         Some(ChannelKind::AudioClip | ChannelKind::Sampler) => {
                             let from_s = c.window.map_or(0.0, |w| w.0.max(0.0) / 1000.0);
-                            out.push(Sched { origin: Some((c.track, start, len, from_s.to_bits())), tick: start, channel: usize::from(ch), key: 60, fine: 120, velocity: 100, pan: 64, mod_x: 128, mod_y: 128, cut: Some(start + len), len, from_s, clip: ClipFx::of(c, fx), slide: false, porta: false });
+                            out.push(Sched { expression:0, expression_len:0, release:64, origin: Some((c.track, start, len, from_s.to_bits())), tick: start, channel: usize::from(ch), key: 60, fine: 120, velocity: 100, pan: 64, mod_x: 128, mod_y: 128, cut: Some(start + len), len, from_s, clip: ClipFx::of(c, fx), slide: false, porta: false });
                         }
                         Some(ChannelKind::Automation) => {}
                         _ => report.automation_clips_ignored += 1,
@@ -4508,6 +4705,27 @@ mod tests {
             r.fill(v);
             self.at += l.len() as u64;
         }
+    }
+
+    #[test]
+    fn chop_aux_outputs_use_separate_mixer_tracks() {
+        struct Multi;
+        impl crate::Instrument for Multi {
+            fn note_on(&mut self,_:u32,_:u8,_:f32){} fn note_off(&mut self,_:u32,_:u8){}
+            fn process(&mut self,_:u32,l:&mut[f32],r:&mut[f32]){l.fill(0.);r.fill(0.);}
+            fn extra_outputs(&self)->usize{1}
+            fn extra_output(&mut self,_:usize,l:&mut[f32],r:&mut[f32])->bool{l.fill(0.1);r.fill(0.1);true}
+        }
+        let render=|mut p:Project| {
+            p.channels[0].kind=ChannelKind::Plugin;p.channels[0].mixer_track=1;
+            let mut lib=SampleLibrary::default();let mut e=Engine::new(&p,&mut lib,48000,PlayMode::Pattern(1));
+            e.set_instrument(0,Arc::new(std::sync::Mutex::new(Multi)));e.clear_schedule();e.note_on(0,60,100);
+            let mut out=vec![0.;4096];e.process(&mut out);out.iter().fold(0f32,|a,b|a.max(b.abs()))
+        };
+        let mut p=project(vec![],vec![]);p.mixer=(0..3).map(os_model::MixerTrack::new).collect();
+        let sound=render(p.clone());assert!(sound>0.001);
+        let mut muted=p.clone();muted.mixer[2].volume=Some(0.);assert!(render(muted)<1e-6,"aux follows its destination fader");
+        let mut main_muted=p;main_muted.mixer[1].volume=Some(0.);assert!(render(main_muted)>0.001,"aux bypasses the main output track");
     }
 
     #[test]
@@ -4635,6 +4853,16 @@ mod tests {
     }
 
     // spec: audio/swing.md (whole ticks; notes in the first half of an odd step move towards its middle)
+    #[test] fn batch2_pattern_stretch_schedules_real_note_starts_and_lengths_per_clip(){
+        let notes=vec![long_note(0,48,0),long_note(96,48,0)];
+        let mut slow=os_model::Clip::new(0,384,0,ClipSource::Pattern(1));slow.window=Some((0.,192.));slow.pattern_speed=0.5;
+        let mut normal=os_model::Clip::new(768,192,0,ClipSource::Pattern(1));normal.window=Some((0.,192.));
+        let p=song(notes.clone(),vec![slow,normal]);let mut report=EngineReport::default();let (sched,_)=schedule(&p,PlayMode::Song,&mut report);
+        let got:Vec<_>=sched.iter().map(|n|(n.tick,n.len)).collect();assert_eq!(got,vec![(0,96),(192,96),(768,48),(864,48)]);
+        assert_eq!(p.patterns[0].notes,notes);
+        let mut p=p;p.arrangements[0].clips[0].pattern_speed=2.;p.arrangements[0].clips[0].length=96;
+        let (sched,_)=schedule(&p,PlayMode::Song,&mut report);assert_eq!((sched[1].tick,sched[1].len),(48,24));
+    }
     #[test]
     fn swing_delays_off_beat_sixteenths() {
         assert_eq!(swing_delay(0, 96, 128, 128), 0);
@@ -5733,6 +5961,17 @@ mod tests {
         r.lock().unwrap().log.iter().filter(|l| l.1 == kind).map(|l| (l.0, l.2, l.3)).collect()
     }
 
+    #[test]fn batch2_instrument_stack_pattern_live_release_and_mute(){
+        let mut p=layered(0,vec![long_note(0,48,0)],&[ChannelKind::Plugin]);p.channels[0].kind=ChannelKind::Plugin;
+        let setup=|p:&Project|{let mut e=Engine::new(p,&mut SampleLibrary::new(None),48000,PlayMode::Pattern(1));let recs:Vec<_>=(0..2).map(|i|{let r=Arc::new(std::sync::Mutex::new(Rec::default()));e.set_instrument(i,r.clone());r}).collect();(e,recs)};
+        let (mut e,recs)=setup(&p);let out=e.render_all(512);assert!(out.iter().any(|v|v.abs()>0.1));assert_eq!(got(&recs[0],"on"),got(&recs[1],"on"));assert_eq!(got(&recs[0],"off"),got(&recs[1],"off"));assert_eq!(got(&recs[0],"on").len(),1);
+        p.patterns[0].notes.clear();let(mut e,recs)=setup(&p);e.note_on(0,64,100);e.render_ticks(2,&mut Vec::new());e.note_off(0,64);e.render_ticks(2,&mut Vec::new());
+        for r in recs{assert_eq!(got(&r,"on").len(),1);assert_eq!(got(&r,"off").len(),1);}
+        let(mut old,recs)=setup(&p);old.note_on(0,67,100);old.render_ticks(2,&mut Vec::new());
+        let mut detached=p.clone();detached.channels[0].layer_children.clear();let mut next=Engine::new(&detached,&mut SampleLibrary::new(None),48000,PlayMode::Pattern(1));for (i,r) in recs.iter().enumerate(){next.set_instrument(i,r.clone());}next.continue_from(&mut old);next.render_ticks(2,&mut Vec::new());assert!(got(&recs[0],"off").is_empty());assert_eq!(got(&recs[1],"off").len(),1);next.note_off(0,67);next.render_ticks(2,&mut Vec::new());assert_eq!(got(&recs[0],"off").len(),1);
+        p.channels[0].enabled=false;p.patterns[0].notes=vec![long_note(0,48,0)];let(mut e,_)=setup(&p);assert!(e.render_all(512).iter().all(|v|v.abs()<1e-6));
+    }
+
     /// A layer's note makes no sound of its own: every child plays it as its own note, with the layer's pitch on its
     /// pitch (here a key 3 semitones up: the children ignore a tuning) and the layer's volume and pan on its levels
     /// (spec: audio/note-rules.md "Layer channels").
@@ -5982,6 +6221,17 @@ mod tests {
 
     /// A note held on a moved key keeps it: a channel pitch that changes while it sounds retunes it there, and its
     /// note off goes there, also when the engine goes away.
+    #[test] fn community_pattern_switch_releases_old_notes() {
+        let mut p=project(vec![],vec![]);p.channels[0].kind=ChannelKind::Plugin;
+        let mut lib=SampleLibrary::default();let log=Arc::new(std::sync::Mutex::new(TuneLog::default()));
+        let mut old=Engine::new(&p,&mut lib,48000,PlayMode::Pattern(1));old.set_instrument(0,log.clone());old.note_on(0,60,100);
+        old.process(&mut vec![0.;4096]);assert_eq!(log.lock().unwrap().keys,[(60,true)]);
+        let mut next=Engine::new(&p,&mut lib,48000,PlayMode::Pattern(2));next.set_instrument(0,log.clone());next.continue_pattern_from(&mut old);
+        assert!(next.voices.is_empty()&&next.sounding.is_empty()&&next.inst_live.is_empty());
+        assert!(log.lock().unwrap().keys.contains(&(60,false)));
+        assert!(next.tick_position() < next.end_tick().max(1) as f64);
+    }
+
     #[test]
     fn moved_keys_keep_their_notes() {
         let mut p = project(vec![], vec![]);
@@ -6434,6 +6684,61 @@ mod tests {
                 (l[f], r[f]) = (sum, sum);
             }
         }
+    }
+
+    #[test]
+    fn live_playlist_trim_keeps_audio_continuous() {
+        use os_model::{Clip, ClipSource};
+        let wav = std::env::temp_dir().join(format!("lemon-trim-{}.wav", std::process::id()));
+        let samples: Vec<f32> = (0..48000 * 4).flat_map(|i| {
+            let v = (i as f32 * 0.057).sin() * 0.25; [v, v]
+        }).collect();
+        crate::wav::write_f32_stereo(&mut std::fs::File::create(&wav).unwrap(), 48000, &samples).unwrap();
+        for hosted in [false, true] {
+            let mut p = song(vec![], vec![Clip::new(0, 768, 0, ClipSource::Channel(0))]);
+            p.channels[0].kind = ChannelKind::AudioClip;
+            p.channels[0].sample_path = Some(wav.to_string_lossy().into_owned());
+            let mut lib = SampleLibrary::new(None);
+            let inst = Arc::new(std::sync::Mutex::new(VoicedSampler::default()));
+            let make = |p: &Project, lib: &mut SampleLibrary| {
+                let mut e = Engine::new(p, lib, 48000, PlayMode::Song);
+                if hosted { e.set_instrument(0, inst.clone()); }
+                e
+            };
+            let mut e = make(&p, &mut lib);
+            let mut reference = Engine::new(&p, &mut lib, 48000, PlayMode::Song);
+            let mut out = vec![0.; 24000]; e.process(&mut out); reference.process(&mut out);
+            for i in 0..24 {
+                let start = (i % 6) * 2;
+                let from_ms = f64::from(start) * 60000. / p.tick_tempo(p.tempo.unwrap()) / f64::from(p.ppq);
+                let clip = &mut p.arrangements[0].clips[0];
+                clip.position = start;
+                clip.length = 200 + (i % 3) * 40 - start;
+                clip.window = Some((from_ms, 4000.));
+                let mut next = make(&p, &mut lib);
+                let old_pos = e.voices.first().map(|v| v.pos);
+                next.continue_from(&mut e); e = next;
+                if !hosted { assert_eq!(e.voices.first().map(|v| v.pos), old_pos, "trim preserves sample phase"); }
+                let mut out = vec![0.; 512]; let mut expected = vec![0.; 512];
+                e.process(&mut out); reference.process(&mut expected);
+                if !hosted {
+                    let error = out.iter().zip(&expected).map(|(a,b)| (a-b).abs()).fold(0.0_f32, f32::max);
+                    assert!(error < 1e-6, "trim {i} introduced an audio discontinuity: {error}");
+                }
+            }
+            if hosted { assert_eq!(inst.lock().unwrap().started.len(), 1, "trims must not retrigger hosted sampler"); }
+            // Extending the right edge must also replace the old scheduled stop.
+            p.arrangements[0].clips[0].length = 768;
+            let mut next = make(&p, &mut lib); next.continue_from(&mut e); e = next;
+            let mut out = vec![0.; 96000]; e.process(&mut out);
+            assert!(out[out.len()-4000..].iter().any(|v| v.abs() > 0.01), "extended clip stopped at old end");
+            // Trimming past the playhead still removes the voice.
+            p.arrangements[0].clips[0].length = 1;
+            let mut next = make(&p, &mut lib); next.continue_from(&mut e); e = next;
+            let mut out = vec![0.; 4800]; e.process(&mut out);
+            assert!(out[4000..].iter().all(|v| v.abs() < 1e-6));
+        }
+        let _ = std::fs::remove_file(wav);
     }
 
     #[test]
@@ -7280,6 +7585,36 @@ mod tests {
         p.channels[0].mixer_track = 1;
         p.mixer = (0..3).map(os_model::MixerTrack::new).collect();
         p
+    }
+
+    #[test]
+    fn playback_fix_mixer_layout_keeps_dsp_history() {
+        fn render(edit: u8) -> Vec<f32> {
+            let mut p=insert_project();
+            p.patterns[0].notes[0].length=3840;
+            p.mixer[1].strip[1]=50000;p.mixer[1].strip[4]=50000;
+            let mut lib=SampleLibrary::default();
+            let mut old=Engine::new(&p,&mut lib,48000,PlayMode::Pattern(1));
+            old.process(&mut vec![0.;48000]);
+            match edit {
+                1=>p.mixer.push(os_model::MixerTrack::new(3)),
+                2=>{p.mixer.insert(1,os_model::MixerTrack::new(1));p.channels[0].mixer_track=2;},
+                3=>{p.mixer.remove(2);},
+                4=>{p.mixer.swap(1,2);p.channels[0].mixer_track=2;},
+                _=>{}
+            }
+            for (i,t) in p.mixer.iter_mut().enumerate(){t.index=i as u16;}
+            let mut next=Engine::new(&p,&mut lib,48000,PlayMode::Pattern(1));
+            next.continue_from(&mut old);
+            let mut out=vec![0.;4800];next.process(&mut out);out
+        }
+        let control=render(0);
+        assert!(control.iter().any(|x|x.abs()>0.001));
+        for edit in 1..=4 {
+            let changed=render(edit);
+            let diff=control.iter().zip(changed).fold(0f32,|p,(a,b)|p.max((a-b).abs()));
+            assert!(diff<1e-7,"layout edit {edit} changed audio by {diff}");
+        }
     }
 
     fn render_with(p: &Project, fx: bool) -> Vec<f32> {
@@ -8253,5 +8588,36 @@ mod tests {
         let e=Engine::with_instruments(&p,&mut lib,44100,PlayMode::Song,&[(0,probe)]);
         assert!(e.channels[0].instrument.0.is_some(),"unfreeze reattaches");
     }
+ #[test]fn mpe_engine_delivers_independent_notes_and_releases_on_pause(){
+  #[derive(Default)]struct MpeProbe{decoder:crate::mpe::Decoder,events:Vec<crate::mpe::Event>,held:std::collections::BTreeMap<i32,f32>}
+  impl Instrument for MpeProbe{fn note_on(&mut self,_:u32,_:u8,_:f32){panic!("MPE must not use a shared legacy note")}fn note_off(&mut self,_:u32,_:u8){}fn midi(&mut self,_:u32,b:[u8;3]){if let Some(e)=self.decoder.receive(b){for event in e{match event{crate::mpe::Event::On{id,..}=>{self.held.insert(id,0.);},crate::mpe::Event::Off{id,..}=>{self.held.remove(&id);},crate::mpe::Event::Expression{id,lane:0,value}=>{if let Some(v)=self.held.get_mut(&id){*v=value;}},_=>{}}self.events.push(event);}}}fn process(&mut self,_:u32,l:&mut[f32],r:&mut[f32]){let v=self.held.len()as f32*0.1;l.fill(v);r.fill(v);}fn active(&self)->bool{!self.held.is_empty()}}
+  let mut p=project(vec![long_note(0,96,0),long_note(0,96,0)],vec![]);p.channels[0].kind=ChannelKind::Plugin;p.mpe.set_config(0,os_model::mpe::Config{enabled:true,..Default::default()});let mut curve=os_model::mpe::Expression::default();curve.set(0,0.,12.,false);p.patterns[0].notes[0].expression=p.mpe.add(curve);
+  let probe=Arc::new(Mutex::new(MpeProbe::default()));let mut e=Engine::new(&p,&mut SampleLibrary::default(),48000,PlayMode::Pattern(1));e.set_instrument(0,probe.clone());let mut audio=vec![0.;512];e.process(&mut audio);assert!(audio.iter().any(|v|v.abs()>0.01));{let pr=probe.lock().unwrap();assert_eq!(pr.held.len(),2);assert!(pr.held.values().any(|v|(*v-12.).abs()<0.01));assert!(pr.held.values().any(|v|v.abs()<0.01));}
+  let mut next=Engine::new(&p,&mut SampleLibrary::default(),48000,PlayMode::Pattern(1));next.set_instrument(0,probe.clone());next.continue_from(&mut e);drop(e);assert_eq!(probe.lock().unwrap().held.len(),2,"engine update must retain sounding MPE voices");next.release_instruments();assert!(probe.lock().unwrap().held.is_empty());next.process(&mut audio);assert_eq!(probe.lock().unwrap().held.len(),2,"resume restores independent voices");drop(next);assert!(probe.lock().unwrap().held.is_empty());
+ }
+}
+
+#[cfg(test)]
+mod rack_strip_tests {
+ use super::*;
+ #[test]fn rack_strip_signal_order_bypass_and_delay(){
+  struct Gain(f32);impl crate::instrument::HostedEffect for Gain {fn process_fx(&mut self,_:u32,l:&mut[f32],r:&mut[f32]){for x in l.iter_mut().chain(r){*x*=self.0;}}}
+  let mut p=os_model::Project::default();p.mixer=(0..3).map(os_model::MixerTrack::new).collect();
+  p.mixer[1].strip=[40000;7];p.mixer[1].strip_bypassed=true;p.mixer[1].slots_enabled=false;p.mixer[1].slot_on[10]=false;
+  p.mixer[1].rack_strip=Some(os_model::RackStrip{slot:3,native_bypassed:false,eq_on:true});
+  let mut e=Engine::new(&p,&mut SampleLibrary::new(None),48000,PlayMode::Pattern(1));
+  e.set_effect(1,0,Arc::new(Mutex::new(Gain(0.))));e.set_effect(1,3,Arc::new(Mutex::new(Gain(2.))));e.set_effect(1,10,Arc::new(Mutex::new(Gain(7.))));
+  assert_eq!(e.tracks[1].effects[0].slot,3);
+  for f in &mut e.tracks[1].effects{f.delay=if f.slot==3{64}else{512};}
+  e.plan_delays();assert_eq!(e.pdc.wait(os_model::target::Target::MixerVolume(1),1),64);
+  assert_eq!(e.pdc.wait(os_model::target::Target::SlotParam(1,0,0),1),e.pdc.wait(os_model::target::Target::SlotParam(1,3,0),1)+64);
+  for f in &mut e.tracks[1].effects{f.delay=0;}e.plan_delays();
+  e.bus.iter_mut().for_each(|b|*b=vec![0.;256]);e.bus[1].fill(0.2);let transport=e.transport_at(0);e.mix(128,&transport);
+  assert!(e.track_output(1).iter().all(|x|(*x-0.4).abs()<1e-5),"Only the hosted strip should process: no native strip, disabled EQ or bypassed effects");
+ }
+
 
 }
+
+#[cfg(test)]
+mod audit_tests;

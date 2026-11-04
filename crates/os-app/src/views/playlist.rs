@@ -100,24 +100,42 @@ pub fn paint(ui: &mut Ui, s: &State, r: Rect, f: &FrameInfo) {
     ui.c.set_cover((fr.h >= 2.0 * crate::app::TITLE_H).then_some(cover));
     let (r, client) = super::framed(ui, s, Win::Playlist, r, &title, 208.0, true);
     ui.c.set_cover(None);
-    // Compact, bounded header labels share the same baseline as Clips / Stretch.
+    // Editing tools, then mode and content selectors. Keep window buttons clear.
+    let ty=r.y+2.;
+    for (x,icon,action,hint) in [(4.,Icon::ArrowRight,Action::PlOptions,"Playlist options".to_string()),(25.,Icon::Magnet,Action::PlSnap,format!("Snap: {}",s.playlist.snap.label()))] {
+        let b=Rect::new(r.x+x,ty,18.,18.);let hot=ui.hit(b,action,hint);
+        icons::draw(ui.c,icon,b,if hot {t.glyph}else{t.text});
+    }
+    for (i,(tool,icon)) in [(pl::PlTool::Draw,Icon::Pencil),(pl::PlTool::Paint,Icon::Brush),(pl::PlTool::Slice,Icon::Slice),(pl::PlTool::Select,Icon::Select)].into_iter().enumerate() {
+        let b=Rect::new(r.x+49.+i as f32*22.,ty,20.,18.);
+        let hot=ui.hit(b,Action::PlTool(tool),tool.hint());
+        let ink=tool_face(ui,b,s.playlist.tool==tool,hot);icons::draw(ui.c,icon,b.inset(2.),ink);
+    }
+    let b=Rect::new(r.x+145.,ty,49.,18.);
+    let active=s.playlist.tool==pl::PlTool::Comp;
+    let hot=ui.hit(b,Action::PlTool(if active {pl::PlTool::Paint}else{pl::PlTool::Comp}),if active {"Comping mode: on (G); click to exit"}else{"Comping mode: off (G); click to enable"});
+    let ink=tool_face(ui,b,active,hot);
+    ui.c.stroke_rrect(b,3.,1.,if active {t.accent}else{t.text_dim});
+    ui.c.text_center(Font::new(11),b,ink,"COMP");
+    for x in [139.,200.,260.] {ui.c.line(r.x+x,ty+3.,r.x+x,ty+15.,1.,t.text_faint);}
+    let b=Rect::new(r.x+207.,ty,47.,18.);
+    let hot=ui.hit(b,Action::PlClips,"Clips: patterns, audio clips and automation clips");
+    let ink=tool_face(ui,b,false,hot);ui.c.text(Font::new(12),b.x+3.,b.y+1.,ink,"Clips");
+    let (x,y)=(b.right()-6.,b.cy());ui.c.fill_polygon(&[(x-3.,y-1.),(x+3.,y-1.),(x,y+2.)],ink);
     let font=Font::new(12);
-    // KNAY: FL's tool icons in the title bar: draw, paint, delete, mute, slip, slice, select, zoom, playback.
-    const TOOLS: [(pl::PlTool, Icon, &str); 9] = [
-        (pl::PlTool::Draw, Icon::Pencil, "Draw (P)"),
-        (pl::PlTool::Paint, Icon::Brush, "Paint (B)"),
+    // KNAY: the rest of FL's tools beside Michael Lane's (draw, paint, slice, select): delete, mute, slip, zoom, playback.
+    const TOOLS: [(pl::PlTool, Icon, &str); 5] = [
         (pl::PlTool::Delete, Icon::Delete, "Delete (D)"),
         (pl::PlTool::Mute, Icon::Mute, "Mute (T): click or swipe to mute / unmute clips (Alt+right-click too)"),
         (pl::PlTool::Slip, Icon::Slip, "Slip (S): drag to slide a clip's contents inside it"),
-        (pl::PlTool::Slice, Icon::Slice, "Slice (C): cut clips"),
-        (pl::PlTool::Select, Icon::Select, "Select (E)"),
         (pl::PlTool::Zoom, Icon::Zoom, "Zoom (Z)"),
         (pl::PlTool::Playback, Icon::Speaker, "Playback (Y)"),
     ];
-    let tools_x = r.x + 264.0;
-    if r.w > 264.0 + 21.0 * TOOLS.len() as f32 + 64.0 {
+    let tools_x = r.x + 267.0;
+    let room = r.w > 267.0 + 21.0 * TOOLS.len() as f32 + 68.0;
+    if room {
         for (k, (tool, icon, hint)) in TOOLS.iter().enumerate() {
-            let b = Rect::new(tools_x + 21.0 * k as f32, r.y + 2.0, 18.0, 18.0);
+            let b = Rect::new(tools_x + 21.0 * k as f32, ty, 18.0, 18.0);
             let hov = ui.hit(b, Action::PlTool(*tool), *hint);
             let on = s.playlist.tool == *tool;
             if on {
@@ -128,53 +146,14 @@ pub fn paint(ui: &mut Ui, s: &State, r: Rect, f: &FrameInfo) {
             icons::draw(ui.c, *icon, b, if on { Color::rgb(0x111111) } else if hov { t.glyph } else { t.text });
         }
     }
-    let arr_x = if r.w > 264.0 + 21.0 * TOOLS.len() as f32 + 64.0 { 264.0 + 21.0 * TOOLS.len() as f32 + 8.0 } else { 264.0 };
-    let available=(r.w-64.0-arr_x).max(0.0);
-    let arr_w=(ui.c.text_width(font,&arr)+25.0).min(180.0).min(available);
-    if arr_w>24.0 {
-        let b=Rect::new(r.x+arr_x,r.y+2.0,arr_w,18.0);
-        let hot=ui.hit(b,Action::PlArrangement,"Arrangements");
+    let arr_x = if room { 267.0 + 21.0 * TOOLS.len() as f32 + 8.0 } else { 267.0 };
+    let arr_w=(ui.c.text_width(font,&arr)+23.).min(180.).min((r.w-arr_x-68.).max(0.));
+    if arr_w>24. {
+        let b=Rect::new(r.x+arr_x,ty,arr_w,18.);
+        let hot=ui.hit(b,Action::PlArrangement,format!("Arrangement: {arr}"));
         let ink=tool_face(ui,b,false,hot);
-        ui.c.text_clip(font,b.x+6.0,b.y+1.0,(b.w-19.0).max(0.),ink,&arr);
-        let (x,y)=(b.right()-8.,b.cy());ui.c.fill_polygon(&[(x-3.,y-1.),(x+3.,y-1.),(x,y+2.)],ink);
-        let left=b.right()+10.;let width=(r.right()-68.-left).max(0.);
-        if width>20. {ui.c.text_clip(font,left,b.y+1.,width,t.text_dim,&pl::source_name(s,pl::source(s)));}
-    }
-
-    // Title-bar tools: ▸ options, snap magnet, then the nine tools (§1, §3).
-    let ty = r.y + 2.0;
-    let b = Rect::new(r.x + 13.0 - 9.0, ty, 18.0, 18.0);
-    let hov = ui.hit(b, Action::PlOptions, "Playlist options");
-    icons::draw(ui.c, Icon::ArrowRight, b, if hov { t.glyph } else { t.text });
-    let b = Rect::new(r.x + 33.0 - 9.0, ty, 18.0, 18.0);
-    let hov = ui.hit(b, Action::PlSnap, format!("Snap: {}", s.playlist.snap.label()));
-    icons::draw(ui.c, Icon::Magnet, b, if hov || pl::grid_snap(s) != pl::Snap::None { t.glyph } else { t.text });
-    let b = Rect::new(r.x + 51.0, ty, 66.0, 18.0);
-    let hov = ui.hit(b, Action::PlClips, "Clips: patterns, audio clips and automation clips");
-    let ink = tool_face(ui, b, false, hov);
-    ui.c.text(Font::new(12), b.x + 8.0, b.y + 1.0, ink, "Clips");
-    let (ax, ay) = (b.right()-10.0,b.cy());
-    ui.c.fill_polygon(&[(ax-3.0,ay-1.0),(ax+3.0,ay-1.0),(ax,ay+2.0)],ink);
-    // Stretch mode (Shift+M, §9b): |<->| after the tools, lit while on.
-    {
-        let b = Rect::new(r.x + 126.0, ty, 66.0, 18.0);
-        let hov = ui.hit(b, Action::PlStretch, if s.playlist.stretch { "Stretch mode: on (Shift+M)" } else { "Stretch mode: off (Shift+M)" });
-        let on = s.playlist.stretch;
-        let col = tool_face(ui, b, on, hov);
-        let (cx, cy) = (b.x + 9.0, b.cy());
-        ui.c.text(Font::new(12), b.x + 19.0, b.y + 1.0, col, "Stretch");
-        ui.c.fill_rect(Rect::new(cx - 7.0, cy - 5.0, 1.2, 10.0), col);
-        ui.c.fill_rect(Rect::new(cx + 5.8, cy - 5.0, 1.2, 10.0), col);
-        ui.c.line(cx - 5.0, cy, cx + 4.0, cy, 1.2, col);
-        ui.c.fill_polygon(&[(cx - 5.5, cy), (cx - 2.5, cy - 2.5), (cx - 2.5, cy + 2.5)], col);
-        ui.c.fill_polygon(&[(cx + 4.5, cy), (cx + 1.5, cy - 2.5), (cx + 1.5, cy + 2.5)], col);
-    }
-    {
-        let b=Rect::new(r.x+198.0,ty,58.0,18.0);
-        let active=s.playlist.tool==pl::PlTool::Comp;
-        let hot=ui.hit(b,Action::PlTool(if active {pl::PlTool::Paint}else{pl::PlTool::Comp}),"Comp (G)");
-        let ink=tool_face(ui,b,active,hot);
-        ui.c.text_center(Font::new(12),b,ink,"Comp G");
+        ui.c.text_clip(font,b.x+5.,b.y+1.,(b.w-18.).max(0.),ink,&arr);
+        let (x,y)=(b.right()-7.,b.cy());ui.c.fill_polygon(&[(x-3.,y-1.),(x+3.,y-1.),(x,y+2.)],ink);
     }
     if r.h < 2.0 * crate::app::TITLE_H {
         return; // collapsed to the title bar
@@ -377,7 +356,7 @@ pub fn scroll_parts(s: &State, grid: Rect) -> ScrollParts {
         grid,
         ruler: ruler_rect(s, grid),
         lane: (!pl::markers(s).is_empty()).then(|| Rect::new(grid.x, overview.y + 41.0, grid.w, MARKER_H)),
-        heads: Rect::new(grid.x - 110.0, grid.y, 98.0, grid.h),
+        heads: Rect::new(super::frame_rects(s, Win::Playlist, s.win_rect(Win::Playlist)).0.x + 2.0, grid.y, 98.0, grid.h),
         vbar: Rect::new(grid.right(), overview.y, 4.0 + bar_sizes().1, grid.bottom() - overview.y),
         overview,
     }
@@ -535,7 +514,7 @@ fn markers_paint(ui: &mut Ui, s: &State, g: &PGeom, lane: Rect) {
             (at(w - slant - 0.3), top + 1.5),
             (at(w), bottom),
         ];
-        ui.c.fill_polygon(&tab, t.ruler.mix(t.track_header, 0.55));
+        ui.c.fill_polygon(&tab, m.color.map_or_else(||t.ruler.mix(t.track_header,0.55),|c|Color::rgb(c).mix(t.ruler,0.45)));
         marker_glyph(ui, m.kind, x, top + 8.0);
         let tx = x + 3.0 + pl::marker_icon(m.kind).0;
         ui.c.text_clip(Font::new(12), tx, lane.y + 1.0, right - tx, t.text, &marker_label(m));
@@ -837,7 +816,7 @@ fn pattern_notes(ui: &mut Ui, s: &State, g: &PGeom, c: &Clip, n: u16, body: Body
     // Only the notes reaching the painted part of the body.
     let Some(area) = ui.c.paint_bounds() else { return };
     let (x_min, x_max) = (area.x.max(br.x), area.right().min(br.right()));
-    let ppt = f64::from(g.ppt);
+    let ppt = f64::from(g.ppt)/c.pattern_rate();
     for note in &p.notes {
         let pos = f64::from(note.position);
         let len = f64::from(if note.length == 0 { step } else { note.length });
@@ -909,10 +888,24 @@ fn waveform(ui: &mut Ui, s: &State, g: &PGeom, c: &Clip, ch: u16, body: Body, co
         }
         k
     };
+    let detail=crate::prefs::text("playlist_wave_detail").and_then(|v|v.parse::<u8>().ok()).unwrap_or(0);
+    let fine=if detail>0 && ms_per_tick*frames_per_ms/ppt*px < w.per as f64 {
+        if w.fine.borrow().is_none() {
+            *w.fine.borrow_mut()=os_engine::sample::load_shared(std::path::Path::new(&crate::plugins::resolve_sample(&path))).ok();
+        }
+        w.fine.borrow().clone()
+    }else{None};
     // Peaks from `da` to `db` px into the body.
     let range = |da: f64, db: f64| -> Option<(f32, f32)> {
         let ms_a = w0 + da / ppt * ms_per_tick;
         let ms_b = w0 + db / ppt * ms_per_tick;
+        if let Some(sample)=&fine {
+            let per=if detail==1 {8} else {1};
+            let a=(ms_a*frames_per_ms).max(0.) as usize/per*per;
+            let b=(((ms_b*frames_per_ms).max(0.) as usize).div_ceil(per)*per).max(a+1).min(sample.frames());
+            if a>=b {return None;}
+            return Some(sample.left[a..b].iter().zip(&sample.right[a..b]).fold((f32::MAX,f32::MIN),|(lo,hi),(&l,&r)|{let v=(l+r)*0.5;(lo.min(v),hi.max(v))}));
+        }
         let fa = (ms_a * frames_per_ms).max(0.0) as usize / w.per;
         let fb = ((ms_b * frames_per_ms).max(0.0) as usize / w.per).max(fa + 1);
         if fa >= w.peaks.len() {

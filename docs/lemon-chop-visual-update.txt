@@ -1,0 +1,14 @@
+Lemon Chop — visual and interaction update
+2 November 2026 • Local development update
+
+The editor now has a larger 1040 × 860 layout, raised color-coded pads, Lemon Studio's shared dial design, clearer selected-pad / group / all-pad scope, numbered waveform cues, a position and zoom readout, and a full-sized beat-grid toolbar.
+
+Hover controls for guidance in the bottom strip. Drag knobs vertically; hold Ctrl for fine adjustments, double-click for a typed value, or right-click for options. The previous smooth pitch-drag fix is retained.
+
+Click a pad to play. Ctrl-click selects several pads; All pads makes edits apply across all 32. Drag a pad onto another to move/swap; Alt-drag copies. The destination is outlined. Moving away from the destination before releasing cancels the drop.
+
+Pad note labels use C4 = MIDI 60. Imported cue colors and favorites remain visible. Playing pads light up; the selected pad stays outlined. Stem levels are shown as percentages; pitch, filter, level and envelope values have readable units.
+
+All previous sampler, stem separation, routing, automation and project settings remain. This update also includes the recent hosted channel-strip changes and private Master Assistant. Controller integration is outside this visual pass.
+
+Checked: automated interaction/layout checks, existing sampler tests, offscreen loaded / empty / grid editor previews, and a private Windows app build. Hands-on feel, actual display scaling and listening remain user checks. This is not a public release or a claim of identical Serato behavior.

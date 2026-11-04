@@ -596,6 +596,9 @@ impl SampleLibrary {
         PathBuf::from(project_path)
     }
 
+    /// Supply decoded audio in this library only (for isolated preview buffers).
+    pub fn insert_buffer(&mut self, key: String, sample: Arc<Sample>) { self.cache.insert(key,Some(sample)); }
+
     pub fn get(&mut self, project_path: &str) -> Option<Arc<Sample>> {
         if let Some(s) = self.cache.get(project_path) {
             return s.clone();

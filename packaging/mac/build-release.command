@@ -9,12 +9,18 @@ export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$HOME/.cache/lemon-studio-remote-ta
 unset CARGO_BUILD_TARGET
 xcode-select -p >/dev/null
 cd "$ROOT"
-# LAME's autotools build rejects spaces in its source directory as well.
-mkdir -p "$HOME/.cache/lemon-studio-build-sources"
-BUILD_SOURCE="$(mktemp -d "$HOME/.cache/lemon-studio-build-sources/release.XXXXXX")"
-git archive HEAD | tar -x -C "$BUILD_SOURCE"
+# A stable, locked, pipeline-owned worktree preserves Cargo build-script paths.
+BUILD_SOURCE="$(python3 "$ROOT/packaging/workflow/mac-worktree.py" "$ROOT" "${LEMON_MAC_ARCH:-$(uname -m)}")"
 cd "$BUILD_SOURCE"
-cargo build --locked --release -p os-app
+export LEMON_RELEASE=1
+: "${LEMON_MASTER_BUNDLE:?Set LEMON_MASTER_BUNDLE to the native Mac engine archive}"
+case "${LEMON_MAC_ARCH:-$(uname -m)}" in
+ arm64) export LEMON_APP_TARGET=aarch64-apple-darwin ;;
+ x86_64) export LEMON_APP_TARGET=x86_64-apple-darwin ;;
+ *) echo 'Unsupported Mac architecture'; exit 1 ;;
+esac
+export MACOSX_DEPLOYMENT_TARGET=12.0
+cargo build --locked --release -p os-app --target "$LEMON_APP_TARGET"
 cargo run --locked --release -p bundle-app
 APP="$CARGO_TARGET_DIR/bundled/Lemon Studio.app"
 codesign --verify --deep --strict "$APP"

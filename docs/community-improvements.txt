@@ -1,0 +1,55 @@
+LEMON STUDIO - LOCAL DEVELOPMENT UPDATE
+2 November 2026
+
+Mixer polish
+Full and Channel Strip mixers have a larger, brighter stereo-separation knob
+with linked-circle markings. The Full mixer pan panel now encloses its knob.
+
+Tempo undo
+Tempo changes now participate in project undo/redo. A mouse drag is one step.
+
+Pattern playback
+In PAT mode, selecting another pattern follows it at the current loop phase
+and releases the former pattern's held notes. Song playback stays in Song mode.
+
+Sampler audition
+The hosted Lemon Sampler open-file button uses Lemon Studio's sample chooser.
+Select a sample to audition it; Preview On/Off controls audition. Opening loads
+the selected sample; cancelling stops audition without replacing the channel.
+The standalone plugin keeps its own file chooser.
+
+Shortcuts
+Options / General / Input / Manage shortcuts now also remaps common commands:
+play/stop, play/pause, save, save as, open, undo, redo, Playlist, Channel Rack,
+Piano Roll, Mixer, Metronome and Typing Piano Keyboard. Click a binding and press
+a key combination. Backspace clears it; Escape cancels capture. Apply saves.
+Duplicate assignments in this command list are rejected. F8 remains controlled
+by the existing browser/picker options. Other existing contextual shortcuts
+are not individually editable in this first command-binding extension.
+
+Audio warp markers
+Right-click an audio clip in the Playlist and choose Warp markers. Click the
+source waveform to add timing anchors, then drag their lower handles on the
+beat grid. Snap uses sixteenth notes. Half/Double length changes total duration.
+Apply makes a new audio variant, changes only this clip and preserves its source.
+Undo restores the previous clip. Markers save with the project; reopen the same
+untrimmed warped clip to adjust them. Trimming a rendered variant starts a new
+warp from that variant. Copy used samples / zipped export include warp sources.
+Sampler trim, offset and reverse processing must be rendered to audio first.
+This is manual marker editing, not automatic transient detection or Ableton's
+complete warp workflow. Listen to stretched segments and transitions before use.
+
+Enhanced HQ EQ
+High-shelf frequency/gain/bandwidth changes ramp coefficients over 10 ms after
+playback begins, reducing the reproduced low-frequency adjustment transient.
+Synthetic checks cover 20 Hz / 600 Hz and several rates and block sizes.
+
+Plugin settings recall
+When a plugin explicitly rejects nonempty saved settings, the host now reports
+it and preserves the project's original stored state rather than saving a
+fresh default instance over it. This does not resolve every possible FLP/plugin
+compatibility issue. No reproducing project was available for voting item 12.
+
+This is a private local Windows development update, not a published release.
+Final visual review, listening and real third-party project recall remain for
+Michael to test. No microphone or live audio-device tests were performed.

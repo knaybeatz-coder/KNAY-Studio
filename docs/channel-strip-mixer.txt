@@ -1,0 +1,132 @@
+LEMON STUDIO - CHANNEL STRIP MIXER VIEW
+Windows local development update - 2 November 2026
+
+The earlier custom-knob implementation was reverted. This view hosts the actual
+plugin's original interface, not a recreated set of Lemon controls.
+
+OPEN THE THIRD VIEW
+Click the third mixer-view button (Channel Strip), beside Full and Traditional.
+The upper panels start empty. Lemon's volume faders, pan, mute/solo and meters
+remain below. Existing Full and Traditional views remain available.
+
+LOAD ORIGINAL CHANNEL STRIPS
+Click a blank upper panel to choose an installed original Waves channel strip.
+Supported families: Scheps Omni Channel 2, SSL E-Channel, SSL G-Channel, SSL EV2,
+Renaissance Channel, Magma, Abbey Road REDD and EMI TG12345.
+AudioTrack, Slate Virtual Mix Rack and Acqua GOLD are excluded from this picker.
+The view displays "Currently only Waves plugins supported" at the top.
+Other installed channel-strip products may appear in a separate "Other resizable
+strips (unsupported)" menu. They must respond to host scaling. This is experimental,
+including Universal Audio: there are no installed UAD editors available to verify.
+Only installed/scanned entries appear. General FX menus are unchanged.
+Original vendor controls and preset menus are retained.
+
+WHOLE-SECTION PAGING
+Left/right buttons below the editor slide smoothly to complete section boundaries.
+The page width includes the entire selected section; it is not a fixed scroll step.
+Scheps uses its installed Waves V15 module-slot geometry, so reordering equally sized
+modules does not move a stop into a module. The fifth module and insert region stay
+together; the output is a separate full-width page. SSL E/G uses its complete EQ and
+dynamics/output sections. Stops scale with the actual editor dimensions.
+
+SSL EV2 now has three overlapping section pages. The overlap preserves edge
+controls that cross the decorative panel dividers; every main control rectangle
+fits completely on at least one page. TG12345 now has three pages for mono and stereo: input/dynamics, EQ/routing,
+and output. Stereo sections overlap where needed to retain complete edge controls.
+Magma, RChannel and Abbey Road REDD stay whole.
+Unknown/expanded layouts fall back to the whole interface rather than guessed stops.
+Channel context menu > Channel Strip mixer retains loading/removal/copy options.
+
+SIZING AND REDRAW
+Original plugin sizing is measured at runtime, including current DPI and vendor
+scaling, rather than assuming all versions have fixed universal pixel dimensions.
+The editor is scaled to the AVAILABLE HEIGHT, giving a full-height strip rather
+than shrinking it to match a narrow column. The channel expands to the complete page
+width, following the visible section during the slide. Unneeded scrollbar width is
+removed; only a slim frame and the minimum width for Lemon controls remain.
+Lower fader travel is shorter; toolbar and controls remain available.
+Resizing the mixer requests a new native editor scale after a brief resize pause.
+If scaling is refused/ignored, the actual original dimensions are retained. The
+floating mixer grows to the required height when it fits the workspace and prevents
+shrinking below that required height. If the unscalable original is physically taller
+than the screen permits, full simultaneous visibility is impossible; vertical scrolling
+remains available as a fallback. No bitmap stretching or pretend scaling is used.
+
+Native viewport and editor-parent backgrounds now paint explicitly, moved windows
+avoid reusing stale pixels, and changed regions are invalidated. Unchanged editor
+sizes no longer reposition child windows on every idle tick. This addresses the
+reported duplicate labels/trails; real vendor GUI scrolling/resizing still needs
+hands-on confirmation. Only visible editor windows open; processing keeps running.
+
+Fill all insert channels with creates independent instances. Copy this rack and
+settings to all inserts copies settings too. Existing effects are not overwritten.
+A visible error explains loading failures. Master monitoring controls remain separate.
+
+ROUTING
+Drag the sampler target-mixer control onto either the original plugin panel or
+the lower fader area to route to that channel. Covering windows/menus block the drop.
+Routing retains normal undo and playlist-lane name/color updates.
+
+AUDIO AND SAVING
+An assigned rack runs before that channel's remaining effects and replaces its
+native strip and dedicated EQ processing. Native settings are retained for removal.
+It runs independently of the ordinary effects-enable switch. Its normal slot
+bypass still works. Existing effects are not overwritten; a free user slot is
+required. Removing the strip restores the native processing and leaves the plugin
+as a bypassed effect. Changing racks keeps the former one bypassed as well.
+Save the project to keep the rack assignments and plugin states. Undo supports
+assignment/removal and batch changes. Parameter automation uses the normal plugin
+interface/parameter browser; there are no proxy parameter knobs in this view.
+Projects saved with the rejected custom-knob experiment restore their native strip
+settings on load and keep the former rack as a bypassed effect, with blank panels.
+
+VERIFICATION AND AVAILABILITY
+Focused model/render checks cover selection, actual menu-click dispatch, copy/save/
+reopen/undo, independent channels, pager/fader geometry, section-boundary snapping,
+fixed-size fallback, invalid dimensions and minimum-height calculation. Native APIs
+compile. With user permission, inspected live installed Waves editors: Magma,
+RChannel, SSL E/G, SSL EV2, REDD17/37.51 and Scheps; exercised SSL paging and mixer
+scrolling. Final-build visual review is being performed by the user at their request.
+No listening/audio-device/microphone tests. No claim of testing every mono/stereo
+variant, EMI TG12345, or every possible scale.
+Windows local/private update only; Mac/Linux not rebuilt and no public publication.
+
+NEXT PUBLIC RELEASE
+Update packaging/changelog.json with the dated/build user-facing changes, render
+and publish the matching download page, and verify both histories. Do not publish
+the private Master Assistant. The superseded custom-control approach is not a
+release feature.
+SECTION MAP EVIDENCE - INSTALLED WAVES V15
+Read-only GUIXML resources (Contents/Resources/GUIXML/1000.xml):
+Scheps Omni Channel: overall840x614, five112px modules from x3, insert38px,
+output starts x601. Page stops0,115,227,339,451,601,840.
+SSL E/G: overall357x675; complete control rectangles stay on each side of x185.
+SSL EV2465x614: pages[0,164], [154,320], [310,465]. Every cCONTROLLER
+ControlRect in installed1000.xml is wholly contained in at least one page.
+Magma remains whole.
+Reported runtime dimensions scale these boundaries; unrecognized aspect ratios use
+one whole-interface page. This is a supported profile list, not universal knowledge
+of every plugin version or user-configurable rack arrangement.
+
+TG12345 installed V15 GUIXML: mono518x587 pages[0,166]/[166,332]/[332,518];
+stereo658x587 pages[0,224]/[209,420]/[392,658]. All layout-specific controller
+rectangles fit wholly on at least one page; unknown/collapsed aspect stays whole.
+
+ANALOG LOWER CONSOLE
+Channel Strip mode now shares the Full mixer brushed fader caps, raised buttons,
+ribbed knobs and lamps. Lower controls sit together in a centered recessed panel
+across narrow/wide plugin columns. The old solid dark stereo-meter rectangle is
+a compact twin LED ladder with visible dim segments at silence. Audio laws,
+routing and plugin geometry remain unchanged.
+
+SPACING POLISH
+Paging buttons are shorter and the name plate sits higher, leaving a clear gap
+above the mute lamp. Pan and the fader cap stay separated even at maximum gain.
+Record and FX move lower with defined gaps; fader drag sensitivity follows the
+visible travel. Teleport buttons are separated from polarity/swap. Minimum loaded
+strip width is92px to keep controls clear of separators. Full and Channel Strip
+separators now have a raised metal face, side highlights/shadows and end fasteners.
+
+STEREO SEPARATION
+Full and Channel Strip separation knobs are larger, brighter and marked with
+linked stereo rings. Full mixer pan panels extend to enclose the outer knob rim.

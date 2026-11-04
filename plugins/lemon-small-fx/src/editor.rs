@@ -24,6 +24,20 @@ use crate::params::{self, FxParams};
 use crate::view::{self, Target, ViewState};
 use crate::{Shared, Spec};
 
+/// Optional non-parameter instrument controls, called only on the editor thread.
+pub trait Extension: Send + Sync {
+    /// Optional complete instrument view. Existing effect editors retain their default view.
+    fn render(&self, _canvas: &mut os_ui::Canvas, _model: &dyn view::Model,
+        _state: &ViewState, _hint: &str) -> Option<Vec<view::Hit>> { None }
+    fn wheel(&self, _x:f32, _y:f32, _notches:f32) -> bool { false }
+    fn character(&self, _character:char) -> bool { false }
+    fn dragging(&self) -> bool { false }
+    fn moved(&self, _x:f32, _y:f32) -> bool { false }
+    fn release(&self, _context:Option<&Arc<dyn GuiContext>>) -> bool { false }
+    fn paint(&self, canvas: &mut os_ui::Canvas, model: &dyn view::Model);
+    fn click(&self, x: f32, y: f32, context: Option<&Arc<dyn GuiContext>>) -> bool;
+}
+
 pub struct FxEditor {
     pub spec: &'static Spec,
     pub params: Arc<FxParams>,
@@ -173,6 +187,7 @@ struct Drag {
 }
 
 pub struct Logic {
+    context: Option<Arc<dyn GuiContext>>,
     pub spec: &'static Spec,
     pub vals: Vals,
     pub params: Arc<FxParams>,
@@ -188,12 +203,12 @@ pub struct Logic {
 
 impl Logic {
     pub fn new(spec: &'static Spec, params: Arc<FxParams>, shared: Arc<Shared>, ctx: Option<Arc<dyn GuiContext>>) -> Self {
-        let vals = Vals::new(&*params, params.live.clone(), ctx);
-        Logic { spec, vals, params, shared, view: ViewState::default(), hits: Vec::new(), drag: None, hint: String::new(), copied: None, hosted: false }
+        let vals = Vals::new(&*params, params.live.clone(), ctx.clone());
+        Logic { context: ctx, spec, vals, params, shared, view: ViewState::default(), hits: Vec::new(), drag: None, hint: String::new(), copied: None, hosted: false }
     }
 
     pub fn dragging(&self) -> bool {
-        self.drag.is_some()
+        self.drag.is_some() || self.shared.extension.as_ref().is_some_and(|e|e.dragging())
     }
 
     fn hit(&self, x: f32, y: f32) -> Option<(Target, os_ui::Rect)> {
@@ -237,6 +252,9 @@ impl Logic {
 
     pub fn down(&mut self, x: f32, y: f32, btn: Btn, m: Mods, _dbl: bool) -> Vec<Act> {
         self.view.mouse = Some((x, y));
+        if btn == Btn::Left && self.shared.extension.as_ref().is_some_and(|e| e.click(x, y, self.context.as_ref())) {
+            return vec![Act::Repaint];
+        }
         let Some((t, _)) = self.hit(x, y) else { return vec![] };
         let id = t.id().to_string();
         let mut acts = vec![Act::Repaint];
@@ -272,6 +290,7 @@ impl Logic {
     }
 
     pub fn up(&mut self, _btn: Btn) -> Vec<Act> {
+        if self.shared.extension.as_ref().is_some_and(|e|e.release(self.context.as_ref())) {return vec![Act::Repaint];}
         let Some(d) = self.drag.take() else { return vec![] };
         self.vals.end(&d.id);
         self.view.pressed = None;
@@ -280,6 +299,7 @@ impl Logic {
 
     pub fn moved(&mut self, x: f32, y: f32, _m: Mods) -> Vec<Act> {
         self.view.mouse = Some((x, y));
+        if self.shared.extension.as_ref().is_some_and(|e|e.moved(x,y)) {return vec![Act::Repaint];}
         if self.drag.is_none() {
             let t = self.hit(x, y).map(|h| h.0);
             self.hint = self.hint_for(t.as_ref());
@@ -295,6 +315,7 @@ impl Logic {
 
     /// Wheel: one step per notch (1/128 of the range for the settings with many steps).
     pub fn wheel(&mut self, x: f32, y: f32, notches: f32, m: Mods) -> Vec<Act> {
+        if self.drag.is_none() && self.shared.extension.as_ref().is_some_and(|e|e.wheel(x,y,notches)) {return vec![Act::Repaint];}
         let Some((t, _)) = self.hit(x, y).filter(|(t, _)| *t != Target::Logo) else { return vec![] };
         let id = t.id().to_string();
         let (lo, hi) = self.range(&id);
@@ -369,7 +390,14 @@ impl Logic {
     /// Paints the editor; `hint` is drawn when the host does not show it.
     pub fn paint(&mut self, c: &mut os_ui::Canvas, palette: &os_theme::Palette) {
         let hint = if self.hosted { String::new() } else { self.hint.clone() };
+        if let Some(hits) = self.shared.extension.as_ref().and_then(|e| e.render(c, &self.vals, &self.view, &hint)) {
+            self.hits = hits;
+            return;
+        }
         self.hits = view::paint(self.spec, c, palette, &self.vals, &self.view, &hint);
+        if let Some(extension) = &self.shared.extension {
+            extension.paint(c, &self.vals);
+        }
     }
 }
 
@@ -529,6 +557,12 @@ mod win32 {
                     w.poll();
                     0
                 }
+                WM_CHAR => {
+                    if char::from_u32(wp as u32).is_some_and(|ch|w.logic.shared.extension.as_ref().is_some_and(|e|e.character(ch))) {
+                        w.run(vec![Act::Repaint]); return 0;
+                    }
+                    DefWindowProcW(hwnd,msg,wp,lp)
+                }
                 WM_LBUTTONDOWN | WM_LBUTTONDBLCLK | WM_RBUTTONDOWN | WM_RBUTTONDBLCLK | WM_MBUTTONDOWN => {
                     SetFocus(hwnd);
                     let (x, y) = w.mouse(lp);
@@ -687,7 +721,7 @@ mod win32 {
                     }
                     1
                 }
-                Cmd::Changed | Cmd::Note | Cmd::Automate | Cmd::Audio | Cmd::Resizable | Cmd::SetSize => 0,
+                Cmd::BrowseSample | Cmd::Changed | Cmd::Note | Cmd::Automate | Cmd::Audio | Cmd::Resizable | Cmd::SetSize => 0,
             }
         }
 

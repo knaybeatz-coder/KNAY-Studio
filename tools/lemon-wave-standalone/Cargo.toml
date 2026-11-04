@@ -1,0 +1,37 @@
+[package]
+name = "lemon-wave-standalone"
+version = "0.0.1"
+edition = "2024"
+license = "GPL-3.0-or-later"
+
+# NIH standalone uses a different CPAL/ALSA generation than the DAW.
+# Keep its dependency resolution isolated; the instrument source is shared.
+[workspace]
+members = ["vendor/nih-plug", "vendor/nih-plug/nih_plug_derive"]
+
+[features]
+live-design = ["lemon-wave/live-design"]
+
+[dependencies]
+lemon-wave = { path = "../../plugins/lemon-wave", features = ["linked"] }
+nih_plug = { git = "https://github.com/robbert-vdh/nih-plug.git", default-features = false, features = ["standalone"] }
+midir = "0.9.1"
+cpal = "0.15.3"
+rfd = "0.15"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+os-ui = { path = "../../crates/os-ui" }
+os-plugkit = { path = "../../crates/os-plugkit" }
+lemon-small-fx = { path = "../../plugins/lemon-small-fx" }
+
+[profile.dev]
+opt-level = 1
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+opt-level = 2
+
+# Local standalone buffer-size fix; normal DAW/plugin workspaces retain upstream.
+[patch."https://github.com/robbert-vdh/nih-plug.git"]
+nih_plug = { path = "vendor/nih-plug" }

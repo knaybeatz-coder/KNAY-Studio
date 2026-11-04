@@ -49,6 +49,8 @@ pub fn paint(ui: &mut Ui, s: &State) {
         ui.c.fill_rect(full, Color::rgb(0).with_alpha(80));
         ui.hit(full, Action::Swallow, "");
         match &m.body {
+            Body::ClipFx(channel,page)=>{let r=place(s,m,510.,386.);frame(ui,r,"Clip Effects");crate::clip_effects::paint(ui,s,r,*channel,*page);},
+            Body::Warp(f)=>{let r=place(s,m,(s.screen.0-24.).clamp(600.,1000.),430.);frame(ui,r,"Audio warp markers");crate::warp::paint(ui,r,f);},
             Body::Ai => ai_box(ui,s,m),
             Body::RoutePicker(f) => route_picker_box(ui,s,m,f),
             Body::Headphones(f) => headphones_box(ui,s,m,f),
@@ -405,7 +407,13 @@ fn file_box(ui: &mut Ui, s: &State, m: &Modal, f: &FileDlg) {
     let cancel = Rect::new(r.right() - 12.0 - cw, r.bottom() - 37.0, cw, 30.0);
     let ok = Rect::new(cancel.x - 6.0 - mw, cancel.y, mw, 30.0);
     let col = if f.status.is_some() { t.h(0xff9e00) } else { t.text_dim };
+    if matches!(f.then,crate::dialog::Then::RackSample(_)) {
+        let b=Rect::new(r.x+14.,cancel.y,116.,cancel.h);
+        let hov=hit(ui,b,DHit::SamplePreview,"Audition the selected sample without loading it into the channel");
+        button(ui,b,if f.preview {"Preview: On"}else{"Preview: Off"},f.preview,hov,false,false);
+    }else{
     ui.c.text_clip(font, r.x + 14.0, (cancel.cy() - lh / 2.0).round(), ok.x - r.x - 26.0, col, &f.status_text());
+    }
     for (b, label, h, is_main) in [(ok, main, DHit::Accept, true), (cancel, "Cancel", DHit::Cancel, false)] {
         let act = Action::Dlg(h);
         let down = ui.down(b, &act);
@@ -438,13 +446,13 @@ fn shortcuts_box(ui: &mut Ui, s: &State, m: &Modal, f: &crate::shortcuts::Form) 
     let font = Font::new(13);
     let lh = ui.c.line_height(font);
     let groups_h: f32 = GROUPS.iter().map(|g| sc_group_h(g.1) + 6.0).sum();
-    let r = place(s, m, SC_W, 28.0 + 4.0 + groups_h + 47.0);
+    let r = place(s, m, SC_W+340., 28.0 + 4.0 + groups_h + 47.0);
     frame(ui, r, TITLE);
     let mut y = r.y + 32.0;
     let mut row = 0;
     let mut open_box = None;
     for (title, n) in GROUPS {
-        let p = Rect::new(r.x + 8.0, y, r.w - 16.0, sc_group_h(n));
+        let p = Rect::new(r.x + 8.0, y, SC_W - 16.0, sc_group_h(n));
         section(ui, p, title);
         for k in 0..n {
             let b = Rect::new(p.x + 10.0, p.y + 30.0 + k as f32 * SC_ROW, SC_BOX.0, SC_BOX.1);
@@ -459,6 +467,22 @@ fn shortcuts_box(ui: &mut Ui, s: &State, m: &Modal, f: &crate::shortcuts::Form) 
         }
         y = p.bottom() + 6.0;
     }
+    let commands=crate::shortcuts::COMMANDS;
+    let p=Rect::new(r.x+SC_W,r.y+32.,328.,groups_h-6.);
+    section(ui,p,"Common commands — click a key to change it");
+    let start=f.page*crate::shortcuts::COMMAND_PAGE;
+    for (i,(_,label,_)) in commands.iter().enumerate().skip(start).take(crate::shortcuts::COMMAND_PAGE) {
+        let row=Rect::new(p.x+10.,p.y+32.+(i-start) as f32*32.,p.w-20.,29.);
+        ui.c.text(font,row.x,row.y+7.,t.text,label);
+        let b=Rect::new(row.right()-132.,row.y,132.,row.h);
+        let hov=hit(ui,b,DHit::CommandShortcut(i),"Press a new shortcut; Backspace clears it");
+        let text=if f.capture==Some(i){"Press key…"}else if f.bindings[i].is_empty(){"Unassigned"}else{&f.bindings[i]};
+        button(ui,b,text,f.capture==Some(i),hov,false,false);
+    }
+    let page=Rect::new(p.x+10.,p.bottom()-65.,120.,25.);
+    let hov=hit(ui,page,DHit::CommandPage,"Next page of commands");
+    button(ui,page,&format!("Page {} / {}",f.page+1,commands.len().div_ceil(crate::shortcuts::COMMAND_PAGE)),false,hov,false,false);
+    ui.c.text_clip(Font::new(11),p.x+10.,p.bottom()-38.,p.w-20.,t.text,&f.notice);
     let bw = |ui: &mut Ui, s: &str| (ui.c.text_width(font, s) + 28.0).max(BTN_W).round();
     let (rw, aw) = (bw(ui, "Reset all"), bw(ui, "Apply"));
     let by = r.bottom() - 8.0 - BTN_H;

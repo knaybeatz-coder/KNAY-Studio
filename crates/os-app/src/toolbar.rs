@@ -123,7 +123,7 @@ impl Panel {
             Panel::Utilities => "Utility buttons",
             Panel::Menu => "Menu bar",
             Panel::Volume => "Main volume",
-            Panel::Pitch => "Main pitch",
+            Panel::Pitch => "Varispeed",
             Panel::SongPos => "Song position",
             Panel::Modes => "Mode buttons",
             Panel::Snap => "Global snap",
@@ -168,10 +168,10 @@ impl Panel {
 
     /// Its width when it does not grow.
     pub fn width(self) -> f32 {
-        match self {Panel::Hint=>return 127.0,Panel::Recording=>return 168.0,Panel::Modes|Panel::SongPos=>return 0.0,_=>{}}
+        match self {Panel::Hint=>return 156.0,Panel::Recording=>return 168.0,_=>{}}
         if matches!(self, Panel::Monitor | Panel::Cpu | Panel::Tools) { return 0.0; }
         if self == Panel::Utilities {
-            return if crate::settings_file::flag("declutter_toolbar", false) { 39.0 } else { 72.0 };
+            return 72.0;
         }
         if crate::settings_file::flag("declutter_toolbar", false) {
             match self { Panel::Utilities => return 72.0, Panel::Tools => return 35.0, _ => {} }
@@ -184,7 +184,7 @@ impl Panel {
     pub fn first_end(self) -> f32 {
         match self {
             Panel::Caption => 63.0,
-            Panel::Hint => 192.0,
+            Panel::Hint => 221.0,
             Panel::Transport => 570.0,
             Panel::Recording => 610.0,
             Panel::Time => 873.0,
@@ -405,7 +405,7 @@ pub fn place(l: &Layout, width: f32, editing: bool) -> Vec<Placed> {
         let share = if flexes == 0 { 0.0 } else { ((avail - row_width(row, editing)).max(0.0) / flexes as f32).floor() };
         let mut x = lead;
         for (idx, &panel) in row.iter().enumerate() {
-            if matches!(panel, Panel::Monitor | Panel::Cpu | Panel::Tools | Panel::Modes | Panel::SongPos) { continue; }
+            if matches!(panel, Panel::Monitor | Panel::Cpu | Panel::Tools) { continue; }
             let w = if panel == Panel::Flex { min_flex + share } else { panel.width() };
             out.push(Placed { panel, row: r, idx, x, w });
             x += w;
