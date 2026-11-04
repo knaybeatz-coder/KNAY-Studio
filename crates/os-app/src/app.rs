@@ -286,6 +286,8 @@ pub enum Action {
     /// Toolbar "Piano roll tools" button: the Tools menu (spec: ui/piano-roll.md §11).
     PianoToolsMenu,
     Harmony(crate::harmony::HCmd),
+    /// KNAY VariAudio's parts in the piano roll (`crate::vari`).
+    Vari(crate::vari::VAct),
     /// Toolbar magnet: the Snap menu; right-click: Stock note lengths (spec: ui/piano-snap.md §1).
     PianoSnapMenu,
     /// The channel name in the title: the channel menu; right-click: channel settings; wheel: channels with notes
@@ -843,6 +845,8 @@ const PLUGIN_POPUPS: &str = "Menus of detached plugin windows on Linux (dock the
 
 #[derive(Debug, Clone)]
 pub enum Drag {
+    /// KNAY VariAudio: segments dragged up or down.
+    Vari(crate::vari::VDrag),
     /// Settings > MIDI: a handle of the mapping curve window (0 start, 1 middle, 2 end).
     MidiCurve(u8),
     /// Settings > MIDI: a Port or offset box, a step per 8 px up or down (`steps` taken so far).
@@ -1644,7 +1648,7 @@ impl App {
                  Studio does not read yet.\n\nOpen the project in version 24.2 or later, save it again, then open the new copy \
                  here."
             );
-            self.tell(crate::dialog::Kind::Info, "Project not supported yet", crate::dialog::spans(&["Lemon Studio cannot open ", &name, &rest]));
+            self.tell(crate::dialog::Kind::Info, "Project not supported yet", crate::dialog::spans(&["KNAY Studio cannot open ", &name, &rest]));
         }
         match result {
             Ok((file, project)) => {
@@ -1729,7 +1733,7 @@ impl App {
         let path = self.state.path.clone();
         let name = path.as_ref().map(|p|p.with_extension("lmn")).as_ref().and_then(|p| p.file_name()).map_or_else(|| "Untitled.lmn".to_string(), |n| n.to_string_lossy().into_owned());
         let dlg = FileDlg::new(Mode::Save, "Save project as", "project", crate::dialog::Then::SaveProject(next))
-            .filter("Lemon Studio project", &["lmn"])
+            .filter("KNAY Studio project", &["lmn"])
             .start(path.as_deref().and_then(|p| p.parent()))
             .name(&name);
         self.file_dialog(dlg);
@@ -2160,6 +2164,13 @@ impl App {
                     crate::rack::set_stretch(self, &rows, method);
                 }
             }
+            Then::KeyMatch(index, semitones) => {
+                if reply == Reply::Button(Answer::Yes)
+                    && let Some(m) = crate::key_match::apply(self, index, semitones)
+                {
+                    self.state.message = Some(m);
+                }
+            }
             // spec: ui/pattern-time-signature.md §2-3: No leaves the pattern alone; closing the dialog without Accept
             // leaves it without a start marker.
             Then::ReplaceSignature(n) => {
@@ -2243,7 +2254,7 @@ impl App {
     fn open_dialog(&mut self) {
         let start = self.state.path.as_ref().and_then(|p| p.parent().map(std::path::Path::to_path_buf));
         let dlg = crate::filedlg::FileDlg::new(crate::filedlg::Mode::Open, "Open project", "project", crate::dialog::Then::OpenProject)
-            .filter("Lemon Studio / legacy projects", &["lmn", "flp", "zip"])
+            .filter("KNAY Studio / legacy projects", &["lmn", "flp", "zip"])
             .start(start.as_deref());
         self.file_dialog(dlg);
     }
@@ -3950,6 +3961,8 @@ impl App {
         crate::headphones::tick(self);
         crate::ai_control::tick(self);
         crate::updates::tick();
+        crate::vari::tick(self);
+        if crate::key_match::take_fresh() && self.state.shown(Win::Playlist) { let r = self.state.win_rect(Win::Playlist); self.damage_rect(r); }
         crate::plugin_downloads::tick(self);
         crate::starter_pack::tick(self);
         crate::feature_votes::tick(self);
@@ -4320,10 +4333,15 @@ impl App {
         let track = g.track_at(y);
         let tick = crate::playlist::snap_place(s, &g, g.tick_at(x), self.alt);
         let name = path.to_string_lossy().into_owned();
-        s.message = Some(match crate::playlist::add_audio_clip(s, &name, track, tick) {
+        let added = crate::playlist::add_audio_clip(s, &name, track, tick);
+        s.message = Some(match added {
             Some(_) => format!("Added audio clip {}", path.display()),
             None => format!("Could not read {} as audio", path.display()),
         });
+        // KNAY Key match: offer to shift it into the beat's key.
+        if let Some(i) = added {
+            crate::key_match::after_drop(self, i);
+        }
         self.invalidate();
     }
 
@@ -5190,6 +5208,7 @@ impl App {
                         crate::playlist::drag_move(self, d, g);
                     }
                 }
+                Drag::Vari(d) => crate::vari::drag_move(self, d),
                 Drag::BarZoom { t, m0, p0, ratio, z0, center, view } => {
                     let z = z0 * 1.012f32.powf(m0.1 - y);
                     self.zoom_set(t, z);
@@ -6267,6 +6286,11 @@ impl App {
                 self.record_option_menu(*o, x, y);
                 return self.invalidate();
             }
+            // KNAY: right-click on the piano roll's ♪ opens its key and scale menu, as in FL.
+            Some(Action::Harmony(crate::harmony::HCmd::Menu(10))) => {
+                crate::harmony::run(self, crate::harmony::HCmd::Menu(10));
+                return self.invalidate();
+            }
             // The Limit dialog's keys take the right button too (spec: ui/piano-limit.md §1).
             Some(Action::PianoDlg(crate::piano_dlg::Act::Keys)) => return self.piano_dlg_act(crate::piano_dlg::Act::Keys),
             Some(Action::PianoTarget) => {
@@ -6352,7 +6376,8 @@ impl App {
                 let mut menu = crate::playlist::knob_menu(&self.state, auto, typein, x, y);
                 if *a == Action::Tempo {
                     menu.items.insert(0, crate::playlist::PItem::new("Tap tempo", crate::playlist::Cmd::OpenTapper));
-                    menu.items.insert(1, crate::playlist::PItem::sep());
+                    menu.items.insert(1, crate::playlist::PItem::new("Type in tempo...", crate::playlist::Cmd::TypeTempo));
+                    menu.items.insert(2, crate::playlist::PItem::sep());
                 }
                 self.state.playlist.popup = Some(menu);
                 return self.invalidate();
@@ -6392,6 +6417,26 @@ impl App {
             self.drag = Some(Drag::ControlErase { last_x: x });
             self.erase_control_points(x, x);
             return;
+        }
+        // KNAY: Alt+right-click mutes or unmutes a note (a selected one: the selection).
+        if let Some(Action::PianoNote(i)) = action
+            && self.alt
+            && !self.ctrl
+        {
+            let s = &mut self.state;
+            let sel = s.piano.selection(s.pattern, piano::channel(s));
+            let targets = if sel.contains(&i) { sel } else { vec![i] };
+            let on = !piano::notes(s).get(i).is_some_and(|n| n.muted());
+            piano::snapshot_as(s, "Piano roll mute notes");
+            let notes = &mut piano::pattern_mut(s).notes;
+            for j in targets {
+                if let Some(n) = notes.get_mut(j) {
+                    n.set_muted(on);
+                }
+            }
+            s.piano.dirty = true;
+            s.message = Some(if on { "Notes muted" } else { "Notes unmuted" }.into());
+            return self.invalidate();
         }
         if let Some(a @ (Action::PianoNote(_) | Action::PianoGrid)) = action {
             // Select: same as the left button; Zoom: toggle zoomed out / last zoom; the other
@@ -6508,6 +6553,11 @@ impl App {
             if let Some(g) = self.pl_grid {
                 crate::playlist::drag_end(self, d, g);
             }
+            return self.invalidate();
+        }
+        if let Some(Drag::Vari(d)) = self.drag.clone() {
+            self.drag = None;
+            crate::vari::drag_end(self, d);
             return self.invalidate();
         }
         let had_overlay = self.state.piano.overlay.take().is_some();
@@ -7092,6 +7142,9 @@ impl App {
         }
         // Piano roll (spec: ui/piano-roll.md §3a): Alt+wheel over the ruler zooms time; the keyboard takes the wheel
         // like the grid (scroll, Ctrl = time zoom); the keys zoom with Ctrl+middle-drag.
+        if let Some(Action::Vari(_)) = area {
+            return crate::vari::wheel(self, dx, dy, shift, ctrl);
+        }
         if matches!(area, Some(Action::PianoRuler)) && self.alt {
             let Some(g) = self.piano_geom() else { return None };
             piano::zoom_time(&mut self.state, &g, x, dy + dx);
@@ -7287,6 +7340,8 @@ impl App {
         if matches!(key,Key::Named(NamedKey::Escape)) && matches!(self.drag,Some(Drag::MixSelect{..})) {self.drag=None;self.pressed=None;return;}
 
         if self.state.piano.harmony.open && self.state.z.last()==Some(&Win::PianoRoll) && self.state.playlist.popup.is_none() {crate::harmony::key(self,key,ctrl,alt);return;}
+        // KNAY VariAudio takes its keys while the piano roll is in front.
+        if self.state.piano.vari.is_some() && self.state.z.last()==Some(&Win::PianoRoll) && self.state.playlist.popup.is_none() && crate::vari::key(self,key,ctrl,alt) {return;}
         // The Remote control settings box takes Esc (drops it) and Enter (accepts).
         if crate::remote::is_open(&self.state) {
             match key {
@@ -7434,6 +7489,8 @@ impl App {
             // The browser and the pickers: General ▸ Input ▸ Manage shortcuts (spec: ui/settings-choices.md).
             Key::Named(NamedKey::F8) => self.f8_key(ctrl, alt),
             Key::Named(NamedKey::F9) => self.act(Action::ToggleWin(Win::Mixer)),
+            // KNAY: Home goes back to the start (the song position in SONG mode, the pattern's play marker in PAT).
+            Key::Named(NamedKey::Home) if !ctrl && !alt => self.set_song_pos(0, true),
             Key::Named(NamedKey::F10) => {
                 if self.state.settings.open && self.state.settings.tab==views::settings::MIDI {self.state.settings.open=false;}
                 else {self.open_settings(views::settings::MIDI);}
@@ -7639,6 +7696,7 @@ impl App {
             return false;
         }
         if self.state.piano.harmony.open && self.state.z.last()==Some(&Win::PianoRoll){return false;}
+        if self.state.piano.vari.is_some() && self.state.z.last()==Some(&Win::PianoRoll){return false;}
         if self.state.z.last()==Some(&Win::PianoRoll) && code==KeyCode::KeyC && self.state.playlist.popup.is_none(){return false;}
         // These playlist shortcuts take priority over the computer-keyboard piano while the playlist is frontmost.
         if self.state.z.last() == Some(&Win::Playlist) && !self.state.settings.open && self.state.menu_open.is_none() && self.state.playlist.popup.is_none()
@@ -7789,6 +7847,27 @@ impl App {
             }
             self.damage_piano();
             return;
+        }
+        // KNAY: a double-click on a note opens its properties (slide, portamento, velocity, pan, fine pitch), as FL's.
+        // Only with the pencil, brush or select tool, no modifier, the mouse still (the other tools click on and on).
+        if let Action::PianoNote(i) = *a
+            && matches!(tool, Tool::Draw | Tool::Paint | Tool::Select)
+            && !self.shift
+            && !self.alt
+        {
+            thread_local! {
+                static LAST: std::cell::Cell<Option<(usize, std::time::Instant, f32, f32)>> = const { std::cell::Cell::new(None) };
+            }
+            let now = std::time::Instant::now();
+            let double = LAST.with(|l| l.replace(Some((i, now, x, y)))).is_some_and(|(j, t, px, py)| {
+                j == i && now.duration_since(t).as_millis() < 400 && (px - x).abs() < 4.0 && (py - y).abs() < 4.0
+            });
+            if double {
+                LAST.with(|l| l.set(None));
+                self.drag = None;
+                self.state.playlist.popup = Some(crate::piano_tools::note_menu(&self.state, i, x, y));
+                return self.invalidate();
+            }
         }
         if *a==Action::PianoGrid && tool==Tool::Draw && self.state.piano.harmony.stamp.is_some() {
             let tick=crate::piano_snap::place(&self.state,&g,g.tick_at(x),self.alt);
@@ -8067,6 +8146,7 @@ impl App {
     }
 
     pub fn act(&mut self, a: Action) {
+        if !crate::updates::ENABLED && matches!(a, Action::Donate | Action::Updates) { return; }
         if a==Action::Ai {crate::ai_control::open(self);return;}
         if a == Action::Donate {
             if let Err(error) = crate::donate::open() { self.state.message = Some(error); self.invalidate(); }
@@ -8239,6 +8319,19 @@ impl App {
             }
             Action::CableDebug(d) => self.cable_debug(d),
             Action::Tempo => {
+                // KNAY: a double-click types the tempo in.
+                thread_local! {
+                    static LAST: std::cell::Cell<Option<(std::time::Instant, f32, f32)>> = const { std::cell::Cell::new(None) };
+                }
+                let now = std::time::Instant::now();
+                let (mx, my) = self.mouse;
+                let double = LAST.with(|l| l.replace(Some((now, mx, my)))).is_some_and(|(t, px, py)| {
+                    now.duration_since(t).as_millis() < 400 && (px - mx).abs() < 4.0 && (py - my).abs() < 4.0
+                });
+                if double {
+                    LAST.with(|l| l.set(None));
+                    return crate::playlist::type_tempo(self);
+                }
                 // The digit under the press sets the step: the whole number, else the decimal place it is over.
                 let x = self.mouse.0 / views::band_k(s); // the tempo box is laid out in band px
                 let n = s.tempo_digits.get().iter().filter(|&&d| x >= d).count();
@@ -8367,6 +8460,7 @@ impl App {
             }
             Action::PianoLaneMenu => s.lane_menu = true,
             Action::Harmony(cmd) => crate::harmony::run(self,cmd),
+            Action::Vari(a) => crate::vari::press(self, a),
             Action::PianoToolsMenu => {
                 let (x, y) = self.mouse;
                 s.playlist.popup = Some(crate::piano_tools::tools_menu(s, x - 6.0, y + 10.0));
@@ -8888,7 +8982,7 @@ impl App {
             (HELP_MENU, HELP_ABOUT) => {
                 // The Windows build includes the ASIO SDK, which is under version 3 only (THIRD-PARTY-NOTICES.txt §9).
                 let licence = if cfg!(windows) { "the GNU GPL v3" } else { "the GNU GPL v3 or later" };
-                self.state.message = Some(format!("Lemon Studio {} (pre-alpha), free software under {licence}", env!("CARGO_PKG_VERSION")));
+                self.state.message = Some(format!("KNAY Studio {} (pre-alpha), free software under {licence}", env!("CARGO_PKG_VERSION")));
             }
             (ADD_MENU | TOOLS_MENU, i) if item_at(menu, i).is_some_and(|it| it.label == "Pattern") => {
                 let at = crate::patterns::box_at_mouse(self.mouse);
@@ -9132,7 +9226,7 @@ impl App {
         let _ = std::fs::create_dir_all(&dir);
         let start = self.state.bar.user_current().map_or_else(|| "My toolbar".to_string(), |p| p.name.clone());
         let dlg = FileDlg::new(Mode::Save, "Save toolbar preset as", "toolbar preset", crate::dialog::Then::SaveToolbarPreset)
-            .filter("Lemon Studio toolbar preset", &[EXT])
+            .filter("KNAY Studio toolbar preset", &[EXT])
             .start(Some(&dir))
             .name(&format!("{start}.{EXT}"));
         self.file_dialog(dlg);
@@ -12418,8 +12512,8 @@ mod tests {
         let r = hit_rect(&app, &Action::Settings(SAct::Check("Pickup (takeover mode)")));
         click(&mut app, &mut c, r);
         assert_eq!(app.state.message.as_deref(), Some("Pickup (takeover mode): on"));
-        assert!(app.hits.iter().any(|h| h.action == Action::Settings(SAct::Body) && h.hint == "Lemon Studio has no MIDI scripts"));
-        assert!(app.hits.iter().any(|h| h.action == Action::Settings(SAct::Body) && h.hint == "Lemon Studio has no playlist performance mode"));
+        assert!(app.hits.iter().any(|h| h.action == Action::Settings(SAct::Body) && h.hint == "KNAY Studio has no MIDI scripts"));
+        assert!(app.hits.iter().any(|h| h.action == Action::Settings(SAct::Body) && h.hint == "KNAY Studio has no playlist performance mode"));
         let r = hit_rect(&app, &Action::Settings(SAct::Tab(PROJECT)));
         click(&mut app, &mut c, r);
         assert!(app.hits.iter().any(|h| matches!(h.action, Action::Settings(SAct::Combo("Ask for data folder", ..)))), "Ask for data folder works");
@@ -12713,7 +12807,7 @@ mod tests {
                 (Kind::Question, "Confirm", spans(&["Save the changes to ", "Demo.flp", " before closing?"]), &[Answer::Yes, Answer::No, Answer::Cancel][..], "question"),
                 (Kind::Warning, "Confirm save as", spans(&["", "Demo.flp", " already exists.\nDo you want to replace it?"]), &[Answer::Yes, Answer::No][..], "warning"),
                 (Kind::Error, "Error", spans(&["The file doesn't exist or has been moved."]), &[Answer::Ok][..], "error"),
-                (Kind::Info, "Project not supported yet", spans(&["Lemon Studio cannot open ", "Old.flp", " yet.\n\nIt was saved by version 12.3. Projects saved before version 24.2 use an older channel layout that Lemon Studio does not read yet."]), &[Answer::Ok][..], "info"),
+                (Kind::Info, "Project not supported yet", spans(&["KNAY Studio cannot open ", "Old.flp", " yet.\n\nIt was saved by version 12.3. Projects saved before version 24.2 use an older channel layout that Lemon Studio does not read yet."]), &[Answer::Ok][..], "info"),
             ] {
                 let mut m = Msg::new(kind, title, text, buttons, Then::Nothing);
                 // As in the app, the replace question starts on No.
@@ -18729,6 +18823,7 @@ mod tests {
             for shift in [false,true] {
                 for (code,l,t) in [(KeyCode::KeyB,"b",PlTool::Paint),(KeyCode::KeyC,"c",PlTool::Slice),(KeyCode::KeyG,"g",PlTool::Comp),(KeyCode::KeyE,"e",PlTool::Select)] {
                     if code == KeyCode::KeyG && shift { continue; } // Shift+G remains Group clips.
+                    if code == KeyCode::KeyC && shift { continue; } // KNAY: Shift+C selects by selected source.
                     press(&mut app,code,l,shift);
                     assert_eq!(app.state.playlist.tool,t,"{l}, shift={shift}, typing={typing}");
                     assert!(app.state.playlist.tool_changed.is_some());
@@ -18736,16 +18831,16 @@ mod tests {
             }
         }
         assert_eq!(PlTool::from_letter("c"),Some(PlTool::Slice));
+        // KNAY: P / Y / S pick the Draw, Playback and Slip tools again.
         assert_eq!(PlTool::from_letter("s"),Some(PlTool::Slip));
         assert_eq!(PlTool::from_letter("p"),Some(PlTool::Draw));
         assert_eq!(PlTool::from_letter("y"),Some(PlTool::Playback));
-        assert!(!PlTool::ALL.contains(&PlTool::Draw));
-        assert!(!PlTool::ALL.contains(&PlTool::Slip));
-        assert!(!PlTool::ALL.contains(&PlTool::Playback));
         press(&mut app,KeyCode::KeyP,"P",true);
-        assert_eq!(app.state.playlist.tool,PlTool::Paint);
+        assert_eq!(app.state.playlist.tool,PlTool::Draw);
         press(&mut app,KeyCode::KeyY,"Y",true);
         assert_eq!(app.state.playlist.tool,PlTool::Playback);
+        press(&mut app,KeyCode::KeyS,"S",true);
+        assert_eq!(app.state.playlist.tool,PlTool::Slip);
         assert_eq!(app.state.piano.tool,piano,"background piano tool stays unchanged");
     }
 
@@ -20181,7 +20276,7 @@ mod tests {
         right(&mut app, &mut c, help, (help.cx() + 40.0, help.cy()));
         assert!(app.state.message.is_none());
         right(&mut app, &mut c, help, (help.cx(), help.cy()));
-        assert!(app.state.message.as_deref().is_some_and(|m| m.starts_with("Lemon Studio ")), "{:?}", app.state.message);
+        assert!(app.state.message.as_deref().is_some_and(|m| m.starts_with("KNAY Studio ")), "{:?}", app.state.message);
         // Undo: EDIT > Undo; its right click does nothing yet.
         let undo = hit_rect(&app, &Action::Util(Util::Undo));
         app.state.message = None;
@@ -22242,7 +22337,7 @@ mod common_shortcut_tests {
     fn common_shortcuts_tools_windows_panic_and_help(){
         use crate::playlist::PlTool;
         let mut a=App::new(None);a.state.z=vec![Win::Playlist];a.state.toggles.retain(|t|*t!="typing");
-        for (c,tool) in [("p",PlTool::Paint),("b",PlTool::Paint),("c",PlTool::Slice),("e",PlTool::Select),("s",PlTool::Slip),("y",PlTool::Playback),("d",PlTool::Delete),("t",PlTool::Mute),("z",PlTool::Zoom),("g",PlTool::Comp)] {
+        for (c,tool) in [("p",PlTool::Draw),("b",PlTool::Paint),("c",PlTool::Slice),("e",PlTool::Select),("s",PlTool::Slip),("y",PlTool::Playback),("d",PlTool::Delete),("t",PlTool::Mute),("z",PlTool::Zoom),("g",PlTool::Comp)] {
             letter(&mut a,c,false,false);assert_eq!(a.state.playlist.tool,tool,"{c}");
         }
         a.state.project.arrangements=vec![os_model::Arrangement{number:1,clips:vec![os_model::Clip::new(96,192,0,os_model::ClipSource::Pattern(1))],..Default::default()}];

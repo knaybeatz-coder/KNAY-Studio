@@ -261,7 +261,9 @@ impl crate::app::App {
         if crate::transport::is_headless() {
             return Ok(());
         }
-        let wanted = self.state.mixer.recording.armed.first().copied().and_then(|t| {
+        // KNAY: the tracks heard follow each track's Monitor setting (off / when armed / on).
+        let heard = self.state.mixer.recording.heard();
+        let wanted = heard.first().copied().and_then(|t| {
             self.state
                 .mixer
                 .recording
@@ -270,7 +272,7 @@ impl crate::app::App {
                 .cloned()
                 .map(|i| (t, i))
         });
-        let all: Vec<_> = self.state.mixer.recording.armed.iter().filter_map(|&t| self.state.mixer.recording.inputs.get(&t).cloned().map(|i|(t,i))).collect();
+        let all: Vec<_> = heard.iter().filter_map(|&t| self.state.mixer.recording.inputs.get(&t).cloned().map(|i|(t,i))).collect();
         let config = crate::audio_cfg::AudioCfg::current();
         if self.input_monitor.selected == wanted && self.input_monitor.monitored == all
             && self.input_monitor.config.as_ref() == Some(&config)

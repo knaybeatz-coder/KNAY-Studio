@@ -165,7 +165,31 @@ pub fn draw(cv: &mut Canvas, icon: Icon, r: Rect, c: Color) {
 }
 
 /// Lemon Studio logo (greyscale mark, `logo.rs`) in one tint, fitted into a circle of radius `r`.
+/// KNAY: the KNAY Studio mark (the gold K disc), `r` px in radius about (cx, cy).
 pub fn logo(cv: &mut Canvas, cx: f32, cy: f32, r: f32, c: Color) {
+    if let Some((w, h, px)) = knay_mark() {
+        cv.image_over(os_ui::Rect::new(cx - r, cy - r, 2.0 * r, 2.0 * r), *w, *h, px, 1.0);
+        return;
+    }
+    lemon_logo(cv, cx, cy, r, c);
+}
+
+/// KNAY: the full KNAY Studio logo (mark and name), `w` px wide, centred on (cx, cy), at `opacity`.
+pub fn knay_logo(cv: &mut Canvas, cx: f32, cy: f32, w: f32, opacity: f32) {
+    static FULL: std::sync::OnceLock<Option<(usize, usize, Vec<u32>)>> = std::sync::OnceLock::new();
+    if let Some((iw, ih, px)) = FULL.get_or_init(|| Canvas::decode_png_argb(include_bytes!("../assets/knay-logo.png"))) {
+        let h = w * *ih as f32 / *iw as f32;
+        cv.image_over(os_ui::Rect::new(cx - w / 2.0, cy - h / 2.0, w, h), *iw, *ih, px, opacity);
+    }
+}
+
+fn knay_mark() -> Option<&'static (usize, usize, Vec<u32>)> {
+    static MARK: std::sync::OnceLock<Option<(usize, usize, Vec<u32>)>> = std::sync::OnceLock::new();
+    MARK.get_or_init(|| Canvas::decode_png_argb(include_bytes!("../assets/knay-mark.png"))).as_ref()
+}
+
+#[allow(dead_code)]
+fn lemon_logo(cv: &mut Canvas, cx: f32, cy: f32, r: f32, c: Color) {
     use crate::logo::{PATHS, VIEW_H, VIEW_W};
     let k = 2.0 * r / VIEW_W.max(VIEW_H);
     let (ox, oy) = (cx - VIEW_W * k / 2.0, cy - VIEW_H * k / 2.0);

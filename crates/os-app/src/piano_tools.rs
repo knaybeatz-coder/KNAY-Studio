@@ -42,6 +42,105 @@ pub enum NCmd {
     StockLength(crate::playlist::Snap),
     /// Make a channel rack row the piano roll's channel (the title's channel menu).
     Target(usize),
+    /// KNAY: S / O turn the selected notes (all of the channel's notes when none is selected) into slide or
+    /// portamento notes; when they all already are, back to plain notes.
+    NoteType(crate::hold::NoteType),
+    /// KNAY: a note's properties (its double-click menu): note index, what changes.
+    NoteProp(usize, NoteProp),
+}
+
+/// The note properties the double-click menu sets (FL's note properties: slide, portamento, velocity, pan, fine
+/// pitch).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum NoteProp {
+    Slide,
+    Porta,
+    Mute,
+    /// 0..=128 (100 = FL's default).
+    Velocity(u8),
+    /// 0 (left) ..=128 (right), 64 centred.
+    Pan(u8),
+    /// Fine pitch in cents, -120..=120.
+    Fine(i16),
+}
+
+/// The double-click menu of note `i` (a selected note: the selection's), at (x, y).
+pub fn note_menu(s: &State, i: usize, x: f32, y: f32) -> Popup {
+    let notes = piano::notes(s);
+    let Some(n) = notes.get(i).copied() else { return Popup { x, y, items: Vec::new(), sub: None, scroll: [0; 2], cascade: Vec::new() } };
+    let sel = s.piano.selection(s.pattern, Some(n.channel));
+    let count = if sel.contains(&i) { sel.len() } else { 1 };
+    let it = |label: String, p: NoteProp| PItem::new(label, Cmd::Piano(NCmd::NoteProp(i, p)));
+    let fine = i16::from(n.fine_pitch) - 120;
+    let mut items = vec![PItem::head(if count > 1 {
+        format!("{} notes - properties", count)
+    } else {
+        format!("{} - note properties", crate::views::piano::key_name(i32::from(n.key)))
+    })];
+    items.push(it("Slide".into(), NoteProp::Slide).mark(Mark::Check(n.slide())));
+    items.push(it("Portamento".into(), NoteProp::Porta).mark(Mark::Check(n.porta())));
+    items.push(it("Mute".into(), NoteProp::Mute).mark(Mark::Check(n.muted())));
+    items.push(PItem::sep());
+    let pct = |v: u8| (u32::from(v) * 100 + 64) / 128;
+    items.push(PItem::sub(
+        format!("Velocity ({}%)", pct(n.velocity)),
+        [128u8, 115, 100, 90, 77, 64, 51, 32, 13].into_iter().map(|v| it(format!("{}%", pct(v)), NoteProp::Velocity(v)).mark(Mark::Radio(n.velocity == v))).collect(),
+    ));
+    let pan_name = |v: u8| match v {
+        64 => "Centre".to_string(),
+        v if v < 64 => format!("{}% left", (64 - u32::from(v)) * 100 / 64),
+        v => format!("{}% right", (u32::from(v) - 64) * 100 / 64),
+    };
+    items.push(PItem::sub(
+        format!("Pan ({})", pan_name(n.pan)),
+        [0u8, 32, 48, 64, 80, 96, 128].into_iter().map(|v| it(pan_name(v), NoteProp::Pan(v)).mark(Mark::Radio(n.pan == v))).collect(),
+    ));
+    items.push(PItem::sub(
+        format!("Fine pitch ({fine:+} cents)"),
+        [-100i16, -50, -25, -10, 0, 10, 25, 50, 100].into_iter().map(|c| it(format!("{c:+} cents"), NoteProp::Fine(c)).mark(Mark::Radio(fine == c))).collect(),
+    ));
+    Popup { x, y, items, sub: None, scroll: [0; 2], cascade: Vec::new() }
+}
+
+/// Sets property `p` on note `i` (and the rest of the selection when `i` is selected).
+fn set_note_prop(s: &mut State, i: usize, p: NoteProp) -> Option<String> {
+    let n = piano::notes(s).get(i).copied()?;
+    let sel = s.piano.selection(s.pattern, Some(n.channel));
+    let targets = if sel.contains(&i) { sel } else { vec![i] };
+    piano::snapshot_as(s, "Piano roll note properties");
+    let notes = &mut piano::pattern_mut(s).notes;
+    for j in targets {
+        let Some(m) = notes.get_mut(j) else { continue };
+        match p {
+            NoteProp::Slide => {
+                let on = !n.slide();
+                m.set_slide(on);
+                if on {
+                    m.set_porta(false);
+                }
+            }
+            NoteProp::Porta => {
+                let on = !n.porta();
+                m.set_porta(on);
+                if on {
+                    m.set_slide(false);
+                }
+            }
+            NoteProp::Mute => m.set_muted(!n.muted()),
+            NoteProp::Velocity(v) => m.velocity = v.min(128),
+            NoteProp::Pan(v) => m.pan = v.min(128),
+            NoteProp::Fine(c) => m.fine_pitch = (c.clamp(-120, 120) + 120) as u8,
+        }
+    }
+    s.piano.dirty = true;
+    Some(match p {
+        NoteProp::Slide => format!("Slide {}", if n.slide() { "off" } else { "on" }),
+        NoteProp::Porta => format!("Portamento {}", if n.porta() { "off" } else { "on" }),
+        NoteProp::Mute => if n.muted() { "Unmuted" } else { "Muted" }.to_string(),
+        NoteProp::Velocity(v) => format!("Velocity {}%", (u32::from(v) * 100 + 64) / 128),
+        NoteProp::Pan(_) => "Pan set".into(),
+        NoteProp::Fine(c) => format!("Fine pitch {c:+} cents"),
+    })
 }
 
 fn item(label: &'static str, c: NCmd) -> PItem {
@@ -128,6 +227,8 @@ pub fn key(app: &mut App, key: &winit::keyboard::Key, ctrl: bool, alt: bool) -> 
         Key::Character(c) if alt && !ctrl && is(c, "r") => NCmd::Dialog(crate::piano_dlg::Tool::Randomize),
         Key::Character(c) if alt && !ctrl && is(c, "v") => NCmd::Ghosts,
         Key::Character(c) if alt && !ctrl && !shift && is(c, "t") => NCmd::AddMarker,
+        Key::Character(c) if !ctrl && !alt && !shift && is(c, "s") => NCmd::NoteType(crate::hold::NoteType::Slide),
+        Key::Character(c) if !ctrl && !alt && !shift && is(c, "o") => NCmd::NoteType(crate::hold::NoteType::Porta),
         Key::Character(c) if ctrl && !alt && is(c, "d") => {
             app.state.piano.clear_selection();
             app.invalidate();
@@ -376,6 +477,17 @@ pub fn run(app: &mut App, cmd: NCmd) -> Option<String> {
             done(apply(s, |_, ns| f(ns)), if on { "muted" } else { "unmuted" })
         }
         NCmd::Glue => done(apply(s, |_, ns| glue(ns)), "glued"),
+        NCmd::NoteType(t) => {
+            use crate::hold::NoteType;
+            let name = if t == NoteType::Slide { "slide notes" } else { "portamento notes" };
+            let mut off = false;
+            let changed = apply_as(s, |_, ns| {
+                off = !ns.is_empty() && ns.iter().all(|n| NoteType::of(n) == t);
+                let to = if off { NoteType::Plain } else { t };
+                ns.into_iter().map(|mut n| { to.apply(&mut n); n }).collect()
+            }, Some(if t == NoteType::Slide { "Piano roll slide notes" } else { "Piano roll portamento notes" }));
+            if off { done(changed, &format!("{name} off")) } else { done(changed, name) }
+        }
         NCmd::DiscardLengths => done(apply(s, |_, ns| ns.into_iter().map(|n| Note { length: unit.unwrap_or(0), ..n }).collect()), "discarded lengths"),
         NCmd::Duplicate => {
             duplicate(s);
@@ -403,6 +515,11 @@ pub fn run(app: &mut App, cmd: NCmd) -> Option<String> {
         }
         NCmd::Snap(p) => return Some(crate::piano_snap::set(s, p)),
         NCmd::StockLength(sn) => return Some(crate::piano_snap::set_length(s, sn)),
+        NCmd::NoteProp(i, p) => {
+            let m = set_note_prop(s, i, p);
+            app.invalidate();
+            return m;
+        }
         NCmd::Target(row) => {
             if row >= s.project.channels.len() {
                 return None;

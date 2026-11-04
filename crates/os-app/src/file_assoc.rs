@@ -18,14 +18,14 @@ pub const PROG_ID: &str = "LemonStudio.LmnProject";
 /// The extension it registers.
 pub const EXT: &str = ".lmn";
 /// The type's description and the open verb's name (spec).
-const DESCRIPTION: &str = "Lemon Studio project";
-const FRIENDLY_NAME: &str = "Lemon Studio";
+const DESCRIPTION: &str = "KNAY Studio project";
+const FRIENDLY_NAME: &str = "KNAY Studio";
 /// The per-user classes, where every write goes (`Root::Classes`).
 const CLASSES: &str = r"Software\Classes";
 /// Windows' "Open with ▸ Always" choice for `.lmn` (`Root::User`), value `ProgId`.
 const USER_CHOICE: &str = r"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.lmn\UserChoice";
 /// The hint bar's text when a `UserChoice` keeps another program after a tick (spec).
-pub const BLOCKED_HINT: &str = "Windows opens .lmn files with another program: choose Lemon Studio under Open with ▸ Choose another app";
+pub const BLOCKED_HINT: &str = "Windows opens .lmn files with another program: choose KNAY Studio under Open with ▸ Choose another app";
 
 /// Where a read looks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -386,9 +386,9 @@ mod tests {
             ops,
             [
                 Op::DeleteValue { key: PROG_ID.into(), name: "Previous" },
-                set(PROG_ID, "", "Lemon Studio project"),
+                set(PROG_ID, "", "KNAY Studio project"),
                 set(r"LemonStudio.LmnProject\DefaultIcon", "", &format!("\"{PROGRAM}\",0")),
-                set(r"LemonStudio.LmnProject\shell\open", "FriendlyAppName", "Lemon Studio"),
+                set(r"LemonStudio.LmnProject\shell\open", "FriendlyAppName", "KNAY Studio"),
                 set(r"LemonStudio.LmnProject\shell\open\command", "", &format!("\"{PROGRAM}\" \"%1\"")),
                 set(".lmn", "", PROG_ID),
                 set(r".lmn\OpenWithProgids", PROG_ID, ""),

@@ -706,7 +706,7 @@ fn execute(app: &mut App, name: &str, a: &Value) -> Result<Value> {
             }
             _ => return Err("Unknown automation operation".into()),
         },
-        _ => return Err("Unknown Lemon Studio tool".into()),
+        _ => return Err("Unknown KNAY Studio tool".into()),
     }
     app.state.piano.dirty = true;
     Ok(json!({"ok":true,"dialog_open":app.modal_open(),"message":app.state.message}))

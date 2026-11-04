@@ -122,6 +122,8 @@ pub enum Then {
     NewProjectFolder,
     /// The Delete unused files question: Yes deletes these files, then saves the project.
     DeleteUnused(Vec<PathBuf>),
+    /// KNAY Key match: Yes (Shift) moves this audio clip channel's sample by these semitones (`crate::key_match`).
+    KeyMatch(u16, i32),
 }
 
 /// What waits for the save-changes question.

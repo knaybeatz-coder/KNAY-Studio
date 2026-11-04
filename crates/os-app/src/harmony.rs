@@ -10,7 +10,7 @@ use os_ui::{Color, Font, Rect};
 pub const ROOTS: [&str; 12] = [
     "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
 ];
-const PRESETS: [(&str, &[u8]); 8] = [
+const PRESETS: [(&str, &[u8]); 14] = [
     ("Pop / uplifting", &[0, 4, 5, 3]),
     ("Emotional", &[5, 3, 0, 4]),
     ("House / circular", &[0, 5, 3, 4]),
@@ -19,6 +19,13 @@ const PRESETS: [(&str, &[u8]); 8] = [
     ("Descending", &[0, 6, 5, 4]),
     ("Dreamy", &[0, 2, 3, 1]),
     ("Minor journey", &[0, 5, 2, 6]),
+    // KNAY: Congolese rumba and seben (degrees of the key; I-IV-V families, the seben vamps).
+    ("Rumba: I - IV - V - IV", &[0, 3, 4, 3]),
+    ("Rumba: I - V (odemba)", &[0, 4, 0, 4]),
+    ("Rumba: I - IV - I - V", &[0, 3, 0, 4]),
+    ("Rumba minor: i - iv - v - i", &[0, 3, 4, 0]),
+    ("Seben: I - IV - V - V", &[0, 3, 4, 4]),
+    ("Seben: I - V - IV - V", &[0, 4, 3, 4]),
 ];
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Chord {
@@ -80,6 +87,8 @@ pub struct Harmony {
     pub roman: bool,
     pub input: Option<String>,
     pub error: Option<String>,
+    /// KNAY: the Congo Bass tab's settings (`crate::congo_bass`).
+    pub bass_line: crate::congo_bass::Params,
 }
 impl Default for Harmony {
     fn default() -> Self {
@@ -113,6 +122,7 @@ impl Default for Harmony {
             roman: false,
             input: None,
             error: None,
+            bass_line: crate::congo_bass::Params::default(),
         }
     }
 }
@@ -293,6 +303,18 @@ impl Harmony {
             if self.leading && c.inversion == 0 && !c.locked && !prev.is_empty() {
                 keys = voice_lead(&keys, &prev, c.bass != -1);
             }
+            // KNAY: the Congolese guitar patterns (Rumba arpege, Seben arpeggio).
+            if self.rhythm >= 3 {
+                out.extend(congo_pattern(&keys, self.rhythm == 4, duration, ppq, slot, self.human).into_iter().map(|(offset, length, key, velocity)| Note {
+                    key,
+                    length,
+                    velocity,
+                    ..Note::step(channel, at + offset)
+                }));
+                prev = keys;
+                at += duration;
+                continue;
+            }
             let step = match self.rhythm {
                 1 => u32::from(ppq),
                 2 => u32::from(ppq) / 2,
@@ -324,6 +346,88 @@ impl Harmony {
         out
     }
 }
+/// KNAY: a chord played as a Congolese guitar would over `duration` ticks: (offset, length, key, velocity).
+/// Rumba arpege: eighth notes, the bass tone and the chord's thirds answering each other (a two-note pair on the
+/// off-beats). Seben arpeggio: running sixteenths an octave up, the top tones circling.
+fn congo_pattern(keys: &[u16], seben: bool, duration: u32, ppq: u16, slot: usize, human: u8) -> Vec<(u32, u32, u16, u8)> {
+    let mut tones: Vec<u16> = keys.to_vec();
+    tones.sort_unstable();
+    tones.dedup();
+    if tones.is_empty() {
+        return Vec::new();
+    }
+    while tones.len() < 3 {
+        let top = *tones.last().unwrap_or(&60);
+        tones.push(top + 12);
+    }
+    let low = tones[0];
+    tones.push(low + 12);
+    let ppq = u32::from(ppq.max(4));
+    let (step, pattern): (u32, &[&[usize]]) = if seben {
+        (ppq / 4, &[&[3], &[2], &[1], &[2], &[3], &[2], &[1], &[0], &[3], &[2], &[1], &[2], &[3], &[1], &[2], &[0]])
+    } else {
+        (ppq / 2, &[&[0], &[1, 2], &[3], &[1, 2], &[0], &[2, 3], &[1], &[1, 2]])
+    };
+    let lift = if seben { 12 } else { 0 };
+    let mut out = Vec::new();
+    let mut i = 0usize;
+    let mut offset = 0;
+    while offset < duration {
+        let beat_start = offset % ppq == 0;
+        for (j, &t) in pattern[i % pattern.len()].iter().enumerate() {
+            let key = tones[t.min(tones.len() - 1)] + lift;
+            let accent = if beat_start { 100 } else { 82 };
+            let wobble = if human == 0 { 0 } else { ((slot * 7 + i * 5 + j * 3) % 11) as i32 - 5 };
+            let velocity = (accent + wobble * i32::from(human)).clamp(1, 127) as u8;
+            let length = (step * if seben { 3 } else { 4 } / 5).min(duration - offset).max(1);
+            out.push((offset, length, key.min(127), velocity));
+        }
+        i += 1;
+        offset += step.max(1);
+    }
+    out
+}
+
+/// KNAY: the bass line for the chord workspace's progression, on the piano roll's channel (its notes there, over the
+/// progression, are replaced), one undo step.
+fn generate_bass(app: &mut App) {
+    let Some(ch) = piano::channel(&app.state) else {
+        app.state.message = Some("Congo Bass: pick the bass channel in the piano roll first".into());
+        return;
+    };
+    let h = app.state.piano.harmony.clone();
+    let ppq = u32::from(app.state.project.ppq.max(4));
+    let mut at = h.start;
+    let spans: Vec<crate::congo_bass::ChordSpan> = h
+        .slots
+        .iter()
+        .map(|c| {
+            let keys = h.keys(c);
+            let root = h.root_of(c).rem_euclid(12) as u8;
+            let has = |d: u16| keys.iter().any(|k| (*k + 12 - u16::from(root)) % 12 == d);
+            let span = crate::congo_bass::ChordSpan { root, minor: has(3) && !has(4), start: at, len: u32::from(c.beats) * ppq };
+            at += span.len;
+            span
+        })
+        .collect();
+    let classes = chords::classes(h.scale, h.root);
+    let scale: Vec<u8> = (0..12u8).filter(|&pc| classes[usize::from(pc)]).collect();
+    let mut params = h.bass_line;
+    params.human = h.human;
+    let line = crate::congo_bass::generate(&spans, &scale, ppq, params);
+    let (start, end) = (h.start, at);
+    piano::snapshot_as(&mut app.state, "Generate bass line");
+    let p = piano::pattern_mut(&mut app.state);
+    p.notes.retain(|n| n.channel != ch || n.position >= end || n.position + n.length.max(1) <= start);
+    p.notes.extend(line.iter().map(|b| Note { key: u16::from(b.key), length: b.len, velocity: b.vel, ..Note::step(ch, b.pos) }));
+    piano::finish_edit(&mut app.state);
+    app.state.piano.dirty = true;
+    // Each click: another take of the same settings.
+    app.state.piano.harmony.bass_line.seed = params.seed.wrapping_add(1);
+    app.state.message = Some(format!("Congo Bass: {} line, {} notes (click again for another take; Ctrl+Z undoes)", params.style.name(), line.len()));
+    app.invalidate();
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum HCmd {
     Mode(bool),
@@ -378,6 +482,14 @@ pub enum HCmd {
     Load,
     Text,
     Regenerate,
+    /// KNAY Congo Bass: the next style, a control (0 intensity .. 6 note length) to its next level, generate.
+    BassStyle,
+    BassParam(u8),
+    BassGen,
+    /// KNAY: the piano roll's BASS button: the chord workspace on its Congo Bass tab.
+    OpenBass,
+    /// KNAY: the ♪ menu's highlight choice: black keys (false) or the key's scale (true).
+    Highlight(bool),
 }
 fn item(label: impl Into<String>, cmd: HCmd) -> PItem {
     PItem::new(label.into(), Cmd::Harmony(cmd))
@@ -468,16 +580,23 @@ pub fn menu(s: &State, which: u8, x: f32, y: f32) -> Popup {
             item("Type a progression...", HCmd::Text),
             item("Show Roman numerals", HCmd::Names),
         ],
-        10 => vec![
-            item("Open chord workspace", HCmd::Open),
-            item(format!("Key: {}", ROOTS[h.root as usize]), HCmd::Menu(0)),
-            item(format!("Scale: {}", chords::label(h.scale)), HCmd::Menu(1)),
-            item("Snap drawn / moved notes", HCmd::EditSnap).mark(Mark::Check(h.edit_snap)),
-            item("Snap MIDI keyboard", HCmd::MidiSnap).mark(Mark::Check(h.midi_snap)),
-            item("Snap typing keyboard", HCmd::TypingSnap).mark(Mark::Check(h.typing_snap)),
-            item("Highlight scale", HCmd::Shade).mark(Mark::Check(h.shade)),
-            item("Snap selected notes now", HCmd::SnapExisting),
-        ],
+        // KNAY: FL's ♪ menu, flat as FL shows it: the root notes, then the snaps and the scales. Picking a root or a scale
+        // lights that key's scale on the grid and the keyboard at once; "No scale" goes back to the plain black keys.
+        10 => {
+            let mut v = vec![PItem::head("Root note")];
+            v.extend(ROOTS.iter().enumerate().map(|(i, n)| item(*n, HCmd::Root(i as u8)).mark(Mark::Radio(h.shade && i == h.root as usize))));
+            // FL shows the scales in a column of their own, beside the roots.
+            v.push(PItem::col());
+            v.push(PItem::head("Scale"));
+            v.push(item("Snap PR notes to scale", HCmd::EditSnap).mark(Mark::Check(h.edit_snap)));
+            v.push(item("Snap incoming MIDI", HCmd::MidiSnap).mark(Mark::Check(h.midi_snap)));
+            v.push(item("No scale (black notes)", HCmd::Highlight(false)).mark(Mark::Radio(!h.shade)));
+            v.extend((67..=88).map(|i| item(chords::label(i), HCmd::Scale(i)).mark(Mark::Radio(h.shade && i == h.scale))));
+            v.push(PItem::head("KNAY"));
+            v.push(item("KNAY Congolese Chords...", HCmd::Open));
+            v.push(item("KNAY Congo Bass...", HCmd::OpenBass));
+            v
+        }
         _ => vec![],
     };
     Popup {
@@ -494,6 +613,9 @@ pub fn run(app: &mut App, cmd: HCmd) {
         app.state.playlist.popup = Some(menu(&app.state, which, app.mouse.0, app.mouse.1));
         app.invalidate();
         return;
+    }
+    if cmd == BassGen {
+        return generate_bass(app);
     }
     if matches!(cmd, Preview(_) | Apply | SnapExisting) {
         if cmd == SnapExisting {
@@ -654,7 +776,35 @@ pub fn run(app: &mut App, cmd: HCmd) {
             h.complex = on;
             crate::settings_file::set_flag("harmony_complex", on);
         }
-        Tab(n) => h.tab = n.min(2),
+        Tab(n) => h.tab = n.min(3),
+        BassStyle => {
+            let i = crate::congo_bass::Style::ALL.iter().position(|s| *s == h.bass_line.style).unwrap_or(0);
+            h.bass_line.style = crate::congo_bass::Style::ALL[(i + 1) % crate::congo_bass::Style::ALL.len()];
+        }
+        BassParam(i) => {
+            let b = &mut h.bass_line;
+            let v = match i {
+                0 => &mut b.intensity,
+                1 => &mut b.density,
+                2 => &mut b.rests,
+                3 => &mut b.syncopation,
+                4 => &mut b.variation,
+                5 => &mut b.fills,
+                _ => &mut b.length,
+            };
+            *v = (*v + 1) % 5;
+        }
+        BassGen => {}
+        Highlight(on) => h.shade = on,
+        OpenBass => {
+            if h.undo.is_empty() && h.slots.iter().all(|c| *c == Chord::default()) {
+                h.generate(0);
+            }
+            h.complex = true;
+            h.tab = 3;
+            h.open = true;
+            h.start = start;
+        }
         Open => {
             if h.undo.is_empty() && h.slots.iter().all(|c| *c == Chord::default()) {
                 h.generate(0);
@@ -1208,13 +1358,13 @@ fn panel(ui: &mut Ui, s: &State, r: Rect) {
             false,
         );
     } else {
-        for (i, name) in ["Chord detail", "Performance", "Input & notes"]
+        for (i, name) in ["Chord detail", "Performance", "Input & notes", "Congo Bass"]
             .iter()
             .enumerate()
         {
             button(
                 ui,
-                Rect::new(x + 254. + i as f32 * 212., y + 366., 204., 27.),
+                Rect::new(x + 254. + i as f32 * 159., y + 366., 151., 27.),
                 name,
                 Tab(i as u8),
                 h.tab == i as u8,
@@ -1324,6 +1474,24 @@ fn panel(ui: &mut Ui, s: &State, r: Rect) {
                     c.locked,
                 );
             }
+            3 => {
+                // KNAY Congo Bass: five fields a row.
+                let b = &h.bass_line;
+                let lv = |v: u8| ["Low", "Some", "Medium", "More", "High"][usize::from(v.min(4))];
+                let g = |ui: &mut Ui, col: usize, row: usize, title: &str, value: &str, cmd, on| {
+                    field(ui, Rect::new(x + 254. + col as f32 * 127., y + 404. + row as f32 * 69., 120., 51.), title, value, cmd, on)
+                };
+                g(ui, 0, 0, "BASS STYLE", b.style.name(), BassStyle, true);
+                g(ui, 1, 0, "GROOVE INTENSITY", lv(b.intensity), BassParam(0), false);
+                g(ui, 2, 0, "NOTE DENSITY", lv(b.density), BassParam(1), false);
+                g(ui, 3, 0, "REST AMOUNT", lv(b.rests), BassParam(2), false);
+                g(ui, 4, 0, "SYNCOPATION", lv(b.syncopation), BassParam(3), false);
+                g(ui, 0, 1, "VARIATION", lv(b.variation), BassParam(4), false);
+                g(ui, 1, 1, "FILLS", lv(b.fills), BassParam(5), false);
+                g(ui, 2, 1, "NOTE LENGTH", ["Staccato", "Short", "Natural", "Long", "Held"][usize::from(b.length.min(4))], BassParam(6), false);
+                g(ui, 3, 1, "HUMANIZE", ["Off", "Subtle", "Medium", "Strong"][h.human as usize % 4], Human((h.human + 1) % 4), false);
+                g(ui, 4, 1, "BASS LINE", "Generate", BassGen, true);
+            }
             1 => {
                 f(
                     ui,
@@ -1339,8 +1507,8 @@ fn panel(ui: &mut Ui, s: &State, r: Rect) {
                     1,
                     0,
                     "RHYTHM",
-                    ["Sustain", "Quarter notes", "Eighth notes"][h.rhythm as usize],
-                    Rhythm((h.rhythm + 1) % 3),
+                    ["Sustain", "Quarter notes", "Eighth notes", "Rumba arpege", "Seben arpeggio"][h.rhythm as usize % 5],
+                    Rhythm((h.rhythm + 1) % 5),
                     false,
                 );
                 f(
@@ -1810,6 +1978,24 @@ mod tests {
         assert_eq!(app.state.piano.harmony.slots.len(), 4);
     }
     #[test]
+    fn knay_key_menu_picks_root_and_scale() {
+        let mut app = crate::app::App::new(None);
+        let m = menu(&app.state, 10, 0.0, 0.0);
+        assert!(m.items.iter().any(|i| i.label == "G"), "the roots are in the menu itself");
+        assert!(m.items.iter().any(|i| i.label == "Minor Natural (Aeolian)"), "and the scales");
+        run(&mut app, HCmd::Root(7));
+        run(&mut app, HCmd::Scale(73));
+        let h = &app.state.piano.harmony;
+        assert!(h.shade && h.root == 7 && h.scale == 73);
+        // G natural minor: G A Bb C D Eb F.
+        let on: Vec<i32> = (0..12).filter(|k| h.allows(*k)).collect();
+        assert_eq!(on, vec![0, 2, 3, 5, 7, 9, 10]);
+        assert_eq!(app.state.project.harmony.map(|c| (c.0, c.1)), Some((7, 73)));
+        run(&mut app, HCmd::Highlight(false));
+        assert!(!app.state.piano.harmony.shade);
+    }
+
+    #[test]
     fn harmony_all_chords_scales_and_note_bounds() {
         for scale in 67..=88 {
             let h = Harmony {
@@ -1850,5 +2036,48 @@ mod tests {
             voice_lead(&[36, 48, 52, 55], &[36, 48, 52, 55], true),
             vec![36, 48, 52, 55]
         );
+    }
+
+    /// KNAY: a rumba progression in the workspace, then the Congo Bass tab writes a bass line on the piano roll's
+    /// channel (roots on the chord downbeats, notes in the key), and the Rumba arpege style plays eighth notes.
+    #[test]
+    fn congo_bass_and_rumba_arpege() {
+        let mut app = crate::app::App::new(None);
+        app.state.project = crate::app::test_project();
+        run(&mut app, HCmd::Open);
+        let rumba = PRESETS.iter().position(|(n, _)| n.starts_with("Rumba: I - IV - V - IV")).expect("the rumba preset");
+        run(&mut app, HCmd::Preset(rumba));
+        run(&mut app, HCmd::Tab(3));
+        assert_eq!(app.state.piano.harmony.tab, 3);
+        run(&mut app, HCmd::BassStyle);
+        assert_eq!(app.state.piano.harmony.bass_line.style, crate::congo_bass::Style::MelodicRumba);
+        run(&mut app, HCmd::BassStyle);
+        run(&mut app, HCmd::BassStyle);
+        run(&mut app, HCmd::BassParam(0));
+        assert_eq!(app.state.piano.harmony.bass_line.intensity, 3);
+        let ch = crate::piano::channel(&app.state).expect("a channel");
+        run(&mut app, HCmd::BassGen);
+        let h = app.state.piano.harmony.clone();
+        let notes: Vec<Note> = crate::piano::notes(&app.state).iter().filter(|n| n.channel == ch).copied().collect();
+        assert!(notes.len() >= 8, "{} notes", notes.len());
+        let ppq = u32::from(app.state.project.ppq);
+        let classes = chords::classes(h.scale, h.root);
+        let mut at = h.start;
+        for c in &h.slots {
+            let root = h.root_of(c).rem_euclid(12);
+            let first = notes.iter().find(|n| n.position == at).expect("a note on each chord's downbeat");
+            assert_eq!(i32::from(first.key) % 12, root);
+            at += u32::from(c.beats) * ppq;
+        }
+        assert!(notes.iter().all(|n| classes[usize::from(n.key % 12)]), "in the key");
+        assert!(notes.windows(2).all(|w| w[0].position <= w[1].position), "sorted");
+        // Rumba arpege: eighth notes.
+        let mut h2 = h.clone();
+        h2.rhythm = 3;
+        let arp = h2.notes(ch, app.state.project.ppq);
+        assert!(arp.iter().all(|n| n.position % (ppq / 2) == 0));
+        assert!(arp.len() >= h2.slots.iter().map(|c| u32::from(c.beats) * 2).sum::<u32>() as usize);
+        h2.rhythm = 4;
+        assert!(h2.notes(ch, app.state.project.ppq).len() > arp.len(), "seben runs sixteenths");
     }
 }

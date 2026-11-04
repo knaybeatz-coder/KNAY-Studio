@@ -47,6 +47,18 @@ pub(crate) fn install_factory_template() -> std::io::Result<()> {
     Ok(())
 }
 
+/// KNAY: every mixer track keeps its default name ("Insert N") and its sends go: an insert that was routed goes to the
+/// master only.
+pub(crate) fn clean_mixer(p: &mut os_model::Project) {
+    for m in p.mixer.iter_mut().filter(|m| m.index != 0) {
+        m.name = None;
+        if !m.routes.is_empty() {
+            m.routes = vec![0];
+        }
+        m.send_levels.clear();
+    }
+}
+
 /// The Templates folder: in Lemon Studio's user folder; in tests, the one set in `TEST_DIR` (else none).
 pub fn root() -> Option<PathBuf> {
     #[cfg(test)]
@@ -188,8 +200,16 @@ impl App {
         }
         let s = &mut self.state;
         s.path = None;
-        for m in &mut s.project.mixer { m.slots_enabled = m.is_fx_return(); }
+        // KNAY: the factory starter's mixer comes clean: no track names and every insert routed to the master only
+        // (Michael Lane's personal names and routing are not ours).
+        if path.file_stem().is_some_and(|n| n == "Lemon Starter" || n == "KNAY Starter") {
+            clean_mixer(&mut s.project);
+        }
+        // KNAY: every track's effects are on, as in FL Studio: a plugin put in a slot is heard at once.
+        for m in &mut s.project.mixer { m.slots_enabled = true; }
         crate::project_info::created(s);
+        // KNAY: the factory starter goes by our name.
+        let name = if name == "Lemon Starter" { "KNAY Starter" } else { name };
         if s.project.info.title.as_deref().is_none_or(str::is_empty) {
             s.project.info.title = Some(name.to_string());
         }
@@ -261,17 +281,17 @@ mod tests {
         assert!(!app.unsaved(),"fresh startup defaults are not unsaved edits");
         for m in &app.state.project.mixer {
             assert_eq!(m.volume,Some(0.8),"{:?} after startup",m.name);
-            assert_eq!(m.slots_enabled,m.is_fx_return(),"only FX returns enabled by default");
+            assert!(m.slots_enabled,"every track's effects are on by default");
             assert!(m.slot_on[10],"dedicated EQ stays independently enabled");
         }
         crate::mixer::hit(&mut app,crate::mixer::MHit::Effects(3));
-        assert!(app.state.project.mixer.iter().all(|m|m.slots_enabled==(m.index==3 || m.is_fx_return())));
+        assert!(app.state.project.mixer.iter().all(|m|m.slots_enabled==(m.index!=3)));
         crate::mixer::hit(&mut app,crate::mixer::MHit::Effects(3));
         crate::mixer::hit(&mut app,crate::mixer::MHit::AllEffects);
         assert!(app.state.mixer.all_fx_bypassed);
         crate::history::undo(&mut app.state);
         assert!(!app.state.mixer.all_fx_bypassed);
-        assert!(app.state.project.mixer.iter().all(|m|m.slots_enabled==m.is_fx_return()));
+        assert!(app.state.project.mixer.iter().all(|m|m.slots_enabled));
         app.open(path);
         assert!(app.state.project.mixer.iter().all(|m|m.slots_enabled),"saved effect choices preserved");
         assert!(app.state.project.mixer.iter().all(|m|m.volume==Some(0.5)),"saved projects retain their mix");
@@ -285,7 +305,7 @@ mod tests {
         install_factory_template().unwrap();
         let mut app = App::new(None);
         app.startup_project();
-        assert_eq!(app.title(), "[Lemon Starter]");
+        assert_eq!(app.title(), "[KNAY Starter]");
         assert_eq!(app.state.tempo, 120.0);
         assert_eq!(app.state.project.mixer.len(), 127);
         assert!(app.state.shown(crate::app::Win::Mixer));

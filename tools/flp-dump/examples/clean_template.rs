@@ -7,7 +7,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
  let file = os_flp::FlpFile::parse(&std::fs::read(&a[1])?)?;
  let mut p = os_flp::project::load(&file)?;
  let slots = p.mixer.iter().flat_map(|m| m.slots.iter()).filter(|s| s.is_some()).count();
- for m in &mut p.mixer { m.slots = Default::default(); }
+ for m in &mut p.mixer { m.slots = std::array::from_fn(|_| None); }
  for c in &mut p.channels {
    c.plugin = None; c.plugin_state = None;
    if c.kind == os_model::ChannelKind::Plugin { c.kind = os_model::ChannelKind::Sampler; c.sample_path = None; }

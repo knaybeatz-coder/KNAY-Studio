@@ -12,6 +12,20 @@ pub struct Setup {
     pub inputs: HashMap<u16,Input>,
     pub armed: std::collections::BTreeSet<u16>,
     pub live: Vec<Destination>,
+    /// KNAY: per track, the Record point (0 = external input only) and Monitor external input (0 off, 1 when armed
+    /// (the default), 2 on).
+    pub rec_point: HashMap<u16,u8>,
+    pub monitor: HashMap<u16,u8>,
+}
+impl Setup {
+    /// Monitor external input for track `t`: 0 off, 1 when armed, 2 on.
+    pub fn monitor_of(&self,t:u16)->u8 { self.monitor.get(&t).copied().unwrap_or(1) }
+    /// The tracks whose input is heard, armed ones first.
+    pub fn heard(&self)->Vec<u16> {
+        let mut v:Vec<u16>=self.armed.iter().copied().filter(|t|self.inputs.contains_key(t)&&self.monitor_of(*t)!=0).collect();
+        v.extend(self.inputs.keys().copied().filter(|t|!self.armed.contains(t)&&self.monitor_of(*t)==2));
+        v
+    }
 }
 #[derive(Clone)]
 pub struct Destination {
@@ -42,8 +56,20 @@ pub fn input_menu(s: &State,t: u16,x: f32,y: f32)->Popup {
             }
         }
     }
+    // KNAY: FL's Record and Monitor sections.
+    items.push(PItem::head("Record"));
+    let point=s.mixer.recording.rec_point.get(&t).copied().unwrap_or(0);
+    for (k,label) in ["External input only","External and mixer input","Post effects","Post EQ","Post level and panning","Post track"].into_iter().enumerate() {
+        let it=PItem::new(if k==0{label.to_string()}else{format!("{label} (coming soon)")},Cmd::Mixer(MCmd::RecPoint(t,k as u8))).mark(Mark::Radio(point==k as u8));
+        items.push(if k==0{it}else{it.off()});
+    }
+    items.push(PItem::head("Monitor external input"));
+    let mon=s.mixer.recording.monitor_of(t);
+    for (k,label) in ["Off","When armed","On"].into_iter().enumerate() {
+        items.push(PItem::new(label,Cmd::Mixer(MCmd::Monitor(t,k as u8))).mark(Mark::Radio(mon==k as u8)));
+    }
     items.push(PItem::head(format!("{} armed - 32-bit float WAV",s.mixer.recording.armed.len())));
-    if items.len()==2 { items.push(PItem::new("No audio inputs found: check Settings > Audio",Cmd::Nothing).off()); }
+    if items.len()==2+11 { items.push(PItem::new("No audio inputs found: check Settings > Audio",Cmd::Nothing).off()); }
     Popup{x,y,items,sub:None,scroll:[0;2], cascade: Vec::new()}
 }
 impl App {

@@ -36,3 +36,4 @@ pub mod channel_strip;
 mod tame;
 
 pub mod snaptune;
+pub mod signalsmith;

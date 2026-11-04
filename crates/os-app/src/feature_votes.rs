@@ -26,6 +26,8 @@ type ResultBoard=Result<Board,(String,bool)>;
 struct Job {result:Option<(ResultBoard,bool)>,busy:bool}
 fn job()->&'static Mutex<Job>{static J:OnceLock<Mutex<Job>>=OnceLock::new();J.get_or_init(Default::default)}
 fn request(url:&str,token:&str,body:serde_json::Value)->Result<serde_json::Value,(String,bool)>{
+ // KNAY build: the board is Michael Lane's server; nothing is sent there.
+ if !crate::updates::ENABLED {let _=(url,token,body);return Err(("Feature board is off in KNAY Studio.".into(),false));}
  let agent=ureq::AgentBuilder::new().redirects(0).timeout(Duration::from_secs(8)).build();
  let r=agent.post(url).set("Content-Type","application/json").set("X-Lemon-Voter",token).send_string(&body.to_string());
  let (response,ok)=match r {Ok(r)=>(r,true),Err(ureq::Error::Status(code,r)) if code<500=>(r,false),Err(ureq::Error::Status(_, _))=>return Err(("Offline / unavailable — showing saved ideas.".into(),false)),Err(_)=>return Err(("Offline / unavailable — showing saved ideas.".into(),false))};
@@ -164,7 +166,7 @@ pub fn paint(ui:&mut Ui,s:&State,r:Rect){
  ui.c.text(Font::new(10).bold(),x,r.y+9.,t.h(0xb5d98b),"LEMON COMMUNITY");
  ui.c.text(Font::new(24).bold(),x,r.y+25.,t.text,"What's next?");
  let routine=v.status.starts_with("Live votes")||v.status.starts_with("Starter ideas")||v.status.starts_with("Connecting")||v.status.starts_with("Offline / unavailable");
- let subtitle=if v.status=="Suggestion added." {"Thanks! Your idea is on the board."}else if !routine {&v.status}else if v.online {"Your ideas. A better Lemon Studio."}else{"Saved ideas. Reconnect to vote."};
+ let subtitle=if v.status=="Suggestion added." {"Thanks! Your idea is on the board."}else if !routine {&v.status}else if v.online {"Your ideas. A better KNAY Studio."}else{"Saved ideas. Reconnect to vote."};
  ui.c.text_clip(Font::new(12),x,r.y+55.,w,if routine{t.text_dim}else{t.h(0xe4b583)},subtitle);
  let status=Rect::new(x,r.y+77.,w-77.,21.);
  ui.c.fill_rrect(status,10.,t.s(0x263330));
@@ -227,7 +229,7 @@ pub fn paint(ui:&mut Ui,s:&State,r:Rect){
   ui.c.text(Font::new(10),x+10.,y+142.,if item.mine!=0{t.h(0xb5d98b)}else{t.text_dim},if item.locked!=0 {"Voting closed"}else{match item.mine{1=>"You upvoted this idea",-1=>"You downvoted this idea",_=>"One voice. One vote per idea."}});
   let comments_button=Rect::new(x+9.,y+164.,w-18.,23.);
   if item.comments.is_empty(){ui.c.text(Font::new(10),x+10.,y+169.,t.text_dim,"No comments from Michael yet");}
-  else {button(ui,comments_button,&format!("{} ({})",if Some(item.id)==v.expanded{"Hide comments"}else{"Comments from Michael"},item.comments.len()),Action::FeatureVote(item.id,4),comments_button.y>=list.y&&comments_button.bottom()<=list.bottom(),false,"Read public updates from Michael / Lemon Studio");}
+  else {button(ui,comments_button,&format!("{} ({})",if Some(item.id)==v.expanded{"Hide comments"}else{"Comments from Michael"},item.comments.len()),Action::FeatureVote(item.id,4),comments_button.y>=list.y&&comments_button.bottom()<=list.bottom(),false,"Read public updates from Michael / KNAY Studio");}
   if Some(item.id)==v.expanded {
    let mut cy=y+ROW_H;
    for (comment,lines) in &comment_rows {

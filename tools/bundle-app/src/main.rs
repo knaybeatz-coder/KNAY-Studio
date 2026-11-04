@@ -14,9 +14,9 @@
 use std::path::PathBuf;
 use std::process::Command;
 
-const NAME: &str = "Lemon Studio";
+const NAME: &str = "KNAY Studio";
 const EXE: &str = "lemonstudio";
-const IDENTIFIER: &str = "io.github.itsalphaneon.lemonstudio";
+const IDENTIFIER: &str = "io.github.knaybeatz.knaystudio";
 
 fn main() {
     if !cfg!(target_os = "macos") {
@@ -48,7 +48,7 @@ fn main() {
     std::fs::write(contents.join("Info.plist"), info_plist()).expect("Info.plist");
     std::fs::write(contents.join("PkgInfo"), "APPL????").expect("PkgInfo");
     let assets = root.join("crates/os-app/assets");
-    std::fs::copy(assets.join(format!("{EXE}.car")), resources.join("Assets.car")).expect("copy the icon");
+    // KNAY: the KNAY Studio icon is the .icns alone (the old Assets.car carried the lemon).
     std::fs::copy(assets.join(format!("{EXE}.icns")), resources.join(format!("{EXE}.icns"))).expect("copy the icon");
     run(Command::new("codesign").args(["--force", "--sign", "-"]).arg(&app), "codesign");
     println!("{}", app.display());
@@ -86,8 +86,6 @@ fn info_plist() -> String {
 	<key>CFBundleIdentifier</key>
 	<string>{IDENTIFIER}</string>
 	<key>CFBundleIconFile</key>
-	<string>{EXE}</string>
-	<key>CFBundleIconName</key>
 	<string>{EXE}</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>

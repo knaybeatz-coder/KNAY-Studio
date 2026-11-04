@@ -399,10 +399,15 @@ impl App {
             Item::Sample(path) => {
                 if let Some((track, tick)) = spot {
                     let name = path.rsplit(['/', '\\']).next().unwrap_or(&path).to_string();
-                    s.message = Some(match pl::add_audio_clip(s, &path, track, tick) {
+                    let added = pl::add_audio_clip(s, &path, track, tick);
+                    s.message = Some(match added {
                         Some(_) => format!("Added audio clip {name}"),
                         None => format!("Could not read {name} as audio"),
                     });
+                    // KNAY Key match: offer to shift it into the beat's key.
+                    if let Some(i) = added {
+                        crate::key_match::after_drop(self, i);
+                    }
                 } else if win == Some(Win::ChannelRack) {
                     self.sample_to_rack(path, y);
                 }
@@ -830,7 +835,7 @@ pub fn options_menu(s: &crate::app::State) -> Vec<PItem> {
         b("Reread structure", BCmd::Reread).key("Ctrl+R"),
         PItem::head("Content"),
         b("Add sample folder...", BCmd::AddFolder),
-        b(if crate::starter_pack::busy() {"Cancel Starter Pack download"} else {"Download Lemon Studio Starter Pack"}, BCmd::StarterPack),
+        b(if crate::starter_pack::busy() {"Cancel Starter Pack download"} else {"Download KNAY Studio Starter Pack"}, BCmd::StarterPack),
         b("Configure extra folders", BCmd::ConfigureFolders),
         b("Refresh plugin list (fast scan)", BCmd::Rescan),
     ]

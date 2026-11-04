@@ -177,7 +177,7 @@ pub fn selected(app: &mut App, i: usize, selected: u8) {
         start(app, i, false, selected);
     } else {
         app.show_msg(Msg::new(Kind::Question,"Download stem separation?",spans(&[
-            "Would you like to download the stem separation engine and AI model?\n\nThis one-time setup needs internet and several GB of free space. It installs only for Lemon Studio.\n\nThen your selected stems will be saved as separate tracks. Your audio stays on your computer."
+            "Would you like to download the stem separation engine and AI model?\n\nThis one-time setup needs internet and several GB of free space. It installs only for KNAY Studio.\n\nThen your selected stems will be saved as separate tracks. Your audio stays on your computer."
         ]),&[Answer::Yes,Answer::No],Then::StemDownload(i, selected)));
         app.invalidate();
     }
@@ -643,7 +643,7 @@ fn work(
         .write(true)
         .open(root.join("runtime.lock")))?;
     lock.try_lock().map_err(|_| {
-        "Stem separation is already running in another Lemon Studio window".to_string()
+        "Stem separation is already running in another KNAY Studio window".to_string()
     })?;
     io(fs::write(root.join("separate.py"), RUNNER))?;
     io(fs::write(

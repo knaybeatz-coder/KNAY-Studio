@@ -5,6 +5,9 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 pub const VERSION: u64 = 2026110106;
+/// KNAY build: automatic updates from the Michael Lane feed are switched off, so a remote
+/// release can never replace this customized program.
+pub const ENABLED: bool = false;
 #[cfg(windows)]
 pub const FEED: &str = "https://michaellanemusic.de/lemon-studio/updates/stable.json";
 #[cfg(windows)]
@@ -118,9 +121,10 @@ fn check() -> Result<Option<PathBuf>> {
     fs::write(dir.join("signed.json"),bytes)?;
     Ok(Some(dir))
 }
-pub fn start() { status().lock().unwrap().started=true; request(); }
+pub fn start() { if ENABLED { status().lock().unwrap().started=true; request(); } }
 pub fn request() {
     let mut s=status().lock().unwrap();
+    if !ENABLED { s.message="Automatic updates are turned off in this build.".into(); return; }
     if s.busy || s.ready.is_some() { return; }
     s.busy=true; s.last=Some(Instant::now()); s.message="Checking for updates…".into(); drop(s);
     std::thread::spawn(|| {
@@ -306,36 +310,19 @@ pub fn diagnostic(args: &[String]) -> i32 {
 mod tests {
     use super::*;
     use ed25519_dalek::{Signer,SigningKey};
+    /// KNAY build: no Update or Donate button, and nothing checks the feed.
     #[test]
-    fn updater_button_and_cancel_preserve_session() {
-        use crate::{app::{App,Action},dialog::{self,Then,Next,Reply,Answer}};
+    fn updater_is_off_and_its_buttons_are_gone() {
+        use crate::app::{App,Action};
+        assert!(!ENABLED);
         let mut app=App::new(None);
-        status().lock().unwrap().ready=Some(PathBuf::from("test-only"));
-        assert_eq!(display().0,"Update");
-        for width in [900,1600] {
-            let mut canvas=os_ui::Canvas::new(width,900,1.0).unwrap();app.paint(&mut canvas,None);
-            let hit=app.hits.iter().find(|h|h.action==Action::Updates).expect("update button");
-            assert!(hit.rect.x>=width as f32-280.0 && hit.rect.right()<=width as f32);
-            let donate=app.hits.iter().find(|h|h.action==Action::Donate).expect("donate button");
-            assert!(hit.rect.w<70.0 && donate.rect.w<70.0 && donate.rect.x>hit.rect.right() && donate.rect.right()<=width as f32);
-            let minimize=app.hits.iter().find(|h|h.action==Action::Minimize).unwrap();
-            let maximize=app.hits.iter().find(|h|h.action==Action::Maximize).unwrap();
-            let close=app.hits.iter().find(|h|h.action==Action::Close).unwrap();
-            assert!(minimize.rect.x-donate.rect.right()>=32.);
-            assert!(maximize.rect.x>=minimize.rect.right() && close.rect.x>=maximize.rect.right());
-            assert!((close.rect.right()-(width as f32-10.)).abs()<1.);
-            assert_eq!(app.hits.iter().filter(|h|h.action==Action::Close).count(),1);
-            if let Some(dir)=std::env::var_os("LEMON_UPDATE_PREVIEW") {let dir=PathBuf::from(dir);fs::create_dir_all(&dir).unwrap();canvas.pixmap.save_png(dir.join(format!("updates-{width}.png"))).unwrap();}
-        }
-        dialog::fake::live(true);
-        app.state.tempo+=1.0;
+        start();
+        assert!(!status().lock().unwrap().busy && !status().lock().unwrap().started);
+        let mut canvas=os_ui::Canvas::new(1600,900,1.0).unwrap();app.paint(&mut canvas,None);
+        assert!(!app.hits.iter().any(|h|h.action==Action::Updates || h.action==Action::Donate));
         app.act(Action::Updates);
-        assert!(!app.want_exit && !app.restart_update);
-        assert!(!app.state.dialogs.is_empty());
-        app.dialog_done(Then::Discard(Next::Update),Reply::Button(Answer::Cancel));
-        assert!(!app.want_exit && !app.restart_update);
-        status().lock().unwrap().ready=None;
-        dialog::fake::live(false);
+        app.act(Action::Donate);
+        assert!(!app.want_exit && !app.restart_update && app.state.dialogs.is_empty());
     }
     #[cfg(unix)]
     #[test]

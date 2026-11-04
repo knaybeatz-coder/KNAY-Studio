@@ -102,7 +102,7 @@ pub fn unzip(zip: &Path, fallback: Option<&Path>, done: &AtomicU64, total: &Atom
         .filter(|e| is_project(&e.1))
         .min_by_key(|e| (e.1.components().count(), e.1.to_string_lossy().to_lowercase()))
         .map(|e| e.1.clone())
-        .ok_or_else(|| "it holds no Lemon Studio or legacy FLP project".to_string())?;
+        .ok_or_else(|| "it holds no KNAY Studio or legacy FLP project".to_string())?;
     total.store(entries.iter().map(|e| e.2).sum(), Ordering::Relaxed);
     let stem = zip.file_stem().map_or_else(|| "Project".to_string(), |s| s.to_string_lossy().into_owned());
     let beside = zip.parent().map(|d| if d.as_os_str().is_empty() { Path::new(".") } else { d });

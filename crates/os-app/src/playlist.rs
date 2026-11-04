@@ -292,6 +292,10 @@ pub enum Cmd {
     ClipPreview(usize),
     ClipRoute(usize),
     FitLoop(usize, crate::loop_fit::Fit),
+    /// KNAY Key match commands for audio clip `usize` (`crate::key_match`).
+    KeyMatch(usize, crate::key_match::KCmd),
+    /// KNAY VariAudio: open audio clip `usize` in the piano roll's pitch editor (`crate::vari`).
+    Vari(usize),
     SeparateStems(usize),
     /// A picker item's menu (§10a) on an audio or automation clip source: the command and the source's channel index.
     Pick(PickCmd, u16),
@@ -378,6 +382,8 @@ pub enum Cmd {
     /// FILE ▸ Recent projects ▸ More: open recent project `n` (spec: ui/recent-projects.md §2).
     OpenRecent(usize),
     OpenTapper,
+    /// KNAY: type the tempo in (the tempo box's menu, or a double-click on it).
+    TypeTempo,
     /// The Flam dialog's Options ▸ presets (spec: ui/piano-flam.md §5).
     FlamPreset(crate::flam::Preset),
     /// The Limit dialog's Key, scale and Snap ▸ menus (spec: ui/piano-limit.md §1).
@@ -546,6 +552,8 @@ pub enum EditTarget {
     ArrangementName,
     /// The value box of "Type in value..." and whether it reads normalized values (spec: ui/type-in-value.md).
     TypeIn(crate::typein::Target, bool),
+    /// KNAY: the tempo typed in (BPM).
+    Tempo,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1180,6 +1188,16 @@ pub fn audio_speed(s: &State, src: ClipSource) -> f64 {
 /// does (the stored length is not used for an audio clip): each trim point becomes ticks on its own, rounded; an
 /// untrimmed clip spans the whole sample (ui/playlist.md §9c, audio/audio-clips.md). Clips whose sample is not
 /// loaded keep their length. Returns whether a length changed. (The app's tick uses `audio_fits` + `fit_clips`.)
+/// KNAY: the tempo box's text field (Enter sets the tempo, Esc keeps it), under the tempo box.
+pub fn type_tempo(app: &mut App) {
+    let at = app.hits.iter().rev().find(|h| h.action == crate::app::Action::Tempo).map_or(app.mouse, |h| (h.rect.x, h.rect.bottom() + 2.0));
+    start_edit(&mut app.state, EditTarget::Tempo, at);
+    if let Some(e) = app.state.playlist.edit.as_mut() {
+        e.sel = true;
+    }
+    app.invalidate();
+}
+
 #[cfg(test)]
 pub fn fit_audio(s: &mut State) -> bool {
     audio_fits(s).is_some_and(|fits| fit_clips(&mut s.project.arrangements, &fits))
@@ -2634,6 +2652,12 @@ pub fn clip_menu(s: &State, i: usize, x: f32, y: f32) -> Popup {
         items.push(PItem::sub("Stretch / fit options", fitting));
         items.push(PItem::new("Stretch clip edges", Cmd::FitLoop(i, Fit::Edges)).mark(Mark::Radio(s.playlist.stretch)));
         items.push(PItem::new("Trim clip edges", Cmd::FitLoop(i, Fit::Trim)).mark(Mark::Radio(!s.playlist.stretch)));
+        if let Some(k) = crate::key_match::menu(s, i) {
+            items.push(k);
+        }
+        if let Some(v) = crate::vari::menu_item(s, i) {
+            items.push(v);
+        }
         items.push(PItem::sep());
     }
     if let ClipSource::Pattern(_) = c.source {
@@ -3103,6 +3127,28 @@ pub fn press_grid(app: &mut App, grid: Rect, right: bool) {
             }
         }
         app.invalidate();return;
+    }
+
+    // KNAY: Alt+right-click mutes or unmutes a clip in any tool (a selected one: the selection); dragging on mutes
+    // or unmutes the clips passed over, as the Mute tool does.
+    if right && alt && !app.ctrl {
+        if let Some(i) = hit {
+            snapshot(s);
+            let on = !clips(s)[i].muted;
+            if s.playlist.sel.contains(&i) && s.playlist.sel.len() > 1 {
+                for j in s.playlist.sel.clone() {
+                    if let Some(c) = arr_mut(s).clips.get_mut(j) {
+                        c.muted = on;
+                    }
+                }
+            }
+            s.message = Some(if on { "Muted" } else { "Unmuted" }.into());
+            s.piano.dirty = true;
+            app.drag = Some(Drag::Pl(PlDrag::Mute { on }));
+            mute_at(app, grid, on);
+        }
+        app.invalidate();
+        return;
     }
 
     // Ctrl+drag selects in any tool; Ctrl+click toggles a clip (§3).
@@ -3988,6 +4034,10 @@ pub fn start_edit(s: &mut State, target: EditTarget, at: (f32, f32)) {
         }
         EditTarget::PatternName(n) => source_name(s, ClipSource::Pattern(n)),
         EditTarget::MixerName(n) => crate::mixer::name(s, n),
+        EditTarget::Tempo => {
+            let t = format!("{:.3}", s.tempo);
+            t.trim_end_matches('0').trim_end_matches('.').to_string()
+        }
         EditTarget::SlotName(t, k) => crate::mixer::slot_name(s, t, k).unwrap_or_default(),
         EditTarget::TypeIn(t, norm) => crate::typein::text(s, t, norm),
     };
@@ -4028,6 +4078,16 @@ pub fn commit_edit(s: &mut State) {
             if let Some(v) = parse_value(s, ch, &text) {
                 let beat = s.project.automation(ch).and_then(|a| a.points.get(i)).map_or(0.0, |p| p.beat);
                 move_point(s, ch, i, beat, v);
+            }
+        }
+        EditTarget::Tempo => {
+            // "98", "98.5" or "98,5"; kept in the tempo box's range.
+            if let Ok(v) = text.replace(',', ".").trim_end_matches(|c: char| c.is_alphabetic() || c == ' ').parse::<f64>() {
+                if v.is_finite() && v > 0.0 {
+                    s.tempo = ((v.clamp(10.0, 522.0)) * 1000.0).round() / 1000.0;
+                    s.piano.dirty = true;
+                    s.message = Some(format!("Tempo {:.3} BPM", s.tempo));
+                }
             }
         }
         EditTarget::MixerName(n) => {
@@ -4153,6 +4213,10 @@ pub fn run(app: &mut App, cmd: Cmd) -> Option<String> {
         }
         Cmd::OpenTapper => {
             app.open_tempo_tapper();
+            return None;
+        }
+        Cmd::TypeTempo => {
+            type_tempo(app);
             return None;
         }
         Cmd::OpenRecent(n) => {
@@ -4308,6 +4372,12 @@ pub fn run(app: &mut App, cmd: Cmd) -> Option<String> {
         }
         Cmd::SeparateStems(i) => { crate::stem_separation::request(app, i); return None; }
         Cmd::FitLoop(i, cmd) => return crate::loop_fit::run(app, i, cmd),
+        Cmd::Vari(i) => return crate::vari::open(app, i),
+        Cmd::KeyMatch(i, cmd) => {
+            let m = crate::key_match::run(app, i, cmd);
+            app.invalidate();
+            return m;
+        }
         Cmd::ClipPreview(i) => {
             if let Some(c) = clips(&app.state).get(i).copied() {
                 app.preview_clip(&c);
@@ -4448,7 +4518,7 @@ pub fn run(app: &mut App, cmd: Cmd) -> Option<String> {
             snapshot(s);
             (!delete_space(s)).then(|| "Delete space: make a time selection first (right-drag the ruler)".into())
         }
-        Cmd::FreezeTrack(_) | Cmd::UnfreezeTrack(_) | Cmd::BounceTrack(_) | Cmd::Consolidate | Cmd::ExportTracks | Cmd::QuantizeStarts | Cmd::PointValue(..) | Cmd::ClipRoute(_) | Cmd::ClipPreview(_) | Cmd::SeparateStems(_) | Cmd::FitLoop(..) | Cmd::TypeIn(_) | Cmd::Reset(_) | Cmd::Remote(_) | Cmd::PeakLink(_) | Cmd::MidiExt(_) => None,
+        Cmd::FreezeTrack(_) | Cmd::UnfreezeTrack(_) | Cmd::BounceTrack(_) | Cmd::Consolidate | Cmd::ExportTracks | Cmd::QuantizeStarts | Cmd::PointValue(..) | Cmd::ClipRoute(_) | Cmd::ClipPreview(_) | Cmd::SeparateStems(_) | Cmd::FitLoop(..) | Cmd::KeyMatch(..) | Cmd::Vari(_) | Cmd::TypeIn(_) | Cmd::Reset(_) | Cmd::Remote(_) | Cmd::PeakLink(_) | Cmd::MidiExt(_) => None,
         Cmd::StretchMode => {
             s.playlist.stretch = !s.playlist.stretch;
             if s.playlist.stretch { crate::playlist_tools::select(s, PlTool::Paint); }
@@ -4839,7 +4909,7 @@ pub fn run(app: &mut App, cmd: Cmd) -> Option<String> {
         Cmd::Genre(_) => None,
         Cmd::Theme(_) => None,
         Cmd::Template(_) | Cmd::NewTemplate(_) => None,
-        Cmd::Arp(_) | Cmd::MidiImport(_) | Cmd::MidiExport(_) | Cmd::OpenRecent(_) | Cmd::OpenTapper => None,
+        Cmd::Arp(_) | Cmd::MidiImport(_) | Cmd::MidiExport(_) | Cmd::OpenRecent(_) | Cmd::OpenTapper | Cmd::TypeTempo => None,
         Cmd::FlamPreset(_) => None,
         Cmd::Limit(_) => None,
         Cmd::Claw(_) => None,
@@ -4946,6 +5016,11 @@ pub fn export_tracks(app: &mut App) -> String {
 }
 
 pub fn consolidate(app: &mut App) -> String {
+    consolidate_from(app, false)
+}
+
+/// `consolidate`; `from_start`: the render begins at the song start (bar 1) instead of the selection's start.
+pub fn consolidate_from(app: &mut App, from_start: bool) -> String {
     let s = &mut app.state;
     let sel = s.playlist.sel.clone();
     let (a, b) = match (s.playlist.range, sel.is_empty()) {
@@ -4956,6 +5031,7 @@ pub fn consolidate(app: &mut App) -> String {
         }
         _ => return "Consolidate: select clips or a time range first".into(),
     };
+    let a = if from_start { 0 } else { a };
     if b <= a {
         return "Consolidate: nothing to render".into();
     }
@@ -5063,6 +5139,13 @@ pub fn key(app: &mut App, key: &winit::keyboard::Key, ctrl: bool, alt: bool) -> 
         return true;
     }
     let cmd = match key {
+        // KNAY: Ctrl+Alt+Shift+C renders from the song start (FL's "Consolidate from song start").
+        Key::Character(c) if ctrl && alt && shift && c.eq_ignore_ascii_case("c") => {
+            let m = consolidate_from(app, true);
+            app.state.message = Some(m);
+            app.invalidate();
+            return true;
+        }
         Key::Character(c) if ctrl && alt && c.eq_ignore_ascii_case("c") => Cmd::Consolidate,
         Key::Character(c) if ctrl && shift && c.eq_ignore_ascii_case("c") => Cmd::MakeUnique,
         // Performance mode (live clip launching, Ctrl+P in FL's menu) is not built yet.
@@ -5081,6 +5164,9 @@ pub fn key(app: &mut App, key: &winit::keyboard::Key, ctrl: bool, alt: bool) -> 
         Key::Character(c) if shift && !ctrl && !alt && c.eq_ignore_ascii_case("z") => Cmd::ZoomSelection,
         Key::Character(c) if shift && !ctrl && !alt && c.eq_ignore_ascii_case("m") => Cmd::StretchMode,
         Key::Character(c) if shift && !ctrl && !alt && c.eq_ignore_ascii_case("i") => Cmd::InvertSelection,
+        // KNAY: Shift+C selects by selected source (as the Select menu says), Shift+Q quick-quantizes start times.
+        Key::Character(c) if shift && !ctrl && !alt && c.eq_ignore_ascii_case("c") => Cmd::SelectSource,
+        Key::Character(c) if shift && !ctrl && !alt && c.eq_ignore_ascii_case("q") => Cmd::QuantizeStarts,
         Key::Character(c) if shift && !ctrl && !alt && (c == "4" || c == "$") => Cmd::ZoomAll,
         Key::Character(c) if shift && !ctrl && !alt && (c == "5" || c == "%") => Cmd::ZoomSelection,
         Key::Character(c) if shift && !ctrl && !alt && c.eq_ignore_ascii_case("g") => Cmd::GroupClips,
