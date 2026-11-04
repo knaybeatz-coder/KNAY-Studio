@@ -350,7 +350,7 @@ mod tests {
     use os_model::Note;
 
     fn note(position: u32, channel: u16, key: u16) -> Note {
-        Note { position, length: 96, channel, key, fine_pitch: 120, release: 64, pan: 64, velocity: 100, mod_x: 128, mod_y: 128, flags: 0x4000, group: 0, unk14: 0, repeat: 0 }
+        Note { expression: 0, position, length: 96, channel, key, fine_pitch: 120, release: 64, pan: 64, velocity: 100, mod_x: 128, mod_y: 128, flags: 0x4000, group: 0, unk14: 0, repeat: 0 }
     }
 
     fn hz(midi: i32) -> f64 {
