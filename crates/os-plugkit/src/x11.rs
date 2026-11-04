@@ -178,6 +178,7 @@ pub struct Window {
     max_request: usize,
     waker: Waker,
     keys: Keymap,
+    key_releases: bool,
     /// An invisible cursor for held drags.
     blank: u32,
     /// XInput 2 is there: held drags ask for raw motion (XWayland may not send any).
@@ -225,6 +226,7 @@ impl Window {
             | EventMask::POINTER_MOTION
             | EventMask::LEAVE_WINDOW
             | EventMask::KEY_PRESS
+            | EventMask::KEY_RELEASE
             | EventMask::STRUCTURE_NOTIFY;
         (|| -> Result<(), Box<dyn std::error::Error>> {
             // The plugin look's background until the first frame is put: the server fills the window with it at once,
@@ -262,6 +264,7 @@ impl Window {
             max_request,
             waker,
             keys,
+            key_releases: false,
             blank,
             xi,
             raw_seen: false,
@@ -279,6 +282,9 @@ impl Window {
     /// No input is waiting: a good moment to paint (once per burst of events).
     pub fn idle(&self) -> bool {
         self.queue.is_empty()
+    }
+    pub fn key_releases(&mut self) {
+        self.key_releases = true;
     }
 
     /// Ctrl, Shift, Alt held at the last event.
@@ -427,7 +433,12 @@ impl Window {
             Event::KeyPress(e) if e.event == self.win => {
                 self.state = u16::from(e.state);
                 let sym = self.keys.sym(e.detail, self.state);
-                Some(Input::Key { sym, text: keysym_char(sym) })
+                Some(Input::Key { sym, text: keysym_char(sym), pressed: true })
+            }
+            Event::KeyRelease(e) if e.event == self.win && self.key_releases => {
+                self.state = u16::from(e.state);
+                let sym = self.keys.sym(e.detail, self.state);
+                Some(Input::Key { sym, text: None, pressed: false })
             }
             _ => None,
         }

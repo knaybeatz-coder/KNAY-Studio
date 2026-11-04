@@ -1,0 +1,28 @@
+name: Master Assistant Linux engine
+on:
+  push:
+    branches: [michael-lane]
+    paths:
+      - 'plugins/lemon-master-assistant/**'
+      - 'packaging/bundle-master-engine.py'
+      - '.github/workflows/master-engine.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-engine:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install native build dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build libasound2-dev libx11-dev libxinerama-dev libxext-dev libfreetype6-dev libfontconfig1-dev libxrandr-dev libxcursor-dev libgl1-mesa-dev
+      - name: Build native mastering engine
+        run: |
+          cmake -S plugins/lemon-master-assistant -B build-master -G Ninja -DCMAKE_BUILD_TYPE=Release -DOXYGEN_ENABLE_NATIVE_OPTIMIZATIONS=OFF
+          cmake --build build-master --target oXygen_VST3 --parallel 2
+          python3 packaging/bundle-master-engine.py --bundle 'build-master/oXygen_artefacts/Release/VST3/Lemon Master Assistant.vst3' --os linux --arch x86_64 --output master-engine-linux.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: master-engine-linux
+          path: master-engine-linux.zip
+          if-no-files-found: error

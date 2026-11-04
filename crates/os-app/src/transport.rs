@@ -78,6 +78,8 @@ const PREFILL_FRAMES: usize = 1024;
 /// State the UI reads every frame.
 #[derive(Default)]
 pub struct Shared {
+    preview_active: AtomicBool,
+    preview_ms: AtomicU64,
     eq_scope_track: AtomicU32,
     eq_scope: Mutex<crate::mini_eq::Scope>,
     state: AtomicU8,
@@ -406,7 +408,7 @@ enum Cmd {
     /// Play a project's playlist once on the preview stream (clip preview).
     PreviewSong(Box<Project>),
     /// Like `Preview`, faded out after the given time if still sounding (browser sample preview).
-    PreviewFor(Box<Project>, Option<Duration>),
+    PreviewFor(Box<Project>, Option<Duration>, Arc<os_engine::Sample>),
     /// The hosted instruments changed (in `Transport::instruments`): rebuild the engines.
     Instruments,
     /// Live note (typing keyboard): channel (rack position), key, velocity; `NoteOff` releases.
@@ -658,10 +660,15 @@ impl Transport {
         let _ = self.tx.send(Cmd::Preview(Box::new(project)));
     }
 
-    /// Play pattern 1 of `project` once on the preview stream and cut it off after `limit` (spec: ui/browser.md §7,
+    /// Play the browser audition arrangement once on the preview stream and cut it off after `limit` (spec: ui/browser.md §7,
     /// sample preview). A new preview replaces the one sounding.
-    pub fn preview_for(&self, project: Project, limit: Option<Duration>) {
-        let _ = self.tx.send(Cmd::PreviewFor(Box::new(project), limit));
+    pub fn preview_status(&self)->(bool,f64) {
+        (self.shared.preview_active.load(Ordering::Acquire),self.shared.preview_ms.load(Ordering::Relaxed) as f64/1000.)
+    }
+    pub fn preview_for(&self, project: Project, limit: Option<Duration>, sample: Arc<os_engine::Sample>) {
+        self.shared.preview_active.store(false,Ordering::Release);
+        self.shared.preview_ms.store(0,Ordering::Relaxed);
+        let _ = self.tx.send(Cmd::PreviewFor(Box::new(project), limit, sample));
     }
 
     /// Play the playlist of `project` once on the preview stream (spec: ui/playlist.md §10, clip Preview).
@@ -1075,6 +1082,9 @@ impl Feeder {
         let t0 = Instant::now();
         let mut frames = 0u64;
         while self.queue.queued() < want && self.queue.has_room() {
+            // The device has already consumed its block. The remaining queue is
+            // our deadline; reserve 2 ms for rendering instead of a fixed wait.
+            e.set_plugin_wait_budget(plugin_wait_budget(self.queue.queued()/2,self.rate));
             match e.next_tick() {
                 None => {
                     self.queue.ended.store(true, Ordering::Release);
@@ -1262,6 +1272,11 @@ pub fn host_library(factory: Option<PathBuf>) -> SampleLibrary {
 /// An engine for `project` with the hosted plugins attached (`plugins`; a preview plays its channels itself), all from
 /// one look at the list. The instruments come with the engine (`Engine::with_instruments`), so it keeps no decoded copy
 /// of the samples they play from their files.
+// Pattern selection follows immediately at the current musical position; Song mode stays Song.
+fn follow_pattern(mode:PlayMode,project:&Project)->PlayMode {
+    match mode {PlayMode::Pattern(old)=>PlayMode::Pattern(project.current_pattern.unwrap_or(old).max(1)),_=>mode}
+}
+
 fn engine(project: &Project, library: &mut SampleLibrary, rate: u32, mode: PlayMode, inst: &Instruments, plugins: bool) -> Engine {
     let (list, fx) = inst.lock().ok().filter(|_| plugins).map(|l| (l.inst.clone(), l.fx.clone())).unwrap_or_default();
     if plugins && std::env::var_os("OS_DEBUG").is_some() {
@@ -1295,7 +1310,7 @@ fn export(project: &Project, mode: PlayMode, rate: u32, job: &crate::export::Job
     }
     e.set_capture_tracks(job.capture_tracks.clone());
     e.set_track_capture(o.split);
-    let len = e.frames_left().max(1);
+    let len = ((e.frames_left() as f64 / e.speed_ratio()).round() as u64).max(1);
     // Cut needs nothing past the song's end.
     let cap = if o.tail == crate::export::Tail::Cut { len } else { len + u64::from(rate) * EXPORT_TAIL_MAX_SECS };
     let mut audio: Vec<f32> = Vec::with_capacity(2 * (len as usize + rate as usize));
@@ -1307,7 +1322,8 @@ fn export(project: &Project, mode: PlayMode, rate: u32, job: &crate::export::Job
             break;
         }
     }
-    let tracks = e.take_track_audio();
+    let mut tracks = e.take_track_audio();
+    for m in project.mixer.iter().filter(|m|m.clip_fx){if let Some(audio)=tracks.get_mut(usize::from(m.index)){audio.clear();}}
     drop(e);
     // The file's length: the song, plus the tail when it rings out.
     let frames = if o.tail == crate::export::Tail::Ring { audio.len() as u64 / 2 } else { len };
@@ -1387,14 +1403,14 @@ fn audio_thread(rx: Receiver<Cmd>, shared: Arc<Shared>, latest: Arc<Mutex<Option
     // OS_DEBUG: how far playback renders ahead of the device, every 2 s.
     let debug = std::env::var_os("OS_DEBUG").is_some();
     let mut logged = Instant::now();
-    let swap = |s: &mut Session, library: &mut SampleLibrary| {
+    let swap = |s: &mut Session, library: &mut SampleLibrary, switched:bool| {
         // Build outside the lock, then swap at the playing position.
         let mut e = engine(&s.project, library, s.rate, s.mode, &inst, true);
         if s.kind == Kind::Live {
             e.clear_schedule();
         }
         let old = s.engine.lock().map(|mut slot| {
-            e.continue_from(&mut slot);
+            if switched {e.continue_pattern_from(&mut slot);}else{e.continue_from(&mut slot);}
             std::mem::replace(&mut *slot, e)
         });
         drop(old); // freed after the audio callback has the new engine
@@ -1440,10 +1456,13 @@ fn audio_thread(rx: Receiver<Cmd>, shared: Arc<Shared>, latest: Arc<Mutex<Option
             Ok(Cmd::Update) => {
                 if let Some(project) = latest.lock().ok().and_then(|mut l| l.take()) {
                     for s in [session.as_mut(), live.as_mut()].into_iter().flatten() {
+                        let next=if s.kind==Kind::Song{follow_pattern(s.mode,&project)}else{s.mode};
+                        let switched=next!=s.mode;s.mode=next;
                         s.project = project.clone();
-                        swap(s, &mut library);
+                        swap(s, &mut library,switched);
                     }
                     if let Some(h) = held.as_mut() {
+                        h.1=follow_pattern(h.1,&project);
                         h.0 = project.clone();
                     }
                     live_project = Some(project);
@@ -1451,7 +1470,7 @@ fn audio_thread(rx: Receiver<Cmd>, shared: Arc<Shared>, latest: Arc<Mutex<Option
             }
             Ok(Cmd::Instruments) => {
                 for s in [session.as_mut(), live.as_mut()].into_iter().flatten() {
-                    swap(s, &mut library);
+                    swap(s, &mut library,false);
                 }
             }
             Ok(Cmd::Listen(on)) => {
@@ -1511,10 +1530,13 @@ fn audio_thread(rx: Receiver<Cmd>, shared: Arc<Shared>, latest: Arc<Mutex<Option
                 let target=if running{session.as_ref()}else{live.as_ref()};
                 if let Some(s)=target{let notes=audition_events(&project,s.rate);if let Ok(mut e)=s.engine.lock(){e.audition_notes(&notes);}s.feed.wake();}
             },
-            Ok(Cmd::PreviewFor(project, limit)) => {
+            Ok(Cmd::PreviewFor(project, limit, sample)) => {
+                // Never put processed previews into the song's sample cache.
+                let mut preview_library=SampleLibrary::new(library.factory_dir.clone());
+                if let Some(path)=project.channels.first().and_then(|c|c.sample_path.clone()) {preview_library.insert_buffer(path,sample);}
                 preview = None;
                 preview_until = limit.map(|d| Instant::now() + d);
-                match Session::start(&project, PlayMode::Pattern(1), Kind::Preview, 0, &mut library, shared.clone(), &inst, At::default(), &mut device) {
+                match Session::start(&project, PlayMode::Song, Kind::Preview, 0, &mut preview_library, shared.clone(), &inst, At::default(), &mut device) {
                     Ok(s) => preview = Some(s),
                     Err(e) => report(&shared, e),
                 }
@@ -1675,7 +1697,7 @@ fn audio_thread(rx: Receiver<Cmd>, shared: Arc<Shared>, latest: Arc<Mutex<Option
             Ok(Cmd::Factory(dir)) => {
                 library.set_factory_dir(dir);
                 for s in [session.as_mut(), live.as_mut()].into_iter().flatten() {
-                    swap(s, &mut library);
+                    swap(s, &mut library,false);
                 }
             }
             Ok(Cmd::AsioPanel) if closed => report(&shared, "the output is let go of (Auto close)".into()),
@@ -1758,6 +1780,10 @@ fn audio_thread(rx: Receiver<Cmd>, shared: Arc<Shared>, latest: Arc<Mutex<Option
                 retire(s, &mut closing);
             }
         }
+        if let Some(p)=&preview {
+            shared.preview_ms.store(p.ctl.consumed.load(Ordering::Relaxed)*1000/u64::from(p.rate.max(1)),Ordering::Relaxed);
+        }
+        shared.preview_active.store(preview.is_some(),Ordering::Release);
         // Stopped streams are dropped once their fade is over; then the instruments are silenced for good.
         closing.retain(|(_, since)| since.elapsed() < CLOSE_AFTER);
         shared.underruns.fetch_add(device.take_xruns(), Ordering::Relaxed);
@@ -1975,6 +2001,7 @@ enum Kind {
 
 /// Controls shared with a stream's callback.
 struct Ctl {
+    consumed: AtomicU64,
     /// Fade out and hold the stream (stop; a pause once another stream processes the same plugins).
     paused: AtomicBool,
     /// Paused in the engine (`Engine::pause`): the stream runs on, ringing out the effects.
@@ -2062,7 +2089,7 @@ impl Session {
             e.set_nudge(crate::tapper::nudge_flag());
         }
         let done = Arc::new(AtomicBool::new(false));
-        let ctl = Arc::new(Ctl { paused: AtomicBool::new(at.paused), held: AtomicBool::new(false), report: AtomicBool::new(song) });
+        let ctl = Arc::new(Ctl { consumed: AtomicU64::new(0), paused: AtomicBool::new(at.paused), held: AtomicBool::new(false), report: AtomicBool::new(song) });
         if kind != Kind::Preview {
             e.set_mixer_input(Box::new(DeviceInput { shared: shared.clone(), ctl: ctl.clone(), kind, owner: INPUT_OWNER.fetch_add(1,Ordering::Relaxed) }));
         }
@@ -2163,6 +2190,7 @@ impl Renderer {
         let from = self.queue.heard();
         let read = self.queue.read.load(Ordering::Relaxed) / 2;
         let got = self.queue.pop(stereo);
+        self.ctl.consumed.fetch_add((got/2) as u64,Ordering::Relaxed);
         let ended = self.queue.ended.load(Ordering::Acquire);
         if got>=2 {self.last=[stereo[got-2],stereo[got-1]];}
         if got < stereo.len() {
@@ -2248,7 +2276,7 @@ mod tests {
 
     /// A stream's callback with its queue filled in the callback (no feeder thread).
     fn renderer(e: Engine) -> (Renderer, Arc<Ctl>, Arc<Shared>) {
-        let ctl = Arc::new(Ctl { paused: AtomicBool::new(false), held: AtomicBool::new(false), report: AtomicBool::new(true) });
+        let ctl = Arc::new(Ctl { consumed: AtomicU64::new(0), paused: AtomicBool::new(false), held: AtomicBool::new(false), report: AtomicBool::new(true) });
         let shared = Arc::new(Shared::default());
         let queue = Arc::new(Queue::new());
         let mut r = Renderer::new(queue.clone(), ctl.clone(), Arc::new(AtomicBool::new(false)), shared.clone(), 48000);
@@ -3286,5 +3314,34 @@ mod tests {
             std::thread::sleep(Duration::from_millis(200));
             assert_eq!(fx.load(Ordering::Relaxed), resets(3) + 1, "Stop, setting {on}");
         }
+    }
+}
+
+#[cfg(test)] mod pattern_follow_tests {
+    use super::*;
+    #[test] fn community_pattern_follow_leaves_song_mode_alone(){
+        let mut p=crate::app::test_project();p.current_pattern=Some(2);
+        assert_eq!(follow_pattern(PlayMode::Pattern(1),&p),PlayMode::Pattern(2));
+        assert_eq!(follow_pattern(PlayMode::Song,&p),PlayMode::Song);
+        let mut app=crate::app::App::new(None);app.state.piano.dirty=false;
+        crate::patterns::select(&mut app.state,3);assert!(app.state.piano.dirty);
+        assert_eq!(crate::rack::play_project(&app.state).current_pattern,Some(3));
+    }
+}
+
+// Spend only already-buffered audio on waiting for a busy editor. Keep rendering
+// headroom and cap the wait in Engine so an unresponsive plugin cannot hang playback.
+fn plugin_wait_budget(queued_frames:u64,rate:u32)->Duration {
+    if queued_frames==0 {return Duration::from_millis(2);}
+    let spare=queued_frames.saturating_sub(u64::from(rate/500));
+    Duration::from_secs_f64(spare as f64/f64::from(rate.max(1)))
+}
+#[cfg(test)] mod playback_budget_tests {
+    #[test] fn playback_fix_wait_respects_audio_remaining_in_queue() {
+        use std::time::Duration as D;
+        assert_eq!(super::plugin_wait_budget(48,48000),D::ZERO);
+        assert_eq!(super::plugin_wait_budget(480,48000),D::from_millis(8));
+        assert_eq!(super::plugin_wait_budget(960,48000),D::from_millis(18));
+        assert_eq!(super::plugin_wait_budget(0,48000),D::from_millis(2));
     }
 }

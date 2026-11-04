@@ -166,7 +166,7 @@ pub fn paint(ui:&mut Ui,s:&State,r:Rect) {
             wrapped(ui,&p.description,Rect::new(x,top+64.,w,(bottom-135.-top-64.).max(0.)),ui.t.text);
         } else {wrapped(ui,&p.description,Rect::new(x,top,w,(bottom-135.-top).max(0.)),ui.t.text);}
     } else {
-        ui.c.text_clip(Font::new(15),x,panel.y+5.,w,ui.t.text,"75 free plugins");
+        ui.c.text_clip(Font::new(15),x,panel.y+5.,w,ui.t.text,&format!("{} free plugins",catalog().len()));
         wrapped(ui,"Choose a category, then a plugin. Hover for information. Portable plugins install automatically. Other downloads open their installer or archive.",Rect::new(x,panel.y+29.,w,(dh-165.).max(0.)),ui.t.text_dim);
     }
     let tip=download(p).map_or("No compatible native download for this system".to_string(),|d|format!("{} / {:.1} MB. {} {} Finish installation, then Scan Plugins.",d.version,d.size as f64/1048576.,d.note,p.note));
@@ -195,7 +195,7 @@ fn cancelled()->bool {status().lock().unwrap().cancel}
 fn allowed_url(url:&str)->bool {
     let Some(rest)=url.strip_prefix("https://")else{return false};
     let host=rest.split('/').next().unwrap_or("").to_ascii_lowercase();
-    ["github.com","release-assets.githubusercontent.com","objects.githubusercontent.com","www.airwindows.com","airwindows.com","socalabs.com","www.socalabs.com","www.dropbox.com","dl.dropboxusercontent.com","www.tokyodawn.net","www.voxengo.com","cdn.youlean.co","xferrecords.com","klanghelm.com","dl.u-he.com","tal-software.com","0911754ed6a6961486bafb46cc7496df.r2.cloudflarestorage.com"].contains(&host.as_str())
+    ["github.com","release-assets.githubusercontent.com","objects.githubusercontent.com","www.airwindows.com","airwindows.com","socalabs.com","www.socalabs.com","www.dropbox.com","dl.dropboxusercontent.com","www.tokyodawn.net","www.voxengo.com","cdn.youlean.co","xferrecords.com","klanghelm.com","dl.u-he.com","tal-software.com","0911754ed6a6961486bafb46cc7496df.r2.cloudflarestorage.com","www.vitling.xyz","www.fullbucket.de","blaukraut.info"].contains(&host.as_str())
         || host=="klanghelmfree.s3.eu-central-1.amazonaws.com" || host=="uhe-dl.b-cdn.net"
         || host.ends_with(".githubusercontent.com") || host.ends_with(".dropboxusercontent.com")
 }
@@ -361,12 +361,12 @@ mod tests {
     use super::*;
     #[test]
     fn catalog_and_download_integrity(){
-        let mut cats=std::collections::HashMap::new();let mut ids=std::collections::HashSet::new();assert_eq!(catalog().len(),75);
+        let mut cats=std::collections::HashMap::new();let mut ids=std::collections::HashSet::new();assert_eq!(catalog().len(),93);
         for p in catalog(){assert!(ids.insert(&p.id));*cats.entry(&p.category).or_insert(0)+=1;
             assert!(p.source.starts_with("https://"));assert!(p.info.len()>50);assert!(!p.license.is_empty());
             assert!(for_platform(p,"windows-x86_64").is_some(),"{}",p.name);
             for d in &p.downloads{validate(d).unwrap_or_else(|e|panic!("{} {}: {e}",p.name,d.platform));}
-        }assert_eq!(cats.len(),10);assert!(cats.values().all(|n|*n>=5));assert_eq!(catalog().iter().filter(|p|p.freeware).count(),25);
+        }assert_eq!(cats.len(),10);assert!(cats.values().all(|n|*n>=5));assert_eq!(catalog().iter().filter(|p|p.freeware).count(),34);
         assert!(!member_allowed("bundle/../bad.dll",&["bundle".into()]));
         assert!(!member_allowed("C:/bad.dll",&["C:".into()]));
         assert!(!member_allowed("plugin.dll.exe",&["plugin.dll".into()]));
@@ -378,13 +378,13 @@ mod tests {
         assert!(copy_verified(bytes.as_slice(),Vec::new(),&d,|_|Err("cancelled".into())).is_err());
         assert!(copy_verified(b"test package extra".as_slice(),Vec::new(),&d,|_|Ok(())).is_err());
         let oxygen=catalog().iter().find(|p|p.name=="oXygen").unwrap();assert!(for_platform(oxygen,"macos-aarch64").is_none());
-        assert_eq!(thumbnails().len(),75);assert!(thumbnails().iter().all(Option::is_some));
+        assert_eq!(thumbnails().len(),catalog().len());assert!(thumbnails().iter().all(Option::is_some));
     }
     #[test]
     fn catalog_browser_search_and_layout(){
         let mut app=App::new(None);app.state.show_browser=true;app.browser_act(&Action::BrowserTab(TAB));
         assert_eq!(app.state.browser_tab,TAB);assert_eq!(rows(&app.state).len(),10);
-        app.browser_act(&Action::BrowserRow(0));assert_eq!(rows(&app.state).len(),20);
+        app.browser_act(&Action::BrowserRow(0));assert_eq!(rows(&app.state).len(),10+catalog().iter().filter(|p|p.category=="Synthesizers").count());
         app.browser_act(&Action::BrowserRow(1));assert!(app.drag.is_none());assert_eq!(selected(&app.state),Some(0));
         app.state.browser_search="oxygen".into();assert_eq!(rows(&app.state).len(),2);assert_eq!(rows(&app.state)[1].label,"oXygen");
         app.state.browser_search.clear();
@@ -415,6 +415,21 @@ mod tests {
         app.browser_wheel(-1.);assert_eq!(app.state.catalog_tooltip,None);
         app.state.catalog_hover=Some((i,std::time::Instant::now()-Duration::from_secs(1)));
         app.mouse_move(900.,550.);hover_tick(&mut app);assert_eq!(app.state.catalog_hover,None);
+    }
+    #[test]
+    #[ignore="Explicit direct-download additions check; no installers or plugins execute"]
+    fn direct_additions_download_roundtrip(){
+        let dir=std::env::temp_dir().join(format!("lemon-direct-additions-{}",std::process::id()));
+        let mut count=0;
+        for p in catalog().iter().skip(75) {
+            let d=for_platform(p,"windows-x86_64").unwrap();
+            let path=fetch(d,&dir).unwrap_or_else(|e|panic!("{}: {e}",p.name));
+            assert!(verified(&path,d),"{}",p.name);
+            assert_eq!(fetch(d,&dir).unwrap(),path,"verified cache reuse");
+            count+=1;
+        }
+        assert_eq!(count,18);
+        fs::remove_dir_all(dir).unwrap();
     }
     #[test]
     #[ignore="Explicit official freeware download check, no installer executes"]
@@ -449,4 +464,11 @@ mod tests {
             let path=fetch(d,&dir).unwrap_or_else(|e|panic!("{name}: {e}"));assert!(verified(&path,d));assert_eq!(fetch(d,&dir).unwrap(),path);
         }fs::remove_dir_all(dir).unwrap();
     }
+}
+
+/// Exact catalog-name match only: never show a different plugin's interface.
+pub(crate) fn picker_picture(name:&str)->Option<std::sync::Arc<(usize,usize,Vec<u32>)>>{
+    static CACHE:OnceLock<std::collections::HashMap<String,std::sync::Arc<(usize,usize,Vec<u32>)>>>=OnceLock::new();
+    let normalize=crate::plugin_menu::normalized;
+    CACHE.get_or_init(||catalog().iter().zip(thumbnails()).filter_map(|(p,image)|image.as_ref().map(|i|(normalize(&p.name),std::sync::Arc::new(i.clone())))).collect()).get(&normalize(name)).cloned()
 }

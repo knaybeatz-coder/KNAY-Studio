@@ -37,6 +37,9 @@ pub struct Entry {
 /// A hosted instance's parameter list in plugin order (position = automation index k).
 #[derive(Debug, Clone)]
 pub struct List {
+    /// Last observed values and whether an active editor gesture already owns an undo step.
+    pub values: std::cell::RefCell<BTreeMap<u32,f64>>,
+    pub gestures: BTreeMap<u32,bool>,
     pub plugin: Weak<Mutex<dyn os_host::Plugin>>,
     pub params: Vec<Entry>,
     /// When `params_tick` last took the instance's events (`Hosted::due`).
@@ -160,7 +163,9 @@ pub(crate) fn param_value(s: &State, key: usize, index: usize) -> Option<f64> {
 
 pub(crate) fn set_param_value(s: &State, key: usize, index: usize, v: f64) -> bool {
     let Some(id) = s.params.lists.get(&key).and_then(|l| l.params.get(index)).map(|e| e.id) else { return false };
-    s.params.plugin(key).is_some_and(|p| p.lock().is_ok_and(|mut p| p.set_param(id, v)))
+    let ok=s.params.plugin(key).is_some_and(|p| p.lock().is_ok_and(|mut p| p.set_param(id, v)));
+    if ok {if let Some(l)=s.params.lists.get(&key){l.values.borrow_mut().insert(id,v);}}
+    ok
 }
 
 /// "Create automation clip" for parameter `index` of instance `key`: target, clip name, current value.
@@ -347,9 +352,11 @@ impl App {
         ui.lists.retain(|k, _| self.plugins.hosted.contains_key(k));
         let mut moved = None;
         let mut edited = Vec::new();
+        let mut ara_changes=Vec::new();
         let mut automate = Vec::new();
         let mut stretch = Vec::new();
         let mut recorded=Vec::new();
+        let mut undo=Vec::new();
         for (&key, h) in &self.plugins.hosted {
             // Only an instance with something new is locked, and never waited for: one the audio thread is rendering
             // is read again next tick (its events stay queued).
@@ -365,14 +372,32 @@ impl App {
                         None => Entry { id: u32::MAX, name: String::new(), hidden: true, default: 0.0, steps: 0 },
                     })
                     .collect();
-                ui.lists.insert(key, List { plugin: weak, params, seen: look });
+                let values=(0..count).filter_map(|i|{let id=p.param_info(i)?.id;Some((id,p.param_value(id)?))}).collect();
+                ui.lists.insert(key, List { plugin: weak, params, seen: look, values:std::cell::RefCell::new(values),gestures:BTreeMap::new() });
             }
             if let Some(l) = ui.lists.get_mut(&key) {
                 l.seen = look;
             }
             let sampler = key < crate::plugins::FX_KEY && p.desc().name == crate::plugins::LEMON_SAMPLER;
+            if p.take_state_changed(){edited.push(key);if self.state.project.channels.get(key).is_some_and(crate::ara::is){ara_changes.push((key,p.save_state()));}}
             let pending=ui.capture_pending.remove(&key);
             for e in p.take_param_events() {
+                if let Some(l)=ui.lists.get_mut(&key) {
+                    match e {
+                        os_host::ParamEvent::Begin(id)=>{l.gestures.insert(id,false);}
+                        os_host::ParamEvent::End(id)=>{l.gestures.remove(&id);}
+                        os_host::ParamEvent::Value(id,v) if v.is_finite()=>{
+                            let before=l.values.borrow_mut().insert(id,v);
+                            if before.is_some_and(|old|old!=v) && !l.gestures.get(&id).copied().unwrap_or(false) {
+                                if let Some(index)=l.params.iter().position(|x|x.id==id) {
+                                    undo.push((key,index,before,v));
+                                    if let Some(done)=l.gestures.get_mut(&id){*done=true;}
+                                }
+                            }
+                        }
+                        _=>{}
+                    }
+                }
                 if let (true, os_host::ParamEvent::Value(id, v)) = (sampler, &e) {
                     if let Some(x) = ui.lists.get(&key).and_then(|l| l.params.iter().find(|x| x.id == *id)) {
                         stretch.push((key, x.name.clone(), *v));
@@ -385,6 +410,8 @@ impl App {
                     if let os_host::ParamEvent::Value(_,v)=e {recorded.push((key,index,v,!pending && p.param_info(index).is_some_and(|i|i.automatable && !i.read_only && !i.hidden)));}
                 }
             }
+            // Automation and host changes establish the next gesture's starting value without making history.
+            if let Some(l)=ui.lists.get_mut(&key){for entry in &l.params {if !l.gestures.contains_key(&entry.id){if let Some(v)=p.param_value(entry.id){l.values.borrow_mut().insert(entry.id,v);}}}}
             // "Create automation clip" picked in the plugin's own menu (CLAP context menu).
             for id in p.take_automation_requests() {
                 if let Some(index) = ui.lists.get(&key).and_then(|l| l.params.iter().position(|x| x.id == id)) {
@@ -392,6 +419,8 @@ impl App {
                 }
             }
         }
+        for (key,index,before,v) in undo {crate::history::param(&mut self.state,key,index,before,v);}
+        for (key,blob) in ara_changes {crate::ara::edited(self,key,blob);}
         // A knob moved in a plugin's own window is the user's edit (`Plugins::mark_edited`).
         for key in edited {
             self.plugins.mark_edited(key);
@@ -534,6 +563,18 @@ impl App {
         if !s.params.has_params(key) {
             return Some("This plugin has no parameters to browse".into());
         }
+        if crate::views::browser::opt(s, crate::views::browser::OPT_PARAMETERS) {
+            let node = crate::views::browser::parameter_node_key(key);
+            s.show_browser = true;
+            s.browser_auto_hidden = false;
+            s.browser_tab = crate::views::browser::PARAMETERS_TAB;
+            s.browser_search.clear();
+            s.browser_open.insert(node.clone());
+            s.browser_sel = Some(node);
+            crate::browser::reveal(s);
+            self.invalidate();
+            return None;
+        }
         let node = node_key(s, key)?;
         s.show_browser = true;
         s.browser_tab = PROJECT_TAB;
@@ -587,7 +628,7 @@ mod tests {
         assert_eq!(key_of(s, Target::ChannelParam(ch, 7)), Some((0, 7)));
         assert_eq!(key_of(s, Target::SlotParam(2, 3, 35)), Some((fx_key(2, 3), 35)));
         let cutoff = Entry { id: 9, name: "Cutoff".into(), hidden: false, default: 1.0, steps: 0 };
-        s.params.lists.insert(0, List { plugin: Weak::<Mutex<Dummy>>::new(), params: vec![cutoff], seen: crate::plugins::Look::never() });
+        s.params.lists.insert(0, List { plugin: Weak::<Mutex<Dummy>>::new(), params: vec![cutoff], seen: crate::plugins::Look::never(), values:Default::default(),gestures:Default::default() });
         assert_eq!(clip_name(s, 0, 0), "Lead - Cutoff");
         // Last tweaked keeps the two newest, newest first, without repeats.
         let p = &mut s.params;
@@ -600,6 +641,49 @@ mod tests {
     /// The built-in EQ in a mixer slot: "Browse parameters" lists its parameters in the browser, a parameter row makes
     /// an automation clip (menu or drop on the playlist) aimed at the slot parameter and named after it, clip values read
     /// as the plugin's text, and the last tweaked parameter feeds the ADD / TOOLS entries.
+    #[test]
+    fn optional_parameters_tab_persists_searches_and_automates_correct_instance() {
+        use crate::views::browser as view;
+        use crate::browser::BCmd;
+        let mut a = App::new(None);
+        assert!(!view::tabs(&a.state).iter().any(|t| t.0 == view::PARAMETERS_TAB));
+        a.browser_cmd(BCmd::Toggle(view::OPT_PARAMETERS));
+        assert!(view::tabs(&App::new(None).state).iter().any(|t| t.0 == view::PARAMETERS_TAB));
+        a.state.project = crate::app::test_project();
+        a.reset_hosted();
+        a.plugins.effects = crate::plugins::builtin_effects();
+        for slot in [1, 2] {
+            a.state.project.mixer[2].slots[slot] = Some(os_model::SlotPlugin { name: crate::plugins::EQ_FILE_NAME.into(), state: lemon_parametric_eq_2::params::default_state() });
+        }
+        a.sync_effects();
+        a.browser_act(&Action::BrowserTab(view::PARAMETERS_TAB));
+        let mut canvas = os_ui::Canvas::new(1280, 800, 1.).unwrap();
+        a.state.show_browser = true;
+        a.paint(&mut canvas, None);
+        assert!(a.hits.iter().any(|h| h.action == Action::BrowserTab(view::PARAMETERS_TAB)));
+        let keys = [fx_key(2, 1), fx_key(2, 2)];
+        for key in keys { a.state.browser_open.insert(view::parameter_node_key(key)); }
+        let rows = view::rows(&a.state);
+        for key in keys { assert_eq!(rows.iter().filter(|r| matches!(r.item, view::Item::Param(k, _) if k == key)).count(), 36); }
+        assert_ne!(view::parameter_node_key(keys[0]), view::parameter_node_key(keys[1]));
+        a.state.browser_search = "main level".into();
+        let rows = view::rows(&a.state);
+        assert_eq!(rows.iter().filter(|r| matches!(r.item, view::Item::Param(_, 35))).count(), 2);
+        let row = rows.iter().position(|r| r.item == view::Item::Param(keys[1], 35)).unwrap();
+        assert!(a.params_browser_right(row, 10., 10.));
+        let menu = a.state.playlist.popup.take().unwrap();
+        let create = menu.items.iter().find(|i| i.label == "Create automation clip").unwrap();
+        assert!(matches!(create.cmd, Cmd::CreateAutomation(t, _, _) if t == target::slot_param(2, 2, 35)));
+        crate::playlist::run(&mut a, create.cmd.clone());
+        assert_eq!(a.state.project.automations.last().unwrap().target(), Some(target::slot_param(2, 2, 35)));
+        assert_eq!(a.browse_params(keys[0]), None);
+        assert_eq!(a.state.browser_tab, view::PARAMETERS_TAB);
+        assert_eq!(a.state.browser_sel.as_deref(), Some(view::parameter_node_key(keys[0]).as_str()));
+        a.browser_cmd(BCmd::Toggle(view::OPT_PARAMETERS));
+        assert_eq!(a.state.browser_tab, 0);
+        assert!(!view::tabs(&App::new(None).state).iter().any(|t| t.0 == view::PARAMETERS_TAB));
+    }
+
     #[test]
     fn slot_plugin_parameters_browse_and_automate() {
         use crate::views::browser::{rows, Item};
@@ -896,7 +980,7 @@ mod tests {
         let (mut app,key)=eq_app();
         let desc=app.plugins.hosted[&key].plugin.lock().unwrap().desc().clone();
         let events=Arc::new(Mutex::new(vec![Value(7,0.2)]));
-        let plugin:Arc<Mutex<dyn os_host::Plugin>>=Arc::new(Mutex::new(CapturePlugin{desc,events:events.clone()}));
+        let plugin:Arc<Mutex<dyn os_host::Plugin>>=Arc::new(Mutex::new(CapturePlugin{desc,events:events.clone(),value:0.7}));
         app.plugins.hosted.insert(key,crate::plugins::Hosted::new(plugin));
         pl::arr_mut(&mut app.state).clips.clear();
         for track in [0,2] {pl::arr_mut(&mut app.state).clips.push(os_model::Clip::new(0,768,track,os_model::ClipSource::Pattern(0)));}
@@ -933,7 +1017,23 @@ mod tests {
         assert_eq!(pl::clips(&app.state).last().unwrap().track,1);
     }
     /// A stand-in instance for typing `Weak` (never upgraded).
-    struct CapturePlugin { desc: os_host::Descriptor, events: Arc<Mutex<Vec<os_host::ParamEvent>>> }
+    #[test]
+    fn forum_editor_gesture_undo_redo() {
+        use os_host::ParamEvent::{Begin,Value,End};
+        let (mut a,key)=eq_app();let desc=a.plugins.hosted[&key].plugin.lock().unwrap().desc().clone();
+        let events=Arc::new(Mutex::new(Vec::new()));
+        let p:Arc<Mutex<dyn os_host::Plugin>>=Arc::new(Mutex::new(CapturePlugin{desc,events:events.clone(),value:0.2}));
+        a.plugins.hosted.insert(key,crate::plugins::Hosted::new(p));a.params_tick();a.state.history.reset();
+        events.lock().unwrap().extend([Begin(7),Value(7,0.4)]);a.params_tick();
+        events.lock().unwrap().extend([Value(7,0.8),End(7)]);a.params_tick();
+        assert_eq!(a.state.history.len(),1);
+        crate::history::undo(&mut a.state);assert_eq!(param_value(&a.state,key,0),Some(0.2));
+        crate::history::redo(&mut a.state);assert_eq!(param_value(&a.state,key,0),Some(0.8));
+        events.lock().unwrap().extend([Begin(7),Value(7,0.6),End(7)]);a.params_tick();
+        assert_eq!(a.state.history.len(),2);crate::history::undo(&mut a.state);assert_eq!(param_value(&a.state,key,0),Some(0.8));
+        a.params_tick();assert_eq!(a.state.history.len(),2,"host undo must not produce editor history");
+    }
+    struct CapturePlugin { desc: os_host::Descriptor, events: Arc<Mutex<Vec<os_host::ParamEvent>>>, value:f64 }
     impl os_engine::Instrument for CapturePlugin {
         fn note_on(&mut self, _: u32, _: u8, _: f32) {}
         fn note_off(&mut self, _: u32, _: u8) {}
@@ -950,8 +1050,9 @@ mod tests {
         fn param_info(&self,_:usize)->Option<os_host::ParamInfo> {
             Some(os_host::ParamInfo {id:7,name:"Peak Reduction".into(),unit:String::new(),group:String::new(),min:0.,max:1.,default:0.5,steps:0,automatable:true,read_only:false,hidden:false,bypass:false,enumerated:false})
         }
-        fn param_value(&self,_:u32)->Option<f64> {Some(0.7)}
-        fn take_param_events(&mut self)->Vec<os_host::ParamEvent> {std::mem::take(&mut *self.events.lock().unwrap())}
+        fn param_value(&self,_:u32)->Option<f64> {Some(self.value)}
+        fn set_param(&mut self,_:u32,v:f64)->bool {self.value=v;true}
+        fn take_param_events(&mut self)->Vec<os_host::ParamEvent> {let events=std::mem::take(&mut *self.events.lock().unwrap());for e in &events{if let os_host::ParamEvent::Value(_,v)=e{self.value=*v;}}events}
         fn activate(&mut self, _: u32) -> bool {
             true
         }

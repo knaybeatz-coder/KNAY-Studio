@@ -58,6 +58,18 @@ fn factory_presets() {
 }
 
 fn main() {
+    println!("cargo:rerun-if-env-changed=LEMON_MASTER_BUNDLE");
+    println!("cargo:rerun-if-env-changed=LEMON_RELEASE");
+    let bundle = std::env::var_os("LEMON_MASTER_BUNDLE").map(PathBuf::from);
+    let bytes = bundle.as_ref().map(|p| {
+        println!("cargo:rerun-if-changed={}", p.display());
+        std::fs::read(p).expect("Cannot read Master Assistant bundle")
+    }).unwrap_or_default();
+    if std::env::var_os("LEMON_RELEASE").is_some() {
+        assert!(std::env::var_os("CARGO_FEATURE_MASTER_ASSISTANT").is_some() && !bytes.is_empty(),
+            "Release requires Master Assistant and LEMON_MASTER_BUNDLE");
+    }
+    std::fs::write(PathBuf::from(std::env::var_os("OUT_DIR").unwrap()).join("master-engine.zip"), bytes).unwrap();
     factory_presets();
     // `plugin_windows`: plugin editors open in Lemon Studio's frame windows (Win32 on Windows, X11 on Linux, AppKit on
     // macOS).

@@ -35,7 +35,7 @@ use clap_sys::ext::params::{
     CLAP_PARAM_IS_ENUM, CLAP_PARAM_IS_HIDDEN, CLAP_PARAM_IS_MODULATABLE_PER_NOTE_ID, CLAP_PARAM_IS_READONLY, CLAP_PARAM_IS_STEPPED,
 };
 use clap_sys::ext::render::{clap_plugin_render, CLAP_EXT_RENDER, CLAP_RENDER_OFFLINE, CLAP_RENDER_REALTIME};
-use clap_sys::ext::state::{clap_plugin_state, CLAP_EXT_STATE};
+use clap_sys::ext::state::{clap_plugin_state, clap_host_state, CLAP_EXT_STATE};
 use clap_sys::ext::voice_info::{clap_host_voice_info, clap_plugin_voice_info, clap_voice_info, CLAP_EXT_VOICE_INFO};
 use clap_sys::factory::plugin_factory::{clap_plugin_factory, CLAP_PLUGIN_FACTORY_ID};
 use clap_sys::host::clap_host;
@@ -263,6 +263,7 @@ struct HostData {
     /// Raised with every request below and when the audio thread leaves work for the UI thread.
     attention: Arc<os_host::Attention>,
     callback: AtomicBool,
+    state_dirty: AtomicBool,
     restart: AtomicBool,
     /// The plugin asked for a parameter flush (`clap_host_params.request_flush`): an edit from its editor waits in its
     /// output queue and only takes effect when the host flushes (or processes). The host's waker
@@ -299,6 +300,7 @@ unsafe extern "C" fn host_get_extension(_host: *const clap_host, id: *const c_ch
         return ptr::null();
     }
     let id = unsafe { CStr::from_ptr(id) };
+    if id == CLAP_EXT_STATE {return &HOST_STATE as *const clap_host_state as *const c_void;}
     if id == CLAP_EXT_PARAMS {
         return &HOST_PARAMS as *const clap_host_params as *const c_void;
     }
@@ -458,6 +460,8 @@ unsafe extern "C" fn host_gui_show_hide(_host: *const clap_host) -> bool {
     false
 }
 unsafe extern "C" fn host_gui_closed(_host: *const clap_host, _was_destroyed: bool) {}
+static HOST_STATE: clap_host_state = clap_host_state {mark_dirty:Some(host_state_dirty)};
+unsafe extern "C" fn host_state_dirty(host:*const clap_host){unsafe{(*((*host).host_data as *const HostData)).state_dirty.store(true,Ordering::Release);attend(host);}}
 static HOST_PARAMS: clap_host_params =
     clap_host_params { rescan: Some(host_params_rescan), clear: Some(host_params_clear), request_flush: Some(host_params_request_flush) };
 /// The plugin's voice count changed (a patch with another polyphony): the voice list's limit is read again on the UI
@@ -616,6 +620,8 @@ pub struct Plugin {
     /// Controller messages waiting for their block (frame, message) and those of the block being sent
     /// (`Instrument::midi`, as CLAP MIDI events on note port 0).
     midi_queue: Vec<(u32, [u8; 3])>,
+    mpe:os_engine::mpe::Decoder,
+    mpe_queue:Vec<(u32,os_engine::mpe::Event)>,
     midis: Vec<clap_event_midi>,
     /// This chunk's events in time order (pointers into `notes` / `mods`).
     order: Vec<*const clap_event_header>,
@@ -662,6 +668,8 @@ pub struct Plugin {
     /// extra outputs get unheard scratch (spec: audio/sidechain.md "Hosted plugins' input buses").
     aux_ins: Vec<usize>,
     aux_outs: Vec<usize>,
+    aux_frames: usize,
+    aux_capture: Vec<Vec<f32>>,
     /// Buffers for channels the host has no audio for (a mono input's mix of both sides, channels beyond two, the
     /// other ports), the channel pointers and the port buffers of the current process call: sized at activation, so
     /// the audio thread never allocates.
@@ -777,6 +785,7 @@ impl Plugin {
         let host_data = Box::new(HostData {
             attention: Arc::default(),
             callback: AtomicBool::new(false),
+            state_dirty: AtomicBool::new(false),
             restart: AtomicBool::new(false),
             flush: AtomicBool::new(false),
             rescan: AtomicU32::new(0),
@@ -846,6 +855,7 @@ impl Plugin {
                 mods: Vec::with_capacity(64),
                 exprs: Vec::with_capacity(64),
                 midi_queue: Vec::new(),
+                mpe:Default::default(),mpe_queue:vec![],
                 midis: Vec::with_capacity(16),
                 order: Vec::with_capacity(320),
                 start_param: None,
@@ -881,6 +891,8 @@ impl Plugin {
                 outs: 2,
                 aux_ins: Vec::new(),
                 aux_outs: Vec::new(),
+                aux_frames: 0,
+                aux_capture: Vec::new(),
                 scratch: Vec::new(),
                 in_ptrs: Vec::new(),
                 out_ptrs: Vec::new(),
@@ -977,6 +989,7 @@ impl Plugin {
         (self.ins, self.outs) = (ins.first().copied().unwrap_or(0), outs.first().copied().unwrap_or(0));
         self.aux_ins = ins.get(1..).unwrap_or_default().to_vec();
         self.aux_outs = outs.get(1..).unwrap_or_default().to_vec();
+        self.aux_capture=if self.desc.id=="org.lemonstudio.lemon-chop" {(0..self.aux_outs.len().min(15)).map(|_|vec![0.;self.max_frames as usize*2]).collect()}else{Vec::new()};
         let (aux_in, aux_out): (usize, usize) = (self.aux_ins.iter().sum(), self.aux_outs.iter().sum());
         self.scratch = vec![0.0; (self.ins + self.outs + aux_in + aux_out) * self.max_frames as usize];
         self.in_ptrs = Vec::with_capacity(self.ins + aux_in);
@@ -1336,6 +1349,7 @@ impl Plugin {
             && !self.host_data.process.load(Ordering::Acquire)
             && self.queue.is_empty() && self.param_queue.is_empty() && self.auto.is_empty() && self.mod_resend.is_empty()
             && self.midi_queue.is_empty()
+            && self.mpe_queue.is_empty()
     }
 
     /// `process_chunk` with an audio input (effects): `input` holds the frames to process, `left` / `right` receive
@@ -1372,6 +1386,16 @@ impl Plugin {
             }
         }
         self.midi_queue = later;
+        let mut pending=vec![];
+        for (time,e) in self.mpe_queue.drain(..){if time>=n{pending.push((time-n,e));continue;}
+            use os_engine::mpe::Event as E;
+            let header=|size,type_|clap_event_header{size,time,space_id:CLAP_CORE_EVENT_SPACE_ID,type_,flags:0};
+            match e{
+                E::On{channel,key,id,velocity}|E::Off{channel,key,id,velocity}=>{let on=matches!(e,E::On{..});self.notes.push(clap_event_note{header:header(std::mem::size_of::<clap_event_note>()as u32,if on{CLAP_EVENT_NOTE_ON}else{CLAP_EVENT_NOTE_OFF}),note_id:id,port_index:0,channel:i16::from(channel),key:i16::from(key),velocity:f64::from(velocity)});seq.push(Seq::Note(self.notes.len()-1));if on{self.ledger.start(key,id);}else{self.ledger.release_voice(id);}},
+                E::Expression{id,lane,value}=>{self.exprs.push(clap_event_note_expression{header:header(std::mem::size_of::<clap_event_note_expression>()as u32,CLAP_EVENT_NOTE_EXPRESSION),expression_id:match lane{0=>CLAP_NOTE_EXPRESSION_TUNING,1=>6,_=>5},note_id:id,port_index:0,channel:-1,key:-1,value:f64::from(value)});seq.push(Seq::Expr(self.exprs.len()-1));}
+            }
+        }self.mpe_queue=pending;
+
         // Sounding voices' new mod amounts (the channel's mods changed) go first.
         for (id, key, param, amount) in self.mod_resend.drain(..) {
             self.mods.push(param_mod(0, param, id, key, amount));
@@ -1657,6 +1681,7 @@ impl Plugin {
 
 // The hosting layer's view of a CLAP instance (the inherent methods above do the work).
 impl os_host::Plugin for Plugin {
+    fn mpe_support(&self)->u8{if self.bend.is_none(){2}else{1}}
     fn desc(&self) -> &Descriptor {
         &self.desc
     }
@@ -1689,6 +1714,7 @@ impl os_host::Plugin for Plugin {
         Plugin::close_editor(self)
     }
 
+    fn take_state_changed(&mut self)->bool {self.host_data.state_dirty.swap(false,Ordering::AcqRel)}
     fn save_state(&self) -> Option<Vec<u8>> {
         Plugin::save_state(self)
     }
@@ -1817,6 +1843,7 @@ impl os_engine::Instrument for Plugin {
 
     fn reset(&mut self) {
         self.queue.clear();
+        self.mpe.reset();self.mpe_queue.clear();self.midi_queue.clear();
         self.sounding = false;
         self.ledger.clear();
         if let Some(m) = self.bend.as_mut().and_then(|b| b.reset()) {
@@ -1851,6 +1878,7 @@ impl os_engine::Instrument for Plugin {
     }
 
     fn midi(&mut self, offset: u32, bytes: [u8; 3]) {
+        if self.bend.is_none(){if let Some(events)=self.mpe.receive(bytes){self.mpe_queue.extend(events.into_iter().map(|e|(offset,e)));return;}}
         self.midi_queue.push((offset, bytes));
     }
 
@@ -1932,7 +1960,18 @@ impl os_engine::Instrument for Plugin {
         self.song = Some(*info);
     }
 
+    fn extra_outputs(&self)->usize {
+        // Opt in the built-in slicer only; other instruments retain their existing routing.
+        if self.desc.id=="org.lemonstudio.lemon-chop" {self.aux_outs.len().min(15)} else {0}
+    }
+    fn extra_output(&mut self,port:usize,left:&mut[f32],right:&mut[f32])->bool {
+        if port>=self.extra_outputs() || left.len()!=self.aux_frames || right.len()!=left.len() {return false;}
+        let Some(samples)=self.aux_capture.get(port) else{return false;};
+        for (i,pair) in samples[..left.len()*2].chunks_exact(2).enumerate(){left[i]=pair[0];right[i]=pair[1];}true
+    }
     fn process(&mut self, rate: u32, left: &mut [f32], right: &mut [f32]) {
+        self.aux_frames=0;
+        for port in &mut self.aux_capture {if port.len()<left.len()*2{port.resize(left.len()*2,0.);}port[..left.len()*2].fill(0.);}
         left.fill(0.0);
         right.fill(0.0);
         if self.rate != rate {
@@ -1967,8 +2006,16 @@ impl os_engine::Instrument for Plugin {
             self.chunk_song = song.map(|s| s.advanced(at as u64, rate));
             let (l, r) = (&mut left[at..at + n], &mut right[at..at + n]);
             self.process_chunk(l, r);
+            let mut base=self.ins+self.outs+self.aux_ins.iter().sum::<usize>();
+            for (port,&channels) in self.aux_outs.iter().enumerate().take(self.aux_capture.len()) {
+                if channels>0 {
+                    let r=base+usize::from(channels>1);
+                    for f in 0..n {self.aux_capture[port][(at+f)*2]=self.scratch[base*max+f];self.aux_capture[port][(at+f)*2+1]=self.scratch[r*max+f];}
+                }base+=channels;
+            }
             at += n;
         }
+        self.aux_frames=left.len();
         if debug() {
             // OS_DEBUG: the hosted plugin's peak level about once a second (stderr).
             self.dbg_peak = left.iter().chain(right.iter()).fold(self.dbg_peak, |m, v| m.max(v.abs()));
@@ -2102,6 +2149,21 @@ mod mono_mock;
 mod tests {
     use super::*;
     use os_engine::Instrument;
+
+    #[test]
+    fn mpe_native_events_keep_unisons_independent() {
+        let entry=&crate::mono_mock::ENTRY as *const _ as *const std::ffi::c_void;
+        let lib=unsafe{Library::from_entry(entry,Path::new("MPE Test.clap"))}.unwrap();let mut p=Plugin::new(&lib,&lib.plugins[0].id).unwrap();
+        assert!(os_host::Plugin::activate(&mut p,48000));p.bend=None;
+        for b in os_model::mpe::Config::default().setup(){p.midi(0,b);}
+        p.midi(0,[0x91,60,100]);p.midi(0,[0x92,60,90]);p.midi(8,[0xe1,127,127]);p.midi(9,[0xd2,100,0]);p.midi(10,[0xb2,74,110]);
+        let(mut l,mut r)=(vec![0.;64],vec![0.;64]);p.process(48000,&mut l,&mut r);
+        let ids:Vec<_>=p.notes.iter().filter(|n|n.header.type_==CLAP_EVENT_NOTE_ON).map(|n|n.note_id).collect();assert_eq!(ids.len(),2);assert_ne!(ids[0],ids[1]);
+        assert!(p.exprs.iter().any(|e|e.note_id==ids[0]&&e.expression_id==CLAP_NOTE_EXPRESSION_TUNING&&(e.value-48.).abs()<1e-6));
+        assert!(p.exprs.iter().any(|e|e.note_id==ids[1]&&e.expression_id==6&&e.value>0.78));
+        assert!(p.exprs.iter().any(|e|e.note_id==ids[1]&&e.expression_id==5&&e.value>0.86));
+        p.midi(0,[0x81,60,64]);p.process(48000,&mut l,&mut r);assert!(p.notes.iter().any(|n|n.header.type_==CLAP_EVENT_NOTE_OFF&&n.note_id==ids[0]));p.reset();assert!(p.mpe_queue.is_empty());
+    }
 
     /// A plugin whose main ports are mono (DPF's Kars has a mono output) gets one channel each way: its output is
     /// heard on both sides, and an effect's input reaches it as the average of both sides. Without the audio-ports
@@ -2899,4 +2961,8 @@ mod tests {
         assert!(both.len() > at(576) && both[both.len() - 100..].iter().all(|v| v.abs() < 1e-6), "silent after the second clip");
         let _ = std::fs::remove_file(&wav);
     }
+}
+
+#[cfg(test)]mod audit_state_tests {use super::*;
+ #[test]fn audit_clap_state_dirty_is_delivered_once(){let lib=unsafe{Library::from_entry(&lemon_sampler::LINKED_CLAP_ENTRY as *const _ as *const c_void,Path::new("Lemon Sampler.clap"))}.unwrap();let mut p=Plugin::new(&lib,&lib.plugins[0].id).unwrap();os_host::Plugin::take_state_changed(&mut p);let ext=unsafe{host_get_extension(&*p._host,CLAP_EXT_STATE.as_ptr())} as *const clap_host_state;assert!(!ext.is_null());unsafe{((*ext).mark_dirty.unwrap())(&*p._host)};assert!(os_host::Plugin::take_state_changed(&mut p));assert!(!os_host::Plugin::take_state_changed(&mut p));}
 }

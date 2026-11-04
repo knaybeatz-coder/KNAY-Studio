@@ -21,6 +21,8 @@ pub enum KnobId {
     /// `Project::main_volume` / `main_pitch`; spec: audio/mixer.md "Main volume", audio/voice-levels.md).
     MasterVol,
     MasterPitch,
+    Varispeed,
+    ChanPitch(usize),
     /// Mixer track pan (model).
     MixPan(u16),
     MixSep(u16),
@@ -61,7 +63,7 @@ impl KnobId {
     /// Value change per wheel notch: master pitch steps a semitone.
     pub fn notch(self) -> f32 {
         match self {
-            KnobId::MasterPitch => 1.0 / 24.0,
+            KnobId::MasterPitch | KnobId::Varispeed => 1.0 / 24.0,
             // spec: ui/channel-rack.md §11 (3 % per notch; pan percent spans half the range), §7 (swing 4-5 %).
             KnobId::ChanVol(_) => 0.03,
             KnobId::ChanPan(_) => 0.015,
@@ -172,6 +174,8 @@ impl State {
             // Main swing is project data, 0..=128 (spec: flp/events/project-info.md, event 11).
             KnobId::Swing => f32::from(self.project.swing.unwrap_or(0).min(128)) / 128.0,
             KnobId::MasterVol => f32::from(self.project.main_volume.unwrap_or(os_model::Project::MAIN_VOLUME_DEFAULT).min(16000)) / 16000.0,
+            KnobId::Varispeed => 0.5 + f32::from(self.project.varispeed_cents) / 2400.0,
+            KnobId::ChanPitch(i) => self.project.channels.get(i).map_or(0.5, |c| (0.5 + c.pitch_cents as f32 / (200.0 * c.misc.pitch_range.max(1) as f32)).clamp(0.0, 1.0)),
             KnobId::MasterPitch => (0.5 + f32::from(self.project.main_pitch.unwrap_or(0)) / 2400.0).clamp(0.0, 1.0),
             KnobId::Strip(t,k) => self.project.mixer.iter().find(|m|m.index==t).map_or(0.0,|m|f32::from(if k==8 {if m.is_vocal(){m.tune[0]}else{0}}else if k==7 {m.deess_amount()}else{m.strip[usize::from(k.min(4))]})/65535.0),
             KnobId::Eq(t, b, f) => {
@@ -195,6 +199,11 @@ impl State {
             }
         }
         match id {
+            KnobId::Varispeed => { self.project.varispeed_cents = ((v - 0.5) * 2400.0).round() as i16; self.piano.dirty = true; }
+            KnobId::ChanPitch(i) => {
+                if let Some(c) = self.project.channels.get_mut(i) { c.pitch_cents = ((v - 0.5) * 200.0 * c.misc.pitch_range.max(1) as f32).round() as i32; }
+                self.piano.dirty = true;
+            }
             KnobId::MixPan(t) => {
                 if let Some(m) = self.project.mixer.iter_mut().find(|m| m.index == t) {
                     m.pan = Some(f64::from((v - 0.5) * 2.0));
@@ -282,8 +291,9 @@ impl State {
 
     /// Knob `id` back to its default, as an undo step.
     pub fn reset_knob(&mut self, id: KnobId) {
-        crate::history::knob(self, id, false);
-        self.set_knob(id, id.default_value());
+        crate::rack_controls::snapshot(self,id,false);
+        let group=crate::rack_controls::group(self,id);let base=self.knob(id);
+        crate::rack_controls::apply(self,id,base,id.default_value(),&group);
     }
 
     /// The hint-bar text of a knob at its current value.
@@ -291,6 +301,8 @@ impl State {
         let n = self.knob(id);
         let bipolar = (n - 0.5) * 2.0;
         match id {
+            KnobId::Varispeed => format!("Varispeed: {:+.2} st / {:.1}%", self.project.varispeed_cents as f64 / 100.0, 100.0 * 2f64.powf(self.project.varispeed_cents as f64 / 1200.0)),
+            KnobId::ChanPitch(i) => format!("Channel pitch: {:+.2} st (Ctrl+wheel: octave; Shift-drag: fine; double-click: reset)", self.project.channels.get(i).map_or(0, |c| c.pitch_cents) as f64 / 100.0),
             KnobId::MasterVol => {
                 // The gain is the level curve of stored / 12800 (spec: audio/mixer.md "Main volume").
                 let g = os_dsp::level::curve(n / 0.8);

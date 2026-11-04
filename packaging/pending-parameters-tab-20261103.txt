@@ -1,0 +1,5 @@
+Pending next publication; local Windows update.
+
+Optional Parameters browser tab: enable Browser options > Content > Browser tabs > Parameters. Hidden by default; visibility persists. Dedicated slider icon lists loaded instrument/effect instances with searchable parameters. Existing right-click automation menu and drag-to-playlist automation remain available. Identically named plugin instances use separate tree keys. Browse parameters opens the dedicated tab when enabled; otherwise the existing Current project route remains.
+
+Add to packaging/changelog.json using the actual release date/build before publication.

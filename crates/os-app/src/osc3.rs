@@ -338,6 +338,7 @@ mod tests {
     fn plugin_menus_add_lemon_3x_osc_channels() {
         use crate::plugin_menu::Target;
         let mut a = App::new(None);
+        a.state.plugdb.prefs.menu_view=crate::plugin_db::MenuView::Simple;
         a.state.project = crate::app::test_project();
         a.plugins.available = crate::plugins::builtin();
         a.state.plugdb.rebuild(&a.plugins);

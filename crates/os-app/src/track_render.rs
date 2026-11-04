@@ -313,6 +313,7 @@ fn place(s: &mut State, p: &Pending, files: &[PathBuf]) -> Result<String, String
 }
 impl App {
     pub(crate) fn render_track(&mut self, row: u16, freeze: bool) {
+        if let Err(e)=crate::clip_effects::normalize(self){self.state.message=Some(e);self.invalidate();return;}
         if self.export.is_some() {
             return;
         }

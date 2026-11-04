@@ -1,0 +1,22 @@
+Lemon Master Assistant — updated controls
+
+Open Master Assistant from the master strip. It opens its own editor without appearing as a normal mixer insert. Its on/off control still determines whether it processes playback and song exports; opening alone does not change your sound. Existing projects retain their processing state and automation.
+
+Detailed controls now opens a tabbed processing workspace. In Equalizer:
+- Drag a point left/right for frequency and up/down for gain.
+- Hold Ctrl for fine movement.
+- Scroll over a point to change Q (bandwidth).
+- Use the selected band's controls for exact frequency, gain and Q values.
+- Double-click unused graph space to place an unused band; double-click a point or choose Reset band to return its gain to zero.
+
+There are15 bell bands. The yellow curve is the combined filter response; the softer curve shows the selected band. The assistant/reference system still fits its original band centres, so applying a new result restores those centres intentionally. Simple controls follows the edited response.
+
+This private Windows update keeps Lemon Studio's charcoal surfaces, cream text and lemon accents. It also preserves the latest Chop and mixer changes. It is not a published update. Please check the feel, display scaling and sound in your own projects.
+
+Remaining processing stages now use full-sized rotary controls with editable values:
+- Dynamic EQ: Threshold and Max reduction for each of four bands.
+- Multiband Comp: choose Low, Low mid, High mid or High, then adjust Threshold, Ratio, Attack, Release and Makeup. Crossover frequencies have their own knobs and numeric values.
+- Stereo Imager: four width knobs; 100% is unchanged and 0% is mono.
+- Maximizer: Threshold, Ceiling and Release, with the existing mode selector above.
+
+Drag vertically or type a value. Double-click returns a control to its parameter default. Mouse-wheel changes are disabled on these knobs to avoid accidental edits while scrolling the workspace. These are the same saved/automatable processor parameters; no DSP or parameter identity was replaced.

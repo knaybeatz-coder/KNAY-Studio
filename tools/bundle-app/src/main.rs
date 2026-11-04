@@ -27,8 +27,11 @@ fn main() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..").canonicalize().expect("repository root");
     let target = std::env::var_os("CARGO_TARGET_DIR").map(PathBuf::from).unwrap_or_else(|| root.join("target"));
     let target = if target.is_relative() { root.join(target) } else { target };
+    let app_target = std::env::var("LEMON_APP_TARGET").ok();
+    let target_args: Vec<&str> = app_target.as_deref().map(|t|vec!["--target",t]).unwrap_or_default();
     let ok = Command::new(std::env::var("CARGO").unwrap_or_else(|_| "cargo".into()))
         .args(["build", "--locked", "--release", "--bin", EXE, "-p", "os-app"])
+        .args(&target_args)
         .current_dir(&root)
         .env("CARGO_TARGET_DIR", &target)
         .status()
@@ -44,7 +47,7 @@ fn main() {
     let (macos, resources) = (contents.join("MacOS"), contents.join("Resources"));
     std::fs::create_dir_all(&macos).expect("bundle folders");
     std::fs::create_dir_all(&resources).expect("bundle folders");
-    std::fs::copy(target.join("release").join(EXE), macos.join(EXE)).expect("copy the program");
+    std::fs::copy(app_target.as_ref().map_or_else(||target.clone(),|t|target.join(t)).join("release").join(EXE), macos.join(EXE)).expect("copy the program");
     std::fs::write(contents.join("Info.plist"), info_plist()).expect("Info.plist");
     std::fs::write(contents.join("PkgInfo"), "APPL????").expect("PkgInfo");
     let assets = root.join("crates/os-app/assets");
@@ -80,7 +83,7 @@ fn info_plist() -> String {
 	<key>CFBundleName</key>
 	<string>{NAME}</string>
 	<key>CFBundleDisplayName</key>
-	<string>{NAME}</string>
+	<string>Lemon Studio — Michael Lane Edition</string>
 	<key>CFBundleExecutable</key>
 	<string>{EXE}</string>
 	<key>CFBundleIdentifier</key>
@@ -100,7 +103,7 @@ fn info_plist() -> String {
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.music</string>
 	<key>LSMinimumSystemVersion</key>
-	<string>11.0</string>
+	<string>12.0</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Lemon Studio uses your audio input to record vocals and instruments into your projects.</string>
 	<key>NSHighResolutionCapable</key>

@@ -9,6 +9,7 @@
 //! levels as normalized `f64`s. File encodings live in `os-flp`, not here.
 
 pub mod crossfade;
+pub mod mpe;
 pub mod curve;
 
 /// An RGB color.
@@ -25,8 +26,16 @@ impl Rgb {
     }
 }
 
+/// Original source and editable source-seconds -> destination-beats anchors for a rendered warp.
+#[derive(Debug,Clone,PartialEq)]
+pub struct AudioWarp {pub source:String,pub rendered:String,pub points:Vec<(f64,f64)>}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Project {
+    pub mpe:mpe::Data,
+    /// Audio sources privately owned by individual clip effects chains.
+    pub clip_fx_channels: Vec<u16>,
+    pub audio_warps:Vec<AudioWarp>,
     pub peak_links: Vec<PeakLink>,
     /// Native piano harmony key, scale entry and editor/input flags.
     pub harmony: Option<(u8,u8,u8)>,
@@ -82,6 +91,8 @@ pub struct Project {
     pub main_volume: Option<u16>,
     /// Main pitch in cents, -1200..=1200 (event 80; spec: audio/voice-levels.md). `None` = not in the file (0).
     pub main_pitch: Option<i16>,
+    /// Tape-style master playback rate, in cents.
+    pub varispeed_cents: i16,
     /// When the project was started and the time spent working on it (event 237; spec: flp/events/project-info.md).
     /// `None` = not in the file.
     pub work_time: Option<WorkTime>,
@@ -464,6 +475,8 @@ impl Project {
             }
         }
         let m = |c: u16| map.get(usize::from(c)).copied().flatten();
+        self.mpe.channels=order.iter().enumerate().filter_map(|(new,&old)|self.mpe.channels.iter().find(|c|usize::from(c.0)==old).map(|(_,c)|(new as u16,*c))).collect();
+        self.clip_fx_channels=self.clip_fx_channels.iter().filter_map(|&c|m(c)).collect();
         self.instrument_lanes.retain_mut(|v|m(v.0).map(|ch|v.0=ch).is_some());
         let old = std::mem::take(&mut self.channels);
         self.channels = order
@@ -920,6 +933,8 @@ pub struct ChannelMisc {
     pub root: u8,
     /// Follows the main (project) pitch.
     pub main_pitch: bool,
+    /// Preserved global transposition when follow is disengaged.
+    pub pitch_follow_offset: i32,
     /// Adds the root note to played keys.
     pub add_key: bool,
     /// Fine tuning, cents (-100..=100).
@@ -971,11 +986,12 @@ impl Default for ChannelMisc {
             echo: Echo::default(),
             root: 60,
             main_pitch: true,
+            pitch_follow_offset: 0,
             add_key: false,
             fine: 0,
             key_range: [0, 256],
             layer: LayerSettings::default(),
-            pitch_range: 2,
+            pitch_range: 12,
         }
     }
 }
@@ -1203,6 +1219,8 @@ impl ControlPoint {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Note {
+    /// Immutable per-note expression record; zero means no expression.
+    pub expression:u32,
     pub position: u32,
     /// 0 for a plain step.
     pub length: u32,
@@ -1296,6 +1314,7 @@ impl Note {
     /// A step-sequencer step with default parameters.
     pub fn step(channel: u16, position: u32) -> Self {
         Note {
+            expression:0,
             position,
             length: 0,
             channel,
@@ -1314,8 +1333,21 @@ impl Note {
     }
 }
 
+/// A real hosted processor replacing the native mixer strip. Its audio/state remain in the normal slot system.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RackStrip {
+    pub slot: u8,
+    pub native_bypassed: bool,
+    pub eq_on: bool,
+}
+
+
 #[derive(Debug, Clone)]
 pub struct MixerTrack {
+    /// In-memory identity, preserved across edits/reordering; never serialized.
+    pub runtime_id: u64,
+    pub clip_fx:bool,
+    pub rack_strip: Option<RackStrip>,
     /// 0 = Master.
     pub index: u16,
     pub name: Option<String>,
@@ -1378,8 +1410,11 @@ pub struct MixerTrack {
 
 impl PartialEq for MixerTrack {
     fn eq(&self, o: &Self) -> bool {
-        // Every field but `origin`, named so that a new field is not left out.
+        // Runtime identity and file origin are not musical settings.
         let MixerTrack {
+            runtime_id: _,
+            clip_fx,
+            rack_strip,
             index,
             name,
             color,
@@ -1410,7 +1445,7 @@ impl PartialEq for MixerTrack {
             icon,
             origin: _,
         } = self;
-        *index == o.index
+        *clip_fx==o.clip_fx && *index == o.index
             && *name == o.name
             && *color == o.color
             && *enabled == o.enabled
@@ -1432,6 +1467,7 @@ impl PartialEq for MixerTrack {
             && *tune_enabled == o.tune_enabled
             && *channel_layout == o.channel_layout
             && *strip_bypassed == o.strip_bypassed
+            && *rack_strip == o.rack_strip
             && *parametric_pre == o.parametric_pre
             && *eq == o.eq
             && *latency_out == o.latency_out
@@ -1456,7 +1492,11 @@ impl MixerTrack {
 
     /// A default track: unnamed, enabled, unity volume, centred, empty slots, routed to the master (except the master).
     pub fn new(index: u16) -> Self {
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
         MixerTrack {
+            runtime_id: NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+            clip_fx: false,
+            rack_strip: None,
             index,
             name: None,
             color: None,
@@ -1541,6 +1581,8 @@ pub const CLIP_RECORD_LEN: usize = 88;
 /// source's start for the clip's length.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Clip {
+    /// Source pattern ticks per arrangement tick; independent for each clip.
+    pub pattern_speed: f64,
     pub position: u32,
     pub length: u32,
     /// 0-based playlist track.
@@ -1553,6 +1595,7 @@ pub struct Clip {
 }
 
 impl Clip {
+    pub fn pattern_rate(&self)->f64 {if self.pattern_speed.is_finite(){self.pattern_speed.clamp(1./64.,64.)}else{1.}}
     /// A new clip record as FL 26 writes one (spec: flp/events/playlist.md).
     pub const TEMPLATE: [u8; CLIP_RECORD_LEN] = {
         let mut r = [0u8; CLIP_RECORD_LEN];
@@ -1579,7 +1622,7 @@ impl Clip {
     };
 
     pub fn new(position: u32, length: u32, track: u16, source: ClipSource) -> Clip {
-        Clip { position, length, track, source, muted: false, window: None, raw: Clip::TEMPLATE }
+        Clip { pattern_speed:1.0, position, length, track, source, muted: false, window: None, raw: Clip::TEMPLATE }
     }
 
     pub fn end(&self) -> u32 {
@@ -1736,6 +1779,8 @@ pub fn fade_curve(x: f64, tension: f64) -> f64 {
 /// A time marker (spec: flp/events/playlist.md "Time markers").
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TimeMarker {
+    /// Optional marker-tab RGB color, stored in Lemon project metadata.
+    pub color: Option<u32>,
     pub position: u32,
     /// High byte of the stored position: the marker's action (the constants below; spec: flp/events/playlist.md
     /// "Marker kinds"). Kinds not listed there (6, 0xB) are kept as read.
@@ -1762,7 +1807,7 @@ impl TimeMarker {
     pub const KEY: u8 = 12;
 
     pub fn new(position: u32, name: &str) -> Self {
-        TimeMarker { position, kind: Self::PLAIN, name: name.into(), numerator: 4, denominator: 4, scale: 0 }
+        TimeMarker { color: None, position, kind: Self::PLAIN, name: name.into(), numerator: 4, denominator: 4, scale: 0 }
     }
 
     /// The marker at timebase `to` instead of `from` ([`Project::set_ppq`]).
@@ -2327,4 +2372,18 @@ impl Project {
         let used=self.clip_channels(&clips);
         self.channels.iter().enumerate().filter(|(_,c)|frozen.contains(&c.index)&&!used.contains(&c.index)).map(|(r,_)|r).collect()
     }
+}
+
+/// Instruments driven by one rack channel. Ordinary layers keep their existing semantics.
+/// Additional instruments are leaves; malformed cycles or duplicate references never duplicate a note.
+pub fn instrument_stack(p:&Project,row:usize)->Vec<usize>{
+    let mut result=vec![row];
+    if let Some(ch)=p.channels.get(row).filter(|c|matches!(c.kind,ChannelKind::Plugin|ChannelKind::Sampler)) {
+        for id in &ch.layer_children {
+            if let Some(i)=p.channels.iter().position(|c|c.index==*id && c.kind==ChannelKind::Plugin && c.layer_children.is_empty()) {
+                if !result.contains(&i){result.push(i);}
+            }
+        }
+    }
+    result
 }

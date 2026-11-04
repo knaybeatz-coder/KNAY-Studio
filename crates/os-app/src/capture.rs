@@ -81,9 +81,35 @@ impl Ring {
     }
 }
 
+// Timestamped stereo frames preserve the input timeline even when the queue fills.
+struct FrameRing {
+ buf: Box<[UnsafeCell<(u64,[f32;2])>]>, head:AtomicUsize, tail:AtomicUsize,
+ writing:AtomicBool, next:AtomicU64, read:AtomicU64,
+}
+unsafe impl Sync for FrameRing {}
+impl FrameRing {
+ fn new(samples:usize)->Self {Self{buf:(0..(samples/2).max(1)).map(|_|UnsafeCell::new((0,[0.;2]))).collect(),head:AtomicUsize::new(0),tail:AtomicUsize::new(0),writing:AtomicBool::new(false),next:AtomicU64::new(0),read:AtomicU64::new(0)}}
+ fn clear(&self){self.tail.store(self.head.load(Ordering::Acquire),Ordering::Release);self.next.store(0,Ordering::Release);self.read.store(0,Ordering::Release);}
+ fn push(&self,frames:usize,at:impl Fn(usize)->[f32;2])->usize {
+  // Normally serialized by the device dispatcher. Overlapping callbacks are dropped without waiting.
+  if self.writing.compare_exchange(false,true,Ordering::Acquire,Ordering::Relaxed).is_err(){self.next.fetch_add(frames as u64,Ordering::AcqRel);return 0;}
+  let start=self.next.fetch_add(frames as u64,Ordering::AcqRel);
+  let head=self.head.load(Ordering::Relaxed);let n=frames.min(self.buf.len()-(head-self.tail.load(Ordering::Acquire)));
+  for k in 0..n {unsafe{*self.buf[(head+k)%self.buf.len()].get()=(start+k as u64,at(k));}}
+  self.head.store(head+n,Ordering::Release);self.writing.store(false,Ordering::Release);n
+ }
+ fn drain(&self,out:&mut Vec<f32>,finished:bool){
+  let tail=self.tail.load(Ordering::Relaxed);let head=self.head.load(Ordering::Acquire);let mut next=self.read.load(Ordering::Relaxed);
+  for i in tail..head {let (pos,frame)=unsafe{*self.buf[i%self.buf.len()].get()};if pos>next{out.resize(out.len()+((pos-next)*2) as usize,0.);}out.extend_from_slice(&frame);next=pos+1;}
+  self.tail.store(head,Ordering::Release);
+  if finished {let end=self.next.load(Ordering::Acquire);if end>next{out.resize(out.len()+((end-next)*2) as usize,0.);next=end;}}
+  self.read.store(next,Ordering::Relaxed);
+ }
+}
+
 /// The capture the device's callbacks feed: whether a recording is on, which inputs it takes, and what came in.
 pub struct Capture {
-    ring: Ring,
+    ring: FrameRing,
     on: AtomicBool,
     asio: AtomicBool,
     /// The first input (0-based) and whether its next one makes a stereo pair (`set_source`).
@@ -103,7 +129,7 @@ pub(crate) static TEST_RECORDING: std::sync::Mutex<()> = std::sync::Mutex::new((
 pub fn capture() -> &'static Capture {
     static C: OnceLock<Capture> = OnceLock::new();
     C.get_or_init(|| Capture {
-        ring: Ring::new(RING),
+        ring: FrameRing::new(RING),
         on: AtomicBool::new(false),
         asio: AtomicBool::new(true),
         first: AtomicU32::new(0),
@@ -119,7 +145,7 @@ static EXTRA: [OnceLock<Capture>; 63] = [const { OnceLock::new() }; 63];
 static INPUT_GATE: AtomicBool = AtomicBool::new(true);
 static DISPATCHING: AtomicBool = AtomicBool::new(false);
 pub fn extra_capture(index: usize) -> &'static Capture {
-    EXTRA[index].get_or_init(|| Capture { ring: Ring::new(RING), on: AtomicBool::new(false),
+    EXTRA[index].get_or_init(|| Capture { ring: FrameRing::new(RING), on: AtomicBool::new(false),
         asio: AtomicBool::new(true), first: AtomicU32::new(0), stereo: AtomicBool::new(false),
         frames: AtomicU64::new(0), dropped: AtomicU64::new(0) })
 }
@@ -192,13 +218,13 @@ impl Capture {
         }
         let (first, stereo) = self.source();
         let second = if stereo { first + 1 } else { first };
-        let went = self.ring.push_with(2 * frames, |k| at(if k % 2 == 0 { first } else { second }, k / 2));
-        self.dropped.fetch_add(((2 * frames - went) / 2) as u64, Ordering::Relaxed);
+        let went = self.ring.push(frames, |k| [at(first,k),at(second,k)]);
+        self.dropped.fetch_add((frames - went) as u64, Ordering::Relaxed);
         self.frames.fetch_add(frames as u64, Ordering::AcqRel);
     }
 
     fn drain(&self, out: &mut Vec<f32>) {
-        self.ring.pop_into(out);
+        self.ring.drain(out,!self.on());
     }
 }
 
@@ -535,7 +561,7 @@ mod tests {
     /// Stereo takes a pair; one input goes to both sides.
     #[test]
     fn a_block_goes_in_as_stereo() {
-        let c = Capture { ring: Ring::new(64), on: AtomicBool::new(false), asio: AtomicBool::new(true), first: AtomicU32::new(0), stereo: AtomicBool::new(true), frames: AtomicU64::new(0), dropped: AtomicU64::new(0) };
+        let c = Capture { ring: FrameRing::new(64), on: AtomicBool::new(false), asio: AtomicBool::new(true), first: AtomicU32::new(0), stereo: AtomicBool::new(true), frames: AtomicU64::new(0), dropped: AtomicU64::new(0) };
         c.push(2, |ch, f| (ch * 10 + f) as f32);
         assert_eq!(c.frames(), 0, "off");
         c.start(1, true);
@@ -556,4 +582,8 @@ mod tests {
         c.push_source(false, 3, |_, _| 0.9);
         assert_eq!(c.frames(), 0, "a system callback must not enter an ASIO take");
     }
+}
+
+#[cfg(test)]mod audit_tests {use super::*;
+ #[test]fn audit_overflow_keeps_stereo_positions_and_trailing_gap(){let r=FrameRing::new(4);assert_eq!(r.push(4,|i|[i as f32,10.+i as f32]),2);let mut out=vec![];r.drain(&mut out,false);assert_eq!(r.push(1,|_|[4.,14.]),1);r.drain(&mut out,false);assert_eq!(out,vec![0.,10.,1.,11.,0.,0.,0.,0.,4.,14.]);assert_eq!(r.push(4,|_|[5.,15.]),2);r.drain(&mut out,true);assert_eq!(&out[10..],&[5.,15.,5.,15.,0.,0.,0.,0.]);assert_eq!(out.len(),18);}
 }

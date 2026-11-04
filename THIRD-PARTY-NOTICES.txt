@@ -13227,3 +13227,57 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
+
+ARA API headers
+---------------
+This build uses the ARA API interface definitions from Celemony Software GmbH,
+https://github.com/Celemony/ARA_API, revision
+65ec5c43b943a48cb5446f448a0492db6af8534b.
+Copyright (c) 2012-2025, Celemony Software GmbH, All Rights Reserved.
+Developed in cooperation with PreSonus Software Ltd.
+Licensed under the Apache License, Version 2.0. The complete license and
+unmodified interface header are retained in crates/os-vst3/vendor/ara.
+ARA-compatible editors are separate products and are not distributed with Lemon Studio.
+
+
+Lemon Master Assistant
+----------------------
+The mastering processor is derived from oXygen, Copyright (c) 2026 Wamphyre,
+under the BSD 3-Clause License reproduced below. Michael Lane Edition changes
+are supplied as corresponding source with this release.
+
+BSD 3-Clause License
+
+Copyright (c) 2026, Wamphyre
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its
+   contributors may be used to endorse or promote products derived from
+   this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+JUCE 8.0.9 framework modules are distributed under the GNU Affero General
+Public License version 3 (AGPLv3), not a commercial JUCE licence. JUCE and
+its embedded dependencies' notices are preserved in JUCE/LICENSE.md.
+Matching JUCE source: https://github.com/juce-framework/JUCE/tree/8.0.9
+Full AGPLv3 terms: https://www.gnu.org/licenses/agpl-3.0.html
+The mastering VST3 and its corresponding source are included with this edition.

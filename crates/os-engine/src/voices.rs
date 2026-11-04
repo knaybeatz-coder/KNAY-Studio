@@ -89,6 +89,12 @@ impl VoiceLedger {
         }
     }
 
+    /// Release only the independently addressed note (MPE unisons may share a key).
+    pub fn release_voice(&mut self,id:i32) {
+        let left=self.release_left();
+        for v in self.voices.iter_mut().filter(|v|v.id==id&&v.left.is_none()){v.left=Some(left);}
+    }
+
     /// A choke: the voices of `key` close quickly. An instrument that reports ends keeps them until it does.
     pub fn choke(&mut self, key: u8) {
         if self.reports {

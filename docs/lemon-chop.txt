@@ -1,0 +1,52 @@
+CURRENT UPDATE: Read Feature comparison.txt (source: docs/lemon-chop-comparison.txt) and Start here.txt for the expanded workflow and current limitations. The numbered research below records the earlier implementation; sections describing consecutive-bar-only grids, unsupported legacy tags/colors and end-only Trigger release are superseded by that update.
+
+Lemon Chop — feature research and implementation notes
+Research date: 2 November 2026
+
+Purpose
+A separate Lemon Studio instrument inspired by Serato Sample's slicing workflow. Lemon Sampler remains unchanged. Original Rust implementation, Lemon's Pith visual components, Signalsmith audio stretching and the existing Lemon Demucs separator. The initial instrument shipped in build 2026110203. The polish pass described here is a local test build, awaiting hands-on review; it is not a claim of identical Serato DSP.
+
+Research coverage
+The official product page and all functional chapters of the official manual were read: loading, source player, beatgrids, Autoset, cues, cue parameters, stems and miscellaneous. The sources below distinguish documented reference behaviour from this implementation.
+
+1. Source and analysis
+Reference: loading through dialog/drop, eject, missing-file location, automatic analysis and cancellation. Lemon Chop provides file loading/drop, background decoding, source duration, approximate tempo and key estimates, and an editable source BPM. Its source player has an overview, detailed waveform, zoom, cursor, preview, stop and freeze. Colors are a simple frequency-content indication, not Serato's spectral algorithm.
+https://support.serato.com/hc/en-us/articles/115000489094-Loading-a-file
+https://support.serato.com/hc/en-us/articles/115000489334-Source-Player
+
+2. Cues and performance
+Reference: 32 cue pads, editable starts/ends, Hold/Trigger, mono/poly, keyboard mode, MIDI triggering, multiple selection, names, swapping/copying, deletion and output assignment. Lemon Chop implements these cue operations with MIDI notes 36–67 and a chromatic keyboard mode rooted at MIDI 60. It supports up to 32 simultaneous voices. Alt-drag copies; normal drag swaps. Ctrl-click selects multiple pads; Shift-click deletes. The built-in instrument now supports 16 stereo outputs. Main uses the rack channel's mixer track; +1 through +15 use consecutive tracks after it (clamped to the last available track). Channel volume/pan applies before those tracks; each destination has its own effects and delay compensation. Actual hosted audio and synthetic engine routing are checked; other DAWs remain unverified.
+https://support.serato.com/hc/en-us/articles/115000501614-Cues
+
+3. Automatic chopping
+Reference: Find Samples, Set Slicer, Set Random, Key Shift Pad and Serato DJ cue import. Favorites protect pads against replacement. Slicer sizes run from 1/16 to 16 beats. Lemon Chop offers transient finding, beat slicing, random placement and chromatic duplication, preserving favorite pads. Its transient detector is an original energy-onset algorithm, not Serato's musical-region detection. Region controls shift the slicing cursor; press Autoset to apply. Import cues reads Serato Markers2 hot cues from MP3/ID3v2.3 or v2.4, WAV/AIFF ID3 chunks, FLAC comments and M4A/MP4 freeform atoms. Favorite pads remain protected and source files are read-only. Legacy Markers_, Ogg tags, database-only cues, saved loops/Flips, compressed/unsynchronized ID3 frames and cue colors are not imported. Malformed/unsupported metadata is reported without replacing the cue layout.
+https://support.serato.com/hc/en-us/articles/115000489113-Autoset
+
+4. Sound controls
+Reference: per-cue level ±12 dB, filter, attack/release up to 10 seconds, reverse, pitch ±24 semitones and speed 0.25–4x; global detuning and independent pitch/tempo; mono keyboard glide up to five seconds with Trigger/Sustain variants. Lemon Chop implements these ranges, a bipolar low/high-pass filter, independent Signalsmith stretching, host tempo sync, linked pitch/speed and both Sustain and Trigger mono keyboard glide. Sustain continues the active voice; Trigger restarts the cue/envelope while gliding from the previous note. Serato's exact envelope/filter/stretch laws are not reproduced. Trigger plays to the cue end; Hold begins its release on note-off. Knob changes reach active voices, except structural cue-boundary changes which apply on the next trigger.
+https://support.serato.com/hc/en-us/articles/115000500413-Cue-parameters
+
+5. Stems
+Reference: vocals, melody, bass and drums, with mute/solo and waveform feedback. Lemon Chop calls Lemon Studio's existing installed separator from a background worker, validates all four aligned WAVs and retains their paths in the instrument state. Click a stem to toggle it; Shift-click to solo; double-click for its numeric level. It offers cancellation and no audio upload. Separation is a preparation step, not Serato's real-time proprietary engine. The waveform is recomputed on a worker from the actual stereo stem mix, including cancellation between stems; it refreshes shortly after a stem-level change. If the engine is missing, set it up through Lemon's existing audio-clip Stem separation action first.
+https://support.serato.com/hc/en-us/articles/7645256113551-Stems
+
+6. Grid and automation
+Reference beatgrid editing includes tempo/bar/beat markers, up to 128 tempo markers, slip/adjust, metronome, tap BPM, save/cancel and half/double tempo. Lemon Chop has source-BPM correction, half/double, grid start and up to 128 consecutive bar anchors. Each adjacent anchor interval represents four beats for tempo matching. Grid mode adds draggable bar anchors, nearest-marker removal, clear, Save/Cancel, tap BPM and an audition metronome. Each interval represents four beats; subdivisions, snapping and playback use the same map and continue the edge tempo beyond it. This is a consecutive-bar map, not arbitrary numbered beat markers. Metronome follows source preview or a sounding pad and is never included in pad export.
+https://support.serato.com/hc/en-us/articles/360002025835-Beatgrids
+
+Reference automation covers global modes, pitch, tempo and cue parameters; undo/redo retains 100 actions and velocity can be disabled. Lemon Chop exposes global and per-pad sound parameters to host automation, provides parameter-menu automation creation, velocity mode and 100 editor snapshots. Cue layout, names, favorites and stem paths are stored with plugin state. Source files must remain accessible. Export renders the selected full cue through the same voice processing as playback: stem mix, reverse, pitch/stretch, filter, attack/release, pad/master level. It renders at velocity 1; host mixer effects, MIDI performances and the metronome are excluded. Export runs on a worker, is cancellable and preserves an existing destination until rendering succeeds.
+https://support.serato.com/hc/en-us/articles/115003945934-Miscellaneous
+
+Overall reference and current product extensions
+The product page also lists SLAB controller integration. The optional SLAB MIDI profile supports pages 1–2 (32 pads), velocity, play/stop preview, undo/redo, region navigation, trigger/piano switches, slice-size buttons, relative stem encoders and pitch/detune dial. Keep the Chop editor open for control actions. In Lemon Studio, a device with SLAB in its name gets pad notes translated before normal recording, while controls bypass note recording. Select the controller in the existing MIDI settings and use its general MIDI mode. Native Serato handshake, OLED/LED feedback, aftertouch, other pages and full DAW transport integration are not implemented; no physical SLAB was tested. Pitch 'n Time and Serato Stems algorithms are proprietary and are not included.
+https://serato.com/sample
+
+Validation scope
+Synthetic audio, headless editor interaction/state and actual hosted-plugin checks are used. No microphone, audio interface, user recording or live screen control is used. Listening, performance with full songs, real stem inference and visual review in the installed app remain user checks. Consult PROJECT_HANDOFF.md for the final build/install result.
+
+Polish-pass additions: explicit Eject, cancellable analysis, and Locate (preserve cue layout when finding missing source audio). Analysis cancellation is cooperative after decoding and between analysis steps; it does not interrupt an in-flight decoder call. Source/controller preferences and cues persist in project state; the original sampler is unchanged.
+
+Interoperability references (read 2 November 2026):
+https://github.com/Holzhaus/serato-tags/blob/master/docs/serato_markers2.md
+https://github.com/Holzhaus/serato-tags/blob/master/docs/fileformats.md
+https://www.pioneerdj.com/-/media/pioneerdj/downloads/midi-mapping/slab/slab_midi_massege_list_e1.pdf

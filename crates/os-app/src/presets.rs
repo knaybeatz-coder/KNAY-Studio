@@ -633,6 +633,24 @@ fn save_as(app: &mut App, key: usize) -> Option<String> {
     None
 }
 
+/// Dropping a rack channel on the library stores a uniquely named preset without a dialog.
+pub fn save_channel_drop(app:&mut App,row:usize)->Option<String>{
+    use std::io::Write;
+    let Some(h)=header(app,row)else{return Some("This channel has no hosted plugin preset to save".into())};
+    let Some(state)=app.plugins.state(row)else{return Some(format!("{} could not provide its preset state",h.plugin))};
+    let Some(dir)=dir_for(&h.plugin)else{return Some("Preset folder is unavailable".into())};
+    let name=app.state.project.channels.get(row).and_then(|c|c.name.clone()).unwrap_or_else(||h.plugin.clone());
+    let path=free_file(&dir,&name);
+    let result=(||->std::io::Result<()>{std::fs::create_dir_all(&dir)?;let mut f=std::fs::OpenOptions::new().write(true).create_new(true).open(&path)?;f.write_all(&encode(&h,&state))?;f.sync_all()})();
+    if let Err(e)=result{return Some(format!("Preset not saved: {e}"));}
+    app.plugins.set_preset(row,Some(path.clone()));
+    app.browser_cmd(crate::browser::BCmd::Reread);
+    app.state.browser_tab=4;app.state.browser_search.clear();
+    let root=crate::views::browser::presets_key();app.state.browser_open.insert(root.clone());
+    app.state.browser_open.insert(format!("{root}/{}",folder_name(&h.plugin)));
+    Some(format!("Saved preset {}",shown_name(&path)))
+}
+
 /// `target` with the preset extension.
 fn with_ext(target: PathBuf) -> PathBuf {
     if is_own(&target) { target } else { target.with_extension(EXT) }

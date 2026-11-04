@@ -12,9 +12,14 @@ vst3-sys = { git = "https://github.com/robbert-vdh/vst3-sys.git", branch = "fix/
 libloading = "0.8"
 os-engine.workspace = true
 os-host.workspace = true
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 [target.'cfg(windows)'.dev-dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_UI_WindowsAndMessaging", "Win32_System_LibraryLoader", "Win32_Storage_Xps"] }
 
 [dev-dependencies]
 os-model.workspace = true
+
+[build-dependencies]
+bindgen = "0.72.1"

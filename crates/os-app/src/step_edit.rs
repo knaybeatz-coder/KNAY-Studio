@@ -44,6 +44,7 @@ pub fn step(s: &State) -> u32 {
 /// Where a held note comes from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Src {
+    Mpe(u64),
     /// A typing-keyboard key.
     Typing(KeyCode),
     /// A MIDI keyboard's key.

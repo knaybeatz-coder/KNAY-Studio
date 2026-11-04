@@ -68,6 +68,8 @@ pub enum Cmd {
     /// ([`pack_size`]). The plugin resizes its editor (to at least its smallest size) and answers 1; [`Cmd::Metrics`]
     /// then gives the size it took, and the frame follows.
     SetSize = 13,
+    /// Plugin -> host: open the sample chooser for this channel.
+    BrowseSample = 14,
 }
 
 impl Cmd {
@@ -86,6 +88,7 @@ impl Cmd {
             11 => Cmd::Audio,
             12 => Cmd::Resizable,
             13 => Cmd::SetSize,
+            14 => Cmd::BrowseSample,
             _ => return None,
         })
     }

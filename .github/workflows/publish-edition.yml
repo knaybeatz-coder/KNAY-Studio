@@ -1,0 +1,30 @@
+name: Publish complete Michael Lane Edition
+on:
+  push:
+    branches: [michael-lane]
+    paths: ['packaging/github-release.json']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: michael-lane-publication
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify downloads and publish full DAW release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          python3 - <<'PY'
+          import runpy
+          try:
+              runpy.run_path('packaging/github-publish.py', run_name='__main__')
+          except BaseException as error:
+              message = (type(error).__name__ + ': ' + str(error)).replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print('::error title=Release publication failed::' + message, flush=True)
+              raise
+          PY

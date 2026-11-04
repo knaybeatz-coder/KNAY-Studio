@@ -83,12 +83,16 @@ pub struct Form {
     /// Each row's choice (an index in its `choices`), in `ROWS` order.
     pub vals: [usize; ROWS.len()],
     pub open: Option<usize>,
+    pub bindings: Vec<String>,
+    pub capture: Option<usize>,
+    pub page: usize,
+    pub notice: String,
 }
 
 impl Form {
     /// The applied shortcuts (as the window opens).
     pub fn applied() -> Form {
-        Form { vals: ROWS.map(prefs::index), open: None }
+        Form { vals: ROWS.map(prefs::index), open: None,bindings:COMMANDS.iter().map(|(id,_,default)|prefs::text(&format!("command_key_{id}")).unwrap_or_else(||default.to_string())).collect(),capture:None,page:0,notice:String::new() }
     }
 
     /// Row `row` takes choice `v`. Each value is used once per group, "(disabled)" included: the row of the group that
@@ -109,19 +113,76 @@ impl Form {
     /// Reset all: the defaults in the form (kept only by Apply).
     pub fn reset(&mut self) {
         self.vals = ROWS.map(|c| c.default);
+        self.bindings=COMMANDS.iter().map(|(_,_,key)|key.to_string()).collect();self.capture=None;self.notice.clear();
     }
 
     /// Apply: the form's choices are kept and work at once.
     pub fn apply(&self) {
-        for (c, &v) in ROWS.iter().zip(&self.vals) {
-            prefs::set_choice(c, v);
-        }
+        for (c, &v) in ROWS.iter().zip(&self.vals) {prefs::set_choice(c, v);}
+        for ((id,_,_),key) in COMMANDS.iter().zip(&self.bindings) {prefs::set_text(&format!("command_key_{id}"),key);}
     }
 
     /// Row `row`'s choice as its box shows it.
     pub fn text(&self, row: usize) -> &'static str {
         ROWS[row].choices[self.vals[row]]
     }
+}
+
+pub const COMMANDS:&[(&str,&str,&str)]=&[
+    ("play","Play / stop","Space"),("pause","Play / pause","Ctrl+Space"),
+    ("save","Save project","Ctrl+S"),("save_as","Save project as","Ctrl+Shift+S"),("open","Open project","Ctrl+O"),
+    ("undo","Undo","Ctrl+Z"),("redo","Redo","Ctrl+Shift+Z"),
+    ("playlist","Playlist","F5"),("rack","Channel rack","F6"),("piano","Piano roll","F7"),("mixer","Mixer","F9"),
+    ("metronome","Metronome","Ctrl+M"),("typing","Typing piano keyboard","Ctrl+T"),
+];
+pub const COMMAND_PAGE:usize=8;
+pub fn chord(key:&winit::keyboard::Key,ctrl:bool,alt:bool,shift:bool)->Option<String>{
+    use winit::keyboard::{Key,NamedKey as N};
+    let name=match key {
+        Key::Character(c) if c.chars().count()==1 && (ctrl||alt)=>c.to_uppercase(),
+        Key::Named(N::Space)=>"Space".into(),
+        Key::Named(n @ (N::F2|N::F3|N::F4|N::F5|N::F6|N::F7|N::F9|N::F10|N::F11|N::F12))=>format!("{n:?}"),
+        _=>return None,
+    };
+    if alt && name=="F4" {return None;}
+    Some(format!("{}{}{}{name}",if ctrl {"Ctrl+"}else{""},if alt {"Alt+"}else{""},if shift {"Shift+"}else{""}))
+}
+impl Form {
+    pub fn capture_key(&mut self,key:&winit::keyboard::Key,ctrl:bool,alt:bool,shift:bool)->bool {
+        use winit::keyboard::{Key,NamedKey as N};
+        let Some(i)=self.capture else{return false};
+        if matches!(key,Key::Named(N::Escape)){self.capture=None;return true;}
+        let value=if matches!(key,Key::Named(N::Backspace|N::Delete)){Some(String::new())}else{chord(key,ctrl,alt,shift)};
+        if let Some(value)=value {
+            if !value.is_empty() && self.bindings.iter().enumerate().any(|(j,v)|j!=i&&v==&value) {
+                self.notice="Already assigned. Clear that command first.".into();
+            }else {self.bindings[i]=value;self.capture=None;self.notice="Apply to keep your shortcuts.".into();}
+        }else{self.notice="Use Ctrl/Alt + a letter, Space, or a function key (F8 reserved).".into();}
+        true
+    }
+}
+pub fn command_key(app:&mut App,key:&winit::keyboard::Key,ctrl:bool,alt:bool)->bool {
+    let Some(key)=chord(key,ctrl,alt,app.shift) else{return false};
+    let bindings:Vec<_>=COMMANDS.iter().map(|(id,_,d)|prefs::text(&format!("command_key_{id}")).unwrap_or_else(||d.to_string())).collect();
+    let Some(i)=bindings.iter().position(|v|!v.is_empty()&&v==&key) else {
+        // A reassigned default must not fall through to its former hardcoded action.
+        return COMMANDS.iter().enumerate().any(|(i,(_,_,d))|*d==key&&bindings[i]!=*d);
+    };
+    use crate::views::menus;
+    match i {
+        0=>app.act(if app.transport.playing(){Action::Stop}else{Action::Play}),
+        1=>app.act(Action::Play),
+        2=>app.act(Action::MenuItem(0,menus::FILE_SAVE)),
+        3=>app.act(Action::MenuItem(0,menus::FILE_SAVE_AS)),
+        4=>app.act(Action::MenuItem(0,menus::FILE_OPEN)),
+        5=>app.undo_key(false),
+        6=>{let m=crate::history::ctrl_shift_z(&mut app.state);app.say(m);},
+        7=>app.act(Action::ToggleWin(Win::Playlist)),8=>app.act(Action::ToggleWin(Win::ChannelRack)),
+        9=>app.act(Action::ToggleWin(Win::PianoRoll)),10=>app.act(Action::ToggleWin(Win::Mixer)),
+        11=>app.act(Action::Metronome),12=>app.act(Action::Typing),_=>{}
+    }
+    app.invalidate();
+    true
 }
 
 /// What an F8 key runs.
@@ -231,6 +292,19 @@ mod tests {
 
     fn row(c: &Combo) -> usize {
         ROWS.iter().position(|r| r.key == c.key).expect("a row")
+    }
+
+    #[test] fn community_command_shortcuts_capture_conflicts_and_dispatch(){
+        use winit::keyboard::{Key,NamedKey};
+        let mut f=Form::applied();f.reset();f.capture=Some(10);
+        assert!(f.capture_key(&Key::Character("s".into()),true,false,false));assert_eq!(f.capture,Some(10));assert!(f.notice.contains("Already assigned"));
+        f.capture_key(&Key::Character("k".into()),true,true,false);assert_eq!(f.bindings[10],"Ctrl+Alt+K");f.apply();
+        let mut app=App::new(None);app.state.z.retain(|w|*w!=Win::Mixer);
+        assert!(command_key(&mut app,&Key::Named(NamedKey::F9),false,false));assert!(!app.state.shown(Win::Mixer));
+        assert!(command_key(&mut app,&Key::Character("k".into()),true,true));assert!(app.state.shown(Win::Mixer));
+        app.open_shortcuts();let mut canvas=Canvas::new(1280,900,1.).unwrap();app.paint(&mut canvas,None);
+        if let Some(dir)=std::env::var_os("OS_SHOT_DIR"){canvas.pixmap.save_png(std::path::PathBuf::from(dir).join("shortcut-editor.png")).unwrap();}
+        f.reset();f.apply();
     }
 
     fn texts(f: &Form) -> Vec<&'static str> {
@@ -349,7 +423,7 @@ mod tests {
         assert_eq!(form(&app).text(0), "F8", "the window shows the applied keys");
         let reset = hit_rect(&app, &Action::Dlg(DHit::ResetAll));
         click(&mut app, &mut c, reset);
-        assert_eq!(texts(form(&app)), texts(&Form { vals: ROWS.map(|c| c.default), open: None }));
+        assert_eq!(texts(form(&app)), texts(&Form { vals: ROWS.map(|c| c.default), open: None, ..Form::applied() }));
         assert_eq!(prefs::choice(&TOGGLE_BROWSER), "F8", "Reset all applies nothing");
         let x = hit_rect(&app, &Action::Dlg(DHit::Close));
         click(&mut app, &mut c, x);

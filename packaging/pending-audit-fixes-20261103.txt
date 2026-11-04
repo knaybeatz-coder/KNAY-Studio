@@ -1,0 +1,8 @@
+Included in release 2026110302: audit fixes — 3 November 2026
+- Plugin parameter edits and CLAP state-change notifications now participate in unsaved-change prompts and autosave tracking.
+- Failed hosted-plugin state capture stops saving and preserves previously saved settings; related copy/bounce/clip-effect operations report capture failures.
+- Project and backup writes use a flushed temporary file followed by replacement. Backup failures stop an overwrite with an explanation.
+- Unused-file cleanup protects original and rendered audio referenced by warp editing.
+- ZIP imports extract to a fresh folder, preserving previous extracted edits and avoiding stale equal-size content.
+- Recording buffers retain frame positions; overflow gaps become silence rather than pulling later audio earlier. Lost-input warnings remain.
+These notes are incorporated in packaging/changelog.json for build 2026110302. Existing ARA/FL compatibility limitations remain. Current local Wave additions preserved.

@@ -2,9 +2,11 @@
   "Synths": [
     "Citrus",
     "Lemon Trio",
-    "Lemon 3x Osc"
+    "Lemon 3x Osc",
+    "Lemon Wave"
   ],
   "Sampling": [
-    "Lemon Sampler"
+    "Lemon Sampler",
+    "Lemon Chop"
   ]
 }

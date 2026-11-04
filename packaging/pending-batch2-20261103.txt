@@ -1,0 +1,18 @@
+Batch 2 workflow changes — pending publication
+
+Implemented in this development stage:
+- Piano Roll channel Mute/Solo controls use the existing Channel Rack playback state.
+- Independent Browser preview Normalize (peak target 0 dBFS) and Reverse switches. Preview buffers leave source files and imported samples unchanged.
+- Move or copy explicitly selected Piano Roll notes to another channel, preserving note properties and timing, with undo.
+- Optional Browser Single Folder View, including parent/subfolder navigation; existing tree view remains available.
+- Named marker profiles: save, merge, replace and manage profiles. Positions adapt to the project timebase; marker names, colors, actions and time signatures are preserved. Musical clips stay unchanged.
+- Subtle marker color choices in the marker context menu.
+- Independent nondestructive pattern-clip MIDI stretching using Playlist Stretch mode, including reset, trim/split and project recall.
+
+- Add Instrument / VST to Channel preserves the original instrument and layers added instruments from the same MIDI. Added instruments keep their own settings and mixer levels, with open/reorder/detach/remove controls. Group solo, live-note release when detaching, independent cloning, undo/redo state restoration and project recall are covered by focused checks.
+
+- Individual audio Clip Effects panel: insert/open/remove/reorder effects, parameter browser and automation, per-effect/chain bypass, chain copy/paste, independent instances for copied and overlapping clips, nondestructive source audio and project recall. Dedicated Clip FX mixer inserts route into the original insert; existing mixer effects remain in the signal path. Allocation preserves customized/automated inserts and reports when more empty inserts are required.
+
+- MPE: independent per-note pitch, pressure and slide lanes in the Piano Roll; live input and recording; lower/upper zones, member allocation, bend/sensitivity/response settings; project recall, independent copies and undo; note slicing/chopping; expressive MIDI import/export. Native VST3/CLAP note expression and channel-preserving VST2 delivery. Pause, seek, mute, panic and zone changes release the right notes. Instrument support/mode and expressive patch mappings are required. Physical controllers have not been tested; do not advertise universal instrument compatibility.
+
+This is not a published release. Merge accurate notes into packaging/changelog.json with the actual release date/build and render/publish the download-page changelog before the next public publication.

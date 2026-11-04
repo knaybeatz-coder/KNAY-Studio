@@ -24,9 +24,20 @@ pub struct Destination {
 }
 pub fn flag(o: Opt, on: bool) { if o.on()!=on { o.toggle(); } }
 pub fn audio_filter() {
-    flag(Opt::Audio,true); flag(Opt::Notes,false); flag(Opt::Automation,false); flag(Opt::Wait,false);
+    flag(Opt::Audio,true); flag(Opt::Wait,false);
+    // Input selection must not erase a deliberately selected combined take.
+    if !crate::settings_file::flag("rec_filter_explicit",false) {
+        flag(Opt::Notes,false); flag(Opt::Automation,false);
+    }
 }
-pub fn auto_filter() { flag(Opt::Audio,false); flag(Opt::Notes,true); flag(Opt::Automation,false); }
+pub fn auto_filter() {
+    flag(Opt::Audio,false);
+    if !crate::settings_file::flag("rec_filter_explicit",false) {
+        flag(Opt::Notes,true); flag(Opt::Automation,false);
+    } else if !Opt::Notes.on() && !Opt::Automation.on() {
+        flag(Opt::Notes,true);
+    }
+}
 pub fn input_menu(s: &State,t: u16,x: f32,y: f32)->Popup {
     use crate::mixer::MCmd;
     let now=s.mixer.recording.inputs.get(&t);
@@ -112,7 +123,7 @@ impl App {
         let _row=(0..pl::TRACKS).find(|&row|rows.height(row)>0.&&!pl::track_info(&self.state,row).is_some_and(|t|t.locked)&&!pl::clips(&self.state).iter().any(|c|c.track==row)).ok_or("There is no free playlist track for this take")?;
         let armed: Vec<u16> = self.state.mixer.recording.armed.iter().copied().collect();
         if armed.len() > 64 { return Err("Up to 64 mixer inputs can be recorded together".into()); }
-        let free: Vec<u16> = (0..pl::TRACKS).filter(|&r| rows.height(r)>0. && !pl::track_info(&self.state,r).is_some_and(|t|t.locked) && !pl::clips(&self.state).iter().any(|c|c.track==r)).take(armed.len()).collect();
+        let free: Vec<u16> = (0..pl::TRACKS).filter(|&r| !self.state.project.instrument_lanes.iter().any(|v|self.state.project.arrangement().is_some_and(|a|v.1==a.number) && v.2==r) && rows.height(r)>0. && !pl::track_info(&self.state,r).is_some_and(|t|t.locked) && !pl::clips(&self.state).iter().any(|c|c.track==r)).take(armed.len()).collect();
         if free.len()!=armed.len() { return Err("Not enough empty Playlist tracks for the armed inputs".into()); }
         let mut tracks = Vec::new();
         for (t,row) in armed.into_iter().zip(free) {
@@ -232,6 +243,59 @@ mod tests {
         for (a,b) in app.state.project.channels.iter().skip(before).zip(back.channels.iter().skip(before)) {assert_eq!(a.mixer_track,b.mixer_track);assert_eq!(a.color,b.color);}
         for p in paths {let _=std::fs::remove_file(p);}
         app.arm_mixer_disk(2);assert!(!app.state.mixer.recording.armed.contains(&2));assert_eq!(app.state.mixer.recording.armed.len(),2);
+    }
+
+    #[test]
+    fn combined_audio_and_notes_take_preserves_both_on_separate_rows() {
+        use crate::{record::Extra, step_edit::Src};
+        let _lock=crate::capture::TEST_RECORDING.lock().unwrap_or_else(|e|e.into_inner());
+        for assigned_lane in [false,true] {
+            let mut app=App::new(None);app.state.project=crate::app::test_project();
+            pl::arr_mut(&mut app.state).clips.clear();
+            app.state.project.patterns[0].notes.clear();
+            app.state.pattern=1;
+            if assigned_lane {
+                app.state.project.channels[0].kind=os_model::ChannelKind::Plugin;
+                app.state.project.channels[0].plugin=Some("Sytrus".into());
+                assert!(app.route_instrument_lane(0,10));
+            }
+            crate::settings_file::set_flag("rec_filter_explicit",false);
+            flag(Opt::Notes,true);flag(Opt::Audio,false);flag(Opt::Automation,false);
+            // Choose both through the actual record menu, then select the input.
+            pl::run(&mut app,pl::Cmd::Record(Opt::Audio));
+            assert!(Opt::Notes.on()&&Opt::Audio.on());
+            app.set_mixer_input(1,Some(Input{device:"Test ASIO".into(),asio:true,first:0,stereo:false}));
+            app.toggle_record();app.toggle_record();
+            assert!(app.state.rec.armed&&Opt::Notes.on()&&Opt::Audio.on());
+            app.prepare_mixer_take().unwrap();
+            let audio_row=app.state.mixer.recording.live[0].row;
+            assert!(Opt::Notes.on(),"starting audio must preserve the notes filter");
+            app.transport.pretend_at(0.,true);app.one_click_tick();
+            app.record_down_with(Src::Midi(60),60,100,Extra::default());
+            crate::capture::capture().push(4800,|_,_|0.25);
+            app.transport.pretend_at(96.,true);app.record_up_with(Src::Midi(60),None);
+            app.end_take();app.transport.stop();
+            for _ in 0..400 {app.one_click_tick();if app.audio_rec.is_none(){break;}std::thread::sleep(std::time::Duration::from_millis(5));}
+            assert!(app.audio_rec.is_none(),"{:?}",app.state.message);
+            let pattern=app.state.pattern;
+            assert!(app.state.project.pattern(pattern).unwrap().notes.iter().any(|n|n.key==60&&n.length>0));
+            let midi=pl::clips(&app.state).iter().find(|c|c.source==os_model::ClipSource::Pattern(pattern)).unwrap();
+            assert_ne!(midi.track,audio_row);
+            if assigned_lane {assert_eq!(midi.track,crate::smart_recording::instrument_lane(&app.state).unwrap().0);}
+            let row=app.state.project.channels.len()-1;
+            assert!(app.state.rack.groups.iter().any(|g|g.name=="Audio"&&g.members.contains(&row)));
+            assert!(!crate::rack::shown(&app.state).contains(&row),"audio does not clutter the instrument view");
+            let ch=app.state.project.channels.last().unwrap();
+            assert_eq!(ch.mixer_track,1);
+            assert!(pl::clips(&app.state).iter().any(|c|c.track==audio_row&&c.source==os_model::ClipSource::Channel(ch.index)));
+            let path=std::path::PathBuf::from(ch.sample_path.as_ref().unwrap());
+            assert_eq!(os_engine::sample::load_shared(&path).unwrap().frames(),4800);
+            let bytes=os_flp::project::create(&app.state.project).unwrap().to_bytes().unwrap();
+            let back=os_flp::project::load(&os_flp::FlpFile::parse(&bytes).unwrap()).unwrap();
+            assert!(back.pattern(pattern).unwrap().notes.iter().any(|n|n.key==60&&n.length>0));
+            assert_eq!(back.arrangement().unwrap().clips.len(),pl::clips(&app.state).len());
+            let _=std::fs::remove_file(path);
+        }
     }
 
     #[test]

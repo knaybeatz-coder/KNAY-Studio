@@ -1,0 +1,39 @@
+SERUM ANALYSIS + LEMON WAVE UPGRADE - 3 November 2026
+
+Installed product: dedicated instrument UI, eight-preset selector, phase/random,
+reference unison blend, two simultaneous modulation routes, three new presets.
+The interface is Lemon Wave's own design; it is not a copied Serum skin.
+
+This REA session added 48 address-indexed decompilation observations.
+The combined index covers 131 unique function addresses across retained
+batches. Counts are observations/addresses, NOT recovered features or parity tests.
+Target: installed Windows Serum 2.1.5 VST3, SHA256
+33369e196ae66d05d20485f3c5e800707dc34a5ad89c27959250d60387b2ea55.
+
+READING ORDER
+PLAN.txt: bounded upgrade plan and remaining full-instrument scope.
+finding-ledger.json: ten concrete conclusions, evidence IDs and caveats.
+function-index.json: this batch grouped by subsystem, with call candidates.
+all-functions-index.json: cross-batch index; batch paths refer to project
+rea-setup-work folders and earlier Desktop research deliveries.
+pseudocode/: static decompiler observations, not original source.
+evidence-final.json: complete exported REA evidence. close.json: lifecycle result.
+
+IMPLEMENTATION / EVIDENCE BOUNDARY
+The installed phase amount and reference blend reuse earlier measured laws.
+The random sequence, two-route matrix, UI and preset workflow are Lemon Wave
+implementation choices. Current envelope/filter/effect engines remain unchanged.
+The new envelope/filter/effect decompilations establish paths to reconstruct next;
+they do not establish complete waveform or timing agreement with Serum.
+No new Serum runtime render was claimed in this static-analysis batch.
+The existing waveform reference tests still pass, alongside new real-plugin tests.
+
+CHECKLIST
+- Review existing evidence / preserve sound: complete for this upgrade.
+- Dedicated visual layout and playable controls: implemented and installed.
+- State/MIDI/regression/offline stress checks: passed; user live review remains.
+- Envelope/filter/modulation/effects tracing: expanded, partially answered.
+- Full Serum reconstruction: unresolved; next gate is controlled envelope renders
+  across durations, curvature, hold, retrigger and release, then verified replacement.
+- Remaining full wavetable editor / extra oscillator engines / complete effects,
+  modulation and asset compatibility: not completed by this upgrade.

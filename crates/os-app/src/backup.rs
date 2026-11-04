@@ -27,7 +27,7 @@ pub struct Backup {
     every: Option<Duration>,
     due: Option<Instant>,
     /// The project and tempo of the last backup.
-    last: Option<(Project, f64)>,
+    last: Option<(Project, f64, u64)>,
 }
 
 /// The interval of Autosave entry `i`: Never none, Rarely 15, Occasionally 10, Regularly 5, Frequently 5, Very
@@ -105,12 +105,14 @@ pub fn prune(dir: &Path, name: &str, max: usize) {
 
 /// Before the project is saved over `target`: an existing file there is copied to the backup folder `dir` as
 /// `<name> (overwritten on ...).lmn` (a copy of that name made earlier in the same minute is kept).
-pub fn keep_overwritten(target: &Path, dir: Option<PathBuf>) {
-    let Some(dir) = dir.filter(|_| target.is_file()) else { return };
+pub fn keep_overwritten(target: &Path, dir: Option<PathBuf>) -> std::io::Result<()> {
+    let Some(dir) = dir.filter(|_| target.is_file()) else { return Ok(()) };
     let to = dir.join(file_name(&project_name(Some(target)), "overwritten", chrono::Local::now().naive_local()));
-    if !to.exists() && std::fs::create_dir_all(&dir).is_ok() {
-        let _ = std::fs::copy(target, to);
+    if !to.exists() {
+        std::fs::create_dir_all(&dir)?;
+        crate::safe_save::write(&to, &std::fs::read(target)?)?;
     }
+    Ok(())
 }
 
 impl App {
@@ -142,7 +144,7 @@ impl App {
 
     /// Whether the project changed since it was last backed up, and since it was last saved (or opened, or created).
     pub(crate) fn changed_since_backup(&self) -> bool {
-        self.unsaved() && self.backup.last.as_ref().is_none_or(|(p, t)| *p != self.state.project || *t != self.state.tempo)
+        self.unsaved() && self.backup.last.as_ref().is_none_or(|(p, t, r)| *p != self.state.project || *t != self.state.tempo || *r != self.plugins.edit_revision)
     }
 
     /// Writes a backup of the project as it is now, named for local time `t`, then deletes its oldest autosaves beyond
@@ -158,7 +160,7 @@ impl App {
         if let Err(e) = std::fs::create_dir_all(&dir) {
             return Some(Err(format!("{}: {e}", dir.display())));
         }
-        let snap = (self.state.project.clone(), self.state.tempo);
+        let snap = (self.state.project.clone(), self.state.tempo, self.plugins.edit_revision);
         let done = self.save_copy(target.clone())?;
         if done.is_ok() {
             self.backup.last = Some(snap);

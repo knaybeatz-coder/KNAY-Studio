@@ -755,6 +755,7 @@ mod tests {
         assert!(pl::clip_menu(&a.state, i, 0., 0.)
             .items
             .iter()
+            .flat_map(|x| std::iter::once(x).chain(x.children.iter()))
             .any(|x| x.label == "Stem separation..." && x.cmd == pl::Cmd::SeparateStems(i)));
         let before = a.state.project.clone();
         a.dialog_done(
@@ -1003,4 +1004,14 @@ impl Drop for ProcessGroup {
             windows_sys::Win32::Foundation::CloseHandle(self.0);
         }
     }
+}
+
+/// Lemon Chop uses the same installed runtime and validation as playlist separation.
+/// Called only by the instrument's background worker; never opens hardware or downloads.
+pub(crate) fn separate_for_chop(input: &str, stop: &AtomicBool) -> Result<[String; 4]> {
+    let root = root()?;
+    if !ready(&root) { return Err("Set up Stem separation from an audio clip in Lemon Studio first, then retry here.".into()); }
+    let (tx, _rx) = mpsc::channel();
+    let out = work(&root, Path::new(input), false, stop, &tx, 15)?;
+    Ok(std::array::from_fn(|n| out.join(format!("{}.wav", STEMS[n])).to_string_lossy().into_owned()))
 }

@@ -235,6 +235,8 @@ pub fn track_name(f: &Smf, i: usize) -> String {
 /// A channel the import makes: its name, its notes and channel control points (channel field 0 until placed).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Part {
+    pub mpe:Option<os_model::mpe::Config>,
+    pub expressions:Vec<os_model::mpe::Expression>,
     pub name: String,
     pub notes: Vec<Note>,
     pub controls: Vec<ControlPoint>,
@@ -254,6 +256,8 @@ pub struct Imported {
 
 /// A note read from the file, in its ticks.
 struct Raw {
+    mpe:Option<os_model::mpe::Config>,
+    expression:Option<os_model::mpe::Expression>,
     start: u32,
     end: u32,
     key: u8,
@@ -271,7 +275,10 @@ pub fn convert(f: &Smf, o: &Options, ppq: u16) -> Imported {
     // Notes: a note-off (or a note-on of velocity 0, unless those are notes) ends the newest open note of its key and
     // channel; notes never ended are left out (§4).
     let mut raw = Vec::new();
+    let shared=f.tracks.first().filter(|t|!t.events.iter().any(|e|matches!(e.kind,Ev::NoteOn{..}))).map(mpe_configs).unwrap_or_default();
+    let mpe:Vec<_>=f.tracks.iter().map(|t|{let own=mpe_configs(t);if own.is_empty(){shared.clone()}else{own}}).collect();
     for (ti, t) in f.tracks.iter().enumerate().filter(|(i, _)| chosen(*i)) {
+        raw.extend(mpe_raw(t,ti,&mpe[ti]).into_iter().filter(|n|on(n.channel)));
         let mut open: BTreeMap<(u8, u8), Vec<(u32, u8)>> = BTreeMap::new();
         for e in &t.events {
             let (channel, key, end_vel) = match e.kind {
@@ -284,9 +291,9 @@ pub fn convert(f: &Smf, o: &Options, ppq: u16) -> Imported {
                 _ => continue,
             };
             if let Some((start, velocity)) = open.get_mut(&(channel, key)).and_then(Vec::pop)
-                && on(channel)
+                && on(channel) && !raw.iter().any(|n|n.track==ti&&n.channel==channel&&n.key==key&&n.start==start&&n.mpe.is_some())
             {
-                raw.push(Raw { start, end: e.tick, key, velocity, release: end_vel, channel, track: ti });
+                raw.push(Raw { expression:None,mpe:None,start, end: e.tick, key, velocity, release: end_vel, channel, track: ti });
             }
         }
     }
@@ -297,11 +304,13 @@ pub fn convert(f: &Smf, o: &Options, ppq: u16) -> Imported {
     let part_of = |track: usize, channel: u8| if o.per_track { track } else { usize::from(channel) };
     let mut parts: BTreeMap<usize, Part> = BTreeMap::new();
     for r in &raw {
-        let k = part_of(r.track, r.channel);
-        let name = if o.per_track { track_name(f, r.track) } else { format!("Channel #{}", r.channel + 1) };
-        let part = parts.entry(k).or_insert_with(|| Part { name, notes: Vec::new(), controls: Vec::new() });
+        let k = r.mpe.map_or_else(||part_of(r.track,r.channel),|c|0x10000+r.track*2+usize::from(c.upper));
+        let name = if o.per_track || r.mpe.is_some() { track_name(f, r.track) } else { format!("Channel #{}", r.channel + 1) };
+        let part = parts.entry(k).or_insert_with(|| Part { mpe:r.mpe,expressions:vec![], name, notes: Vec::new(), controls: Vec::new() });
         let (s, e) = (at(r.start), at(r.end));
+        let expression=if let Some(e)=&r.expression{part.expressions.push(e.clone());part.expressions.len() as u32}else{0};
         part.notes.push(Note {
+            expression,
             position: s,
             length: e.saturating_sub(s).max(1),
             key: u16::from(r.key),
@@ -314,7 +323,7 @@ pub fn convert(f: &Smf, o: &Options, ppq: u16) -> Imported {
     // Channel volume, pan and pitch from controllers 7 and 10 and the pitch bend, for the channels made (§3).
     for (ti, t) in f.tracks.iter().enumerate().filter(|(i, _)| chosen(*i)) {
         for e in &t.events {
-            let Some(ch) = e.kind.channel().filter(|&c| on(c)) else { continue };
+            let Some(ch) = e.kind.channel().filter(|&c| on(c)&&!raw.iter().any(|n|n.track==ti&&n.channel==c&&n.mpe.is_some())) else { continue };
             let (param, value) = match e.kind {
                 Ev::Controller { number: 7, value, .. } => (ControlPoint::VOLUME, i32::from(value) * 100),
                 Ev::Controller { number: 10, value, .. } => (ControlPoint::PAN, i32::from(value) * 100),
@@ -456,7 +465,7 @@ pub fn pattern_file(p: &Project, n: u16, ch: u16, tempo: f64) -> Smf {
     let name = p.channel(ch).and_then(|c| c.name.clone()).unwrap_or_else(|| format!("Channel {}", ch + 1));
     let midi = notes.iter().find(|x| !x.muted()).map_or(0, |x| midi_channel(x));
     let mut events = vec![Event { tick: 0, kind: Ev::TrackName(format!("{name} {}", midi + 1)) }];
-    events.extend(note_events(notes.iter().map(|x| (x.position, end_of(x, p.ppq), *x))));
+    events.extend(expressive_events(p,ch,notes.iter().map(|x| (x.position, end_of(x, p.ppq), *x))));
     Smf { format: 1, ppq: p.ppq, tracks: vec![Track { events: conductor }, Track { events }] }
 }
 
@@ -468,14 +477,16 @@ pub fn project_file(p: &Project, song: bool, n: u16, tempo: f64) -> Smf {
     let mut by_ch: BTreeMap<u16, Vec<(u32, u32, Note)>> = BTreeMap::new();
     let mut tempos: Vec<(u32, i32)> = Vec::new();
     let mut conductor: Vec<Event> = start_signature(p).into_iter().collect();
-    let mut place = |pat: &os_model::Pattern, at: u32, from: u32, to: Option<u32>| {
+    let mut place = |pat: &os_model::Pattern, at: u32, from: u32, to: Option<u32>, rate:f64| {
+        let mapped=|t:u32|at.saturating_add((f64::from(t.saturating_sub(from))/rate).round() as u32);
         let inside = |t: u32| t >= from && to.is_none_or(|e| t < e);
         for x in pat.notes.iter().filter(|x| inside(x.position)) {
             let end = end_of(x, p.ppq).min(to.unwrap_or(u32::MAX));
-            by_ch.entry(x.channel).or_default().push((at + x.position - from, at + end - from, *x));
+            let mut note=*x;if note.length>0{note.length=(f64::from(note.length)/rate).round().max(1.) as u32;}
+            by_ch.entry(x.channel).or_default().push((mapped(x.position), mapped(end), note));
         }
         for c in pat.controls.iter().filter(|c| c.channel() == TEMPO_CHANNEL && c.param() == TEMPO_PARAM && inside(c.position)) {
-            tempos.push((at + c.position - from, c.value));
+            tempos.push((mapped(c.position), c.value));
         }
     };
     if song {
@@ -485,7 +496,7 @@ pub fn project_file(p: &Project, song: bool, n: u16, tempo: f64) -> Smf {
                 let os_model::ClipSource::Pattern(k) = c.source else { continue };
                 let Some(pat) = p.pattern(k) else { continue };
                 let from = c.window.map_or(0, |(s, _)| s.max(0.0) as u32);
-                place(pat, c.position, from, Some(from + c.length));
+                place(pat, c.position, from, Some(from.saturating_add((f64::from(c.length)*c.pattern_rate()).round()as u32)),c.pattern_rate());
             }
             for m in &a.markers {
                 conductor.push(match m.kind {
@@ -495,7 +506,7 @@ pub fn project_file(p: &Project, song: bool, n: u16, tempo: f64) -> Smf {
             }
         }
     } else if let Some(pat) = p.pattern(n) {
-        place(pat, 0, 0, None);
+        place(pat, 0, 0, None,1.);
         for m in &pat.markers {
             conductor.push(match m.kind {
                 TimeMarker::SIGNATURE => signature_event(m, m.position),
@@ -514,7 +525,7 @@ pub fn project_file(p: &Project, song: bool, n: u16, tempo: f64) -> Smf {
         let Some(notes) = by_ch.get(&c.index).filter(|v| v.iter().any(|(_, _, x)| !x.muted())) else { continue };
         let name = c.name.clone().unwrap_or_else(|| format!("Channel {}", c.index + 1));
         let mut events = vec![Event { tick: 0, kind: Ev::TrackName(name) }];
-        events.extend(note_events(notes.iter().map(|(s, e, x)| (*s, *e, x))));
+        events.extend(expressive_events(p,c.index,notes.iter().map(|(s, e, x)| (*s, *e, x))));
         tracks.push(Track { events });
     }
     Smf { format: 1, ppq: p.ppq, tracks }
@@ -541,7 +552,7 @@ fn stem(path: &Path) -> String {
 
 /// The channels' notes go into pattern `n` with the import's control points and signature markers, the markers into
 /// the playlist; the new channels into a filter group named after the file, which the rack then shows (spec §3, §7).
-fn place(s: &mut State, imp: Imported, o: &Options, name: &str, n: u16) {
+fn place(s: &mut State, mut imp: Imported, o: &Options, name: &str, n: u16) {
     let base = s.project.channels.len();
     let max = crate::mixer::max_insert(&s.project);
     for (i, part) in imp.parts.iter().enumerate() {
@@ -554,6 +565,7 @@ fn place(s: &mut State, imp: Imported, o: &Options, name: &str, n: u16) {
         ch.mixer_track = if o.mixer { (i as u16 + 1).min(max) } else { 0 };
     }
     let index: Vec<u16> = s.project.channels[base..].iter().map(|c| c.index).collect();
+    for(part,&ch)in imp.parts.iter_mut().zip(&index){if let Some(c)=part.mpe{s.project.mpe.set_config(ch,c);}for note in &mut part.notes{note.expression=note.expression.checked_sub(1).and_then(|i|part.expressions.get(i as usize)).map_or(0,|e|s.project.mpe.add(e.clone()));}}
     let old = s.project.pattern_length(n);
     let pat = crate::patterns::pat_mut(s, n);
     if pat.name.is_none() {
@@ -696,13 +708,18 @@ impl App {
     fn import_into_piano(&mut self, path: &Path, f: &Smf, o: &Options) {
         let s = &mut self.state;
         let Some(ch) = crate::piano::channel(s) else { return };
-        let imp = convert(f, &Options { per_track: true, ..o.clone() }, s.project.ppq.max(1));
+        let mut expressive=f.clone();let cfg=s.project.mpe.config(ch);
+        if cfg.enabled && expressive.tracks.iter().all(|t|mpe_configs(t).is_empty()) {for track in &mut expressive.tracks{let mut events:Vec<_>=cfg.setup().into_iter().map(|b|Event{tick:0,kind:midi_kind(b)}).collect();events.append(&mut track.events);track.events=events;}}
+        let mut imp = convert(&expressive, &Options { per_track: true, ..o.clone() }, s.project.ppq.max(1));
+        if imp.parts.iter().all(|p|p.notes.is_empty()){return self.tell(Kind::Info,TITLE,spans(&["",&file_name(path)," has no notes in the tracks and channels chosen."]));}
+        let configs=Snap::MpeConfig(s.project.mpe.channels.clone());
+        for part in &mut imp.parts{if let Some(c)=part.mpe{s.project.mpe.set_config(ch,c);}for note in &mut part.notes{note.expression=note.expression.checked_sub(1).and_then(|i|part.expressions.get(i as usize)).map_or(0,|e|s.project.mpe.add(e.clone()));}}
         let new: Vec<Note> = imp.parts.iter().flat_map(|p| p.notes.iter()).map(|x| Note { channel: ch, ..*x }).collect();
         if new.is_empty() {
             return self.tell(Kind::Info, TITLE, spans(&["", &file_name(path), " has no notes in the tracks and channels chosen."]));
         }
         let n = s.pattern;
-        history::record(s, IMPORT_STEP, Snap::Patterns { patterns: s.project.patterns.clone(), current: n });
+        history::record(s, IMPORT_STEP, Snap::Several(vec![configs,Snap::Patterns { patterns: s.project.patterns.clone(), current: n }]));
         let old = s.project.pattern_length(n);
         let pat = crate::patterns::pat_mut(s, n);
         let mut all: Vec<(Note, bool)> = std::mem::take(&mut pat.notes).into_iter().filter(|x| o.blend || x.channel != ch).map(|x| (x, false)).collect();
@@ -1271,3 +1288,16 @@ mod tests {
     }
 
 }
+
+fn midi_bytes(k:&Ev)->Option<[u8;3]>{Some(match *k{Ev::NoteOn{channel,key,velocity}=>[0x90|channel,key,velocity],Ev::NoteOff{channel,key,velocity}=>[0x80|channel,key,velocity],Ev::PitchBend{channel,value}=>{let v=(i32::from(value)+8192).clamp(0,16383)as u16;[0xe0|channel,(v&127)as u8,(v>>7)as u8]},Ev::ChannelPressure{channel,value}=>[0xd0|channel,value,0],Ev::KeyPressure{channel,key,value}=>[0xa0|channel,key,value],Ev::Controller{channel,number,value}=>[0xb0|channel,number,value],_=>return None})}
+fn midi_kind(b:[u8;3])->Ev{let channel=b[0]&15;match b[0]&0xf0{0x90=>Ev::NoteOn{channel,key:b[1],velocity:b[2]},0x80=>Ev::NoteOff{channel,key:b[1],velocity:b[2]},0xe0=>Ev::PitchBend{channel,value:(i32::from(b[1])+(i32::from(b[2])<<7)-8192)as i16},0xd0=>Ev::ChannelPressure{channel,value:b[1]},_=>Ev::Controller{channel,number:b[1],value:b[2]}}}
+fn mpe_configs(t:&Track)->Vec<os_model::mpe::Config>{let mut rpn=[[127;2];16];let mut zones=vec![];for e in &t.events{let Ev::Controller{channel,number,value}=e.kind else{continue;};let ch=usize::from(channel&15);match number{101=>rpn[ch][0]=value,100=>rpn[ch][1]=value,6 if rpn[ch]==[0,6]&&(ch==0||ch==15)=>{zones.retain(|c:&os_model::mpe::Config|c.upper!=(ch==15));if value>0{zones.push(os_model::mpe::Config{enabled:true,upper:ch==15,members:value.min(15),..Default::default()});}},6 if rpn[ch]==[0,0]=>{for c in &mut zones{if c.member(ch as u8){c.bend=value.clamp(1,96);}}},_=>{}}}zones}
+fn mpe_raw(t:&Track,track:usize,configs:&[os_model::mpe::Config])->Vec<Raw>{use os_engine::mpe::Event as E;let mut d=os_engine::mpe::Decoder::default();if !t.events.iter().any(|e|matches!(e.kind,Ev::Controller{number:100,value:6,..})){for c in configs{for b in c.setup(){d.receive(b);}}}let mut held:BTreeMap<i32,Raw>=BTreeMap::new();let mut out=vec![];
+ for e in &t.events{let Some(b)=midi_bytes(&e.kind)else{continue;};let Some(events)=d.receive(b)else{continue;};for event in events{match event{
+ E::On{channel,key,id,velocity}=>{let cfg=d.config(channel);held.insert(id,Raw{start:e.tick,end:e.tick+1,key,velocity:(velocity*127.).round()as u8,release:64,channel,track,expression:Some(Default::default()),mpe:cfg});},
+ E::Expression{id,lane,value}=>{if let Some(n)=held.get_mut(&id){n.expression.as_mut().unwrap().lanes[lane as usize].push(os_model::mpe::Point{at:e.tick.saturating_sub(n.start)as f32,value,smooth:false});}},
+ E::Off{id,velocity,..}=>{if let Some(mut n)=held.remove(&id){n.end=e.tick.max(n.start+1);n.release=(velocity*127.).round()as u8;for lane in &mut n.expression.as_mut().unwrap().lanes{for p in lane{p.at=(p.at/(n.end-n.start)as f32).clamp(0.,1.);}}out.push(n);}}
+ }}}
+ let end=t.events.last().map_or(1,|e|e.tick);for(_,mut n)in held{n.end=end.max(n.start+1);for lane in &mut n.expression.as_mut().unwrap().lanes{for p in lane{p.at=(p.at/(n.end-n.start)as f32).clamp(0.,1.);}}out.push(n);}out
+}
+fn expressive_events<'a>(p:&Project,ch:u16,notes:impl Iterator<Item=(u32,u32,&'a Note)>)->Vec<Event>{let c=p.mpe.config(ch);if !c.enabled{return note_events(notes);}let notes:Vec<_>=notes.filter(|(_,_,n)|!n.muted()).map(|(s,e,n)|os_engine::mpe::Scheduled{start:u64::from(s),end:u64::from(e.max(s+1)),key:n.key.min(127)as u8,velocity:n.velocity,release:n.release,expression:p.mpe.get(n.expression).map(|x|x.window(0.,if n.length>0{e.saturating_sub(s) as f32/n.length as f32}else{1.})).unwrap_or_default(),fine:(f32::from(n.fine_pitch)-120.)/10.}).collect();let end=notes.iter().map(|n|n.end).max().unwrap_or(0);let mut playback=os_engine::mpe::Playback::new(c,notes);let mut out=vec![];for tick in 0..=end{for b in playback.tick(tick,true){out.push(Event{tick:tick as u32,kind:midi_kind(b)});}}out}

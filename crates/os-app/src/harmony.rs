@@ -60,6 +60,7 @@ pub struct Harmony {
     pub midi_snap: bool,
     pub typing_snap: bool,
     pub shade: bool,
+    pub scale_only: bool,
     pub stamp: Option<Chord>,
     pub slots: Vec<Chord>,
     pub selected: usize,
@@ -93,6 +94,7 @@ impl Default for Harmony {
             midi_snap: false,
             typing_snap: false,
             shade: false,
+            scale_only: false,
             stamp: None,
             slots: vec![Chord::default(); 4],
             selected: 0,
@@ -338,6 +340,7 @@ pub enum HCmd {
     MidiSnap,
     TypingSnap,
     Shade,
+    ScaleOnly,
     SnapExisting,
     Stamp,
     ClearStamp,
@@ -476,6 +479,7 @@ pub fn menu(s: &State, which: u8, x: f32, y: f32) -> Popup {
             item("Snap MIDI keyboard", HCmd::MidiSnap).mark(Mark::Check(h.midi_snap)),
             item("Snap typing keyboard", HCmd::TypingSnap).mark(Mark::Check(h.typing_snap)),
             item("Highlight scale", HCmd::Shade).mark(Mark::Check(h.shade)),
+            item("Scale Notes Only", HCmd::ScaleOnly).mark(Mark::Check(h.scale_only)),
             item("Snap selected notes now", HCmd::SnapExisting),
         ],
         _ => vec![],
@@ -681,6 +685,7 @@ pub fn run(app: &mut App, cmd: HCmd) {
         MidiSnap => h.midi_snap = !h.midi_snap,
         TypingSnap => h.typing_snap = !h.typing_snap,
         Shade => h.shade = !h.shade,
+        ScaleOnly => { h.scale_only = !h.scale_only; if h.scale_only { h.shade = true; } },
         Stamp => {
             h.stamp = Some(h.slots[i].clone());
             h.open = false;
@@ -831,11 +836,15 @@ pub fn run(app: &mut App, cmd: HCmd) {
         (h.edit_snap as u8)
             | ((h.midi_snap as u8) << 1)
             | ((h.typing_snap as u8) << 2)
-            | ((h.shade as u8) << 3),
+            | ((h.shade as u8) << 3) | ((h.scale_only as u8) << 4),
     );
     if app.state.project.harmony != Some(config) {
         app.state.project.harmony = Some(config);
         app.state.piano.dirty = true;
+    }
+    if matches!(cmd, HCmd::ScaleOnly | HCmd::Shade | HCmd::Root(_) | HCmd::Scale(_)) {
+        let height = crate::views::piano::grid_rect(&app.state).h;
+        piano::center_keys(&mut app.state, height);
     }
     app.invalidate();
 }
@@ -1708,6 +1717,7 @@ pub fn restore(s: &mut State) {
         h.midi_snap = flags & 2 != 0;
         h.typing_snap = flags & 4 != 0;
         h.shade = flags & 8 != 0;
+        h.scale_only = flags & 16 != 0;
     }
 }
 fn voice_lead(keys: &[u16], prev: &[u16], bass: bool) -> Vec<u16> {

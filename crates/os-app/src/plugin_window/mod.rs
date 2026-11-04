@@ -28,7 +28,7 @@ use os_ui::{Canvas, Color, Font, Rect};
 #[cfg(windows)]
 mod win32;
 #[cfg(windows)]
-pub use win32::{default_position, first_position, focus_main, lift_hide, lift_show, stack, take_exposed, take_keys, take_link, FrameWindow};
+pub use win32::{prepare_embedded,embedded_exposed,default_position, first_position, focus_main, lift_hide, lift_show, stack, take_exposed, take_keys, take_link, FrameWindow};
 
 #[cfg(target_os = "linux")]
 mod x11;
@@ -62,6 +62,7 @@ pub fn moved_to(p: (i32, i32), from: [i32; 4], to: [i32; 4], keep: (i32, i32)) -
 /// A message a Lemon plugin's editor sent to its frame (host link, plugin -> host).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LinkMsg {
+    BrowseSample,
     /// Hint or page changed: poll the link now.
     Changed,
     /// Preview note from the plugin's keyboard: key, velocity, on.
@@ -97,6 +98,7 @@ pub fn take_link() -> Vec<(isize, LinkMsg)> {
                 }
                 os_hostlink::Cmd::Automate => LinkMsg::Automate(arg.max(0) as usize),
                 os_hostlink::Cmd::Audio => LinkMsg::Audio(arg != 0),
+                os_hostlink::Cmd::BrowseSample => LinkMsg::BrowseSample,
                 _ => LinkMsg::Changed,
             };
             (area as isize, m)

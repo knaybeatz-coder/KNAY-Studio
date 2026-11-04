@@ -1,0 +1,15 @@
+Channel rack, pitch and audio workflow
+
+Varispeed: the small former main-pitch knob in the application header now changes the complete mix's speed and pitch together. Center is 100% / 0 semitones; range is 50% to 200% (-12 to +12 semitones). Its hint shows both values. Double-click or right-click Reset returns to center. Project save retains the value.
+
+Global pitch: a small knob and semitone readout live in the Channel Rack header. This transposes participating channels while the transport tempo and MIDI note lengths stay unchanged.
+
+Each channel has a small pitch knob and a G (Global Pitch Follow) button beside its name. G lit means follow. Turning follow off preserves the current effective pitch. Turning it back on also preserves pitch and follows subsequent global changes from that offset. Other channels are unaffected. Shift-drag gives fine control; double-click resets the individual knob. New channels default to +/-12 semitones; existing saved ranges remain intact and can still be edited in channel settings.
+
+Consolidate / Bounce to Audio: right-click the channel or use Channel options. Choose Bounce including mixer effects for a complete render of its inserts, outgoing buses and effect tails; that audio is routed to the master so processing is not doubled. Master processing stays live. External sidechains that need other channels use the alternative Consolidate (keep mixer live). It renders that channel in the current playback mode (the arrangement in Song mode, the current pattern in Pattern mode), with its instrument, notes, instrument automation and instrument tails, at the active audio device's sample rate, to a 32-bit float WAV. The channel becomes an audio channel with a waveform in the rack. The alternative Consolidate (keep mixer live) retains its name, color, mixer routing, volume and pan. Mixer inserts, sends, sidechains and their tails remain live on that routing, avoiding doubled effects or changes to other channels sharing the mixer. Both modes preserve the original channel and its settings.
+
+The original channel and MIDI remain alongside it as Original (muted). Undo restores the source channel and arrangement in one step. The Rendered folder also contains an original-source FLP recovery copy with hosted plugin states. Keep this folder with the project. A failed render does not replace the source.
+
+Scale Notes Only: select a root and scale in the piano roll's key/scale menu, then use Scale Notes Only in that menu or the compact Scale only button above the keyboard. Only scale keys and their grid rows remain visible. Out-of-scale notes are preserved and reappear when the mode is off. Highlight scale remains a separate control. The chosen scale and visibility mode are saved with the project.
+
+Local working update; not a public release. Real third-party instrument behavior and listening tests remain for the user.

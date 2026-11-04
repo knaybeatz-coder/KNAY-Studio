@@ -418,6 +418,7 @@ pub struct Plugin {
     /// Automation values (frame offset, parameter index, value) for the next process call.
     auto: Vec<(u32, u32, f32)>,
     /// The events of the current process call, and the list pointing at them.
+    mpe_channels:u16,
     midi: Box<[MidiEvent; MAX_EVENTS]>,
     list: Box<Events<MAX_EVENTS>>,
     /// Zeroed channels for inputs the host has no audio for, and outputs it does not use.
@@ -478,6 +479,7 @@ impl Plugin {
             editor_scale: 1.0,
             queue: Vec::with_capacity(MAX_NOTES),
             auto: Vec::with_capacity(MAX_AUTO),
+            mpe_channels:0,
             midi: Box::new([MidiEvent::default(); MAX_EVENTS]),
             list: Box::new(Events { count: 0, reserved: 0, events: [std::ptr::null_mut(); MAX_EVENTS] }),
             scratch: Vec::new(),
@@ -910,6 +912,7 @@ impl Plugin {
 }
 
 impl os_host::Plugin for Plugin {
+    fn mpe_support(&self)->u8{1}
     fn desc(&self) -> &Descriptor {
         &self.desc
     }
@@ -1045,6 +1048,7 @@ impl os_engine::Instrument for Plugin {
     fn reset(&mut self) {
         self.stop_time();
         self.queue.clear();
+        for ch in 1..16{if self.mpe_channels&(1<<ch)!=0{for key in [64,120,123]{self.queue(Note{time:0,kind:NoteKind::Raw(0xb0|ch),key,value:0});}}}self.mpe_channels=0;
         self.sounding = false;
         let mut sent = [false; 128];
         let held: Vec<u8> = self.ledger.held().collect();
@@ -1096,8 +1100,9 @@ impl os_engine::Instrument for Plugin {
     }
 
     fn midi(&mut self, offset: u32, bytes: [u8; 3]) {
+        if bytes[0]&15!=0{self.mpe_channels|=1<<(bytes[0]&15);}
         let (key, value) = (bytes[1] & 0x7F, bytes[2] & 0x7F);
-        let kind = if bytes[0] & 0xF0 == 0xB0 { NoteKind::Control } else { NoteKind::Raw(bytes[0]) };
+        let kind = if bytes[0] == 0xB0 { NoteKind::Control } else { NoteKind::Raw(bytes[0]) };
         self.queue(Note { time: offset, kind, key, value });
     }
 

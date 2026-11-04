@@ -54,7 +54,8 @@ pub enum Input {
     /// Notches, up positive.
     Wheel { x: f32, y: f32, notches: f32 },
     Leave,
-    Key { sym: u32, text: Option<char> },
+    /// Releases are delivered only to windows that opt in with `key_releases`.
+    Key { sym: u32, text: Option<char>, pressed: bool },
     /// Part of the window needs painting.
     Expose,
     /// The polling period passed, or a parameter changed.

@@ -1,7 +1,7 @@
 LEMON STUDIO - PLUGIN DOWNLOADS
-Catalog checked 31 October / 1 November 2026
+Catalog checked 2 November 2026
 
-75 free plugins: the original 50 open-source entries plus 25 freeware additions.
+93 free plugins: 59 open-source entries and 34 freeware entries.
 All ten original categories retain at least five entries. Every new entry has a
 direct official Windows download: no account, checkout or download manager.
 This is a curated selection, not a claimed worldwide popularity ranking: makers
@@ -16,7 +16,7 @@ Hover over a plugin for a short information card explaining its purpose, useful
 applications and any free-edition limitations. Nothing downloads on hover.
 
 WINDOWS: 18 portable entries install into this Lemon Studio profile and start a
-plugin scan automatically. The other 57 open the maker's installer or archive. Finish its
+plugin scan automatically. The other 75 open the maker's installer or archive. Finish its
 installation, then click Scan Plugins. No silent installer/elevation is used.
 MAC/LINUX: compatible official installers or archives open after downloading.
 Install the VST3, CLAP or VST2 plugin, then Scan Plugins. For a manually extracted
@@ -32,7 +32,7 @@ sample folders, favorites, personal plugin organization or startup template.
 
 The original 127 unique official download URLs and all 56 new official packages
 were retrieved and SHA-256 hashed (183 total). The
-catalog pins those exact bytes, so replaced/tampered downloads cannot launch.
+original catalog pins those exact bytes, so replaced/tampered downloads cannot launch.
 If a maker replaces an unversioned file, a catalog update is needed; Source
 provides the maker's current options. Partial downloads are never installed.
 Tests exercised the application's real downloader (without opening installers),
@@ -59,9 +59,9 @@ https://github.com/spnw/free-music-plugins
 https://chowdsp.com/products.html
 https://socalabs.com/
 https://www.airwindows.com/audio-units/
-Only author evidence was used for inclusion/license/download decisions. Freeware
-with no verified open-source license, source-only experiments, and packages with
-no suitable free Windows binary were excluded. HayesPlugins was reviewed but
+Only author evidence was used for inclusion/license/download decisions. The initial open-source selection excluded freeware without an open-source license.
+Subsequent freeware additions use official public downloads with their own terms.
+Source-only experiments and packages without a suitable Windows binary remain excluded. HayesPlugins was reviewed but
 not included because no clear release package/license was verified.
 
 Thumbnail credits: 39 small interface previews from the makers' official sites
@@ -1179,3 +1179,264 @@ SHA-256: b1054ce9b5407559be13b19e40ae6f2b1da77184e36f1ff228c8aacbd6e4c38c
 macos-universal | 1.24 | 13047628 bytes
 https://xferrecords.com/product_downloads/32/freeware
 SHA-256: 4e95a9a088c79aeaf44205f5c9cce748441940135b111891cccddf2d5cf8e7e4
+
+
+2 NOVEMBER 2026 - DIRECT-DOWNLOAD ADDITIONS
+=========================================
+18 additional plugins; all 44 official platform packages retrieved and SHA-256 hashed.
+Windows/Mac/Linux availability is per entry. These additions download and open the
+author's original archive or installer; no silent installation or activation.
+No third-party binaries are bundled or mirrored on Lemon hosting. Full Bucket
+packages explicitly prohibit redistribution without permission: the catalog
+therefore points directly to Full Bucket, preserving their original package.
+Charlatan permits free unmodified binary distribution with its license retained.
+Open-source project licenses and bundled dependencies remain applicable.
+Airwindows Consolidated is MIT source with GPL dependencies in its DAW build.
+All new Windows endpoints were checked through the actual app downloader without
+opening installers or loading plugins. No GUI/audio or Mac/Linux runtime
+compatibility certification is implied.
+
+YouTube discovery included TetraOP (QIp581eR8j4), RipplerX (1CDofyplHVY),
+OB-Xf (d63vS7gjo60), Charlatan 3 (WyaTQdp8e1E), Six-Traq (Bx82Q6nQACM),
+Time12 (6uwOwZx2D2A), and Airwindows Consolidated (8_mO9r_xEuw).
+
+TetraOP - Four-operator FM and wavetable synth.
+    Combine FM, ring modulation, unison and phase distortion for expressive basses, leads and evolving digital textures. Includes drag-and-drop modulation.
+    Source: https://github.com/tiagolr/tetraop
+    License: GPL-3.0; https://github.com/tiagolr/tetraop/blob/master/LICENSE
+    Free / open source. No account or serial required. Install the plugin, then Scan Plugins.
+    Preview: https://raw.githubusercontent.com/tiagolr/tetraop/master/doc/tetraop.png
+    linux-x86_64: v1.0.3; 9680499 bytes
+      https://github.com/tiagolr/tetraop/releases/download/v1.0.3/tetraop-linux-v1.0.3.zip
+      SHA256 4f304e5ac4275ecfbcc625acfd8dc7a0f6a5ae3553389ecd5af00d27da34b540
+    macos-universal: v1.0.3; 14022185 bytes
+      https://github.com/tiagolr/tetraop/releases/download/v1.0.3/tetraop-macos-v1.0.3.zip
+      SHA256 63408008a2316d91435473e725be1e5958723873ab111a44eea51f24465b9b94
+    windows-x86_64: v1.0.3; 7143966 bytes
+      https://github.com/tiagolr/tetraop/releases/download/v1.0.3/tetraop-win-v1.0.3.zip
+      SHA256 74353dc437c736b6d27f41ec03180febaa071d0ce68ba8edf7261a0c6031eb45
+RipplerX - Physical-modelling synth for resonant instruments.
+    Excite modelled resonators to create plucks, bells, tuned percussion and unusual acoustic-like textures without a large sample library.
+    Source: https://github.com/tiagolr/ripplerx
+    License: GPL-3.0; https://github.com/tiagolr/ripplerx/blob/master/LICENSE
+    Free / open source. No account or serial required. Install the plugin, then Scan Plugins.
+    Preview: https://raw.githubusercontent.com/tiagolr/ripplerx/master/doc/ripplerx.png
+    linux-x86_64: v1.5.19; 6379092 bytes
+      https://github.com/tiagolr/ripplerx/releases/download/v1.5.19/ripplerx-linux-v1.5.19.zip
+      SHA256 3b8ab9add298d2c77a1f81b6b63e4a668a79bf7f1b67edb063165010c9bec166
+    macos-universal: v1.5.19; 15634131 bytes
+      https://github.com/tiagolr/ripplerx/releases/download/v1.5.19/ripplerx-macos-v1.5.19.zip
+      SHA256 24189919de96d6e5a4b80343ab4b664dc7ad5f7f049a06336da34559e4ddddbe
+    windows-x86_64: v1.5.19; 6929945 bytes
+      https://github.com/tiagolr/ripplerx/releases/download/v1.5.19/ripplerx-win-v1.5.19.zip
+      SHA256 517c0e99f3ff37cf7b3941ed9afbece1423a0da69d70a9dd8076a473d630a50d
+OB-Xf - Oberheim-inspired analogue polysynth.
+    Create vintage brass, broad pads, basses and leads. This is the open-source Surge Synth Team project, distinct from the commercial discoDSP OB-Xd product.
+    Source: https://github.com/surge-synthesizer/OB-Xf
+    License: GPL-3.0; https://github.com/surge-synthesizer/OB-Xf/blob/main/LICENSE
+    Free / open source. No account or serial required. Install the plugin, then Scan Plugins.
+    Preview: Original identification icon
+    linux-x86_64: v1.0.3; 21867343 bytes
+      https://github.com/surge-synthesizer/OB-Xf/releases/download/v1.0.3/ob-xf-Linux-v1.0.3.zip
+      SHA256 72b60c83cf6426337031df744c34a047104a9d95f1feaf6cd048ecfa39f74c96
+    macos-universal: v1.0.3; 60657850 bytes
+      https://github.com/surge-synthesizer/OB-Xf/releases/download/v1.0.3/ob-xf-macOS-v1.0.3.dmg
+      SHA256 e6f52f453c476dfafbd3225b80c5c3ec341ec20be5748c6f70c01cef14e7e7a8
+    windows-x86_64: v1.0.3; 9222959 bytes
+      https://github.com/surge-synthesizer/OB-Xf/releases/download/v1.0.3/ob-xf-Windows-v1.0.3.zip
+      SHA256 149fda0649daf8a3aa0851801f92515f0dbf6203acf33c0edc7d3c445e80b1e7
+CRYPT - Hyper-unison supersaw and supersquare synth.
+    Layer detuned oscillators for trance, darkwave, ambient and EBM. Includes filters, envelopes, phaser and delay; a focused instrument for large layered sounds.
+    Source: https://www.vitling.xyz/crypt/
+    License: GPL-3.0; https://github.com/vitling/crypt/blob/main/COPYING
+    Free / open source. No account or serial required. Install the plugin, then Scan Plugins.
+    Preview: https://www.vitling.xyz/crypt/resources/crypt-screenshot.jpg
+    macos-universal: 2.1.0; 14674916 bytes
+      https://www.vitling.xyz/crypt/releases/2.1.0/crypt-macos-2.1.0.pkg
+      SHA256 c91829909853fd38fd6d1d833c2cc409cc871661a3e471fd89c1d62166f7e0ed
+    windows-x86_64: 2.1.0; 1990686 bytes
+      https://www.vitling.xyz/crypt/releases/2.1.0/crypt-windows-2.1.0.zip
+      SHA256 ff4daa7c7101e22f2f6115673fef215d294f1c10f6d868a90b054217c2708348
+Gate12 - Rhythmic gate and volume shaper.
+    Draw volume envelopes and sequence patterns to create trance gates, pumping rhythms and precise amplitude movement on synths, drums or other audio.
+    Source: https://github.com/tiagolr/gate12
+    License: GPL-3.0; https://github.com/tiagolr/gate12/blob/master/LICENSE
+    Free / open source. No account or serial required. Install the plugin, then Scan Plugins.
+    Preview: https://raw.githubusercontent.com/tiagolr/gate12/master/doc/gate12.png
+    linux-x86_64: v1.3.3; 5135883 bytes
+      https://github.com/tiagolr/gate12/releases/download/v1.3.3/gate12-linux-v1.3.3.zip
+      SHA256 fa19ebf1cacd064c5c2fc687894ffc7400a92e9887f6db3cc3f2f59042d07cad
+    macos-universal: v1.3.3; 12505885 bytes
+      https://github.com/tiagolr/gate12/releases/download/v1.3.3/gate12-macos-v1.3.3.zip
+      SHA256 2c11517bd9b59a83fa813fe9f933c4233deff5c7571b4e299c8b6fd91b2e7189
+    windows-x86_64: v1.3.3; 6383770 bytes
+      https://github.com/tiagolr/gate12/releases/download/v1.3.3/gate12-win-v1.3.3.zip
+      SHA256 93b1056a40a341452804260a165ce9ce0feaad65eedbcf192319910671f54cf5
+Time12 - Envelope-controlled time and delay modulation.
+    Shape a delay buffer with drawn envelopes and sequences for stutters, repeated fragments, speed changes and experimental rhythmic sound design.
+    Source: https://github.com/tiagolr/time12
+    License: GPL-3.0; https://github.com/tiagolr/time12/blob/master/LICENSE
+    Free / open source. No account or serial required. Install the plugin, then Scan Plugins.
+    Preview: https://raw.githubusercontent.com/tiagolr/time12/master/doc/time12.png
+    linux-x86_64: v1.2.3; 5066023 bytes
+      https://github.com/tiagolr/time12/releases/download/v1.2.3/time12-linux-v1.2.3.zip
+      SHA256 d1e19e0c2e5332626af3077d4dd98dcaeb4b4c2b33ee74c267a732c29df10613
+    macos-universal: v1.2.3; 12313409 bytes
+      https://github.com/tiagolr/time12/releases/download/v1.2.3/time12-macos-v1.2.3.zip
+      SHA256 9066d0f46fe0cbce102296180d157a176708654b9d6488f6d616e9e3d5cf45e4
+    windows-x86_64: v1.2.3; 5539406 bytes
+      https://github.com/tiagolr/time12/releases/download/v1.2.3/time12-win-v1.2.3.zip
+      SHA256 b5699e49850826a8279e315d51cc8cf92636fc98d5d649bcfadd7ae026982989
+Filt-R - Envelope-driven filter modulation.
+    Draw filter movement and rhythmic shapes to animate loops, synths and textures. A creative modulation effect rather than a corrective mixing equalizer.
+    Source: https://github.com/tiagolr/filtr
+    License: AGPL-3.0; https://github.com/tiagolr/filtr/blob/master/LICENSE
+    Free / open source. No account or serial required. Install the plugin, then Scan Plugins.
+    Preview: https://raw.githubusercontent.com/tiagolr/filtr/master/doc/filtr.png
+    linux-x86_64: v1.3.0; 5487278 bytes
+      https://github.com/tiagolr/filtr/releases/download/v1.3.0/filtr-linux-v1.3.0.zip
+      SHA256 30840e30ed7cf323e7f8142aaba260b538fcdd531be74d2fdf796fb6f0dacfa0
+    macos-universal: v1.3.0; 13395910 bytes
+      https://github.com/tiagolr/filtr/releases/download/v1.3.0/filtr-macos-v1.3.0.zip
+      SHA256 4a3c2f6128dd6c9b883857ac1bf37d8265dd3e44c9fe77a03f8c61d2834f43f1
+    windows-x86_64: v1.3.0; 6599776 bytes
+      https://github.com/tiagolr/filtr/releases/download/v1.3.0/filtr-win-v1.3.0.zip
+      SHA256 7d77c3369ebc6ca8cc85baef08b1d9d8164cf79da2a2f3f4ca48fb54a9d87b98
+Reev-R - Convolution reverb with pre/post modulation.
+    Use impulse-response reverb together with modulation before and after the reverb to create spaces and evolving textures. Includes its own reverb controls.
+    Source: https://github.com/tiagolr/reevr
+    License: GPL-3.0; https://github.com/tiagolr/reevr/blob/master/LICENSE
+    Free / open source. No account or serial required. Install the plugin, then Scan Plugins.
+    Preview: https://raw.githubusercontent.com/tiagolr/reevr/master/doc/reevr.png
+    linux-x86_64: v1.4.0; 7549063 bytes
+      https://github.com/tiagolr/reevr/releases/download/v1.4.0/reevr-linux-v1.4.0.zip
+      SHA256 243da8bd8b90e60372f75ddea9a6ae54c5a1dd7f2071b0050e47ed613c511f8f
+    macos-universal: v1.4.0; 19300930 bytes
+      https://github.com/tiagolr/reevr/releases/download/v1.4.0/reevr-macos-v1.4.0.zip
+      SHA256 92e069e942ac0f286169b32d0fd175483a10e07da6470a3582c93cc8a741c9e3
+    windows-x86_64: v1.4.0; 7730204 bytes
+      https://github.com/tiagolr/reevr/releases/download/v1.4.0/reevr-win-v1.4.0.zip
+      SHA256 d22f2c2421f4d3b52040bad8878ec37c96f1c69413f231f689769833dfffb864
+Airwindows Consolidated - A browsable collection of Airwindows effects.
+    Choose from a large collection of saturation, dynamics, reverb, modulation and utility algorithms within one plugin. Includes explanations and a graphical effect browser.
+    Source: https://github.com/baconpaul/airwin2rack
+    License: MIT / GPL-3.0 dependencies; https://github.com/baconpaul/airwin2rack#A-note-on-licensing
+    Free / open source. Includes MIT code and GPL dependencies. Download the official DAW package, install VST3 or CLAP, then Scan Plugins.
+    Preview: https://raw.githubusercontent.com/baconpaul/airwin2rack/main/doc/daw.png
+    macos-universal: 2026-10-31 d013e10; 49451070 bytes
+      https://github.com/baconpaul/airwin2rack/releases/download/DAWPlugin/airwindows-consolidated-macOS-2026-10-31-d013e10.dmg
+      SHA256 067106f1311f60ab6dc20d8cc92bbf9919de0136f299cccf0e53924223ec23eb
+    linux-x86_64: 2026-10-31 d013e10; 32669532 bytes
+      https://github.com/baconpaul/airwin2rack/releases/download/DAWPlugin/AirwindowsConsolidated-2026-10-31-d013e10-Linux.zip
+      SHA256 98f9f37788a14cfff97dad73332e7f7621e29bd2685b4ef5f0671273a1253ef4
+    windows-x86_64: 2026-10-31 d013e10; 13580769 bytes
+      https://github.com/baconpaul/airwin2rack/releases/download/DAWPlugin/AirwindowsConsolidated-2026-10-31-d013e10-Windows.zip
+      SHA256 a21a0df8b0e47a96b4932fed3c05490c3f208fad84eb2fc73f4ca570dd34f292
+Full Bucket FB3 - Kawai K3/K3m-inspired hybrid synthesizer.
+    Combines digital waveforms and additive waveform creation with analogue-style filtering for vintage hybrid pads, basses and leads.
+    Source: https://www.fullbucket.de/music/fb3.html
+    License: Freeware; https://www.fullbucket.de/music/fb3.html
+    Free; no account or serial required. Downloaded directly from Full Bucket. See the included license; redistribution requires author permission. Install the 64-bit plugin, then Scan Plugins.
+    Preview: https://www.fullbucket.de/music/images/fb3.jpg
+    windows-x86_64: 1.1.1; 13700089 bytes
+      https://www.fullbucket.de/music/dl.php?file=fb3_1_1_1_winvst
+      SHA256 f0019b5e1e2e3d2301ab30eac411a0965d68da5fd6954de0559e78d69013e571
+    macos-universal: 1.1.1; 14812790 bytes
+      https://www.fullbucket.de/music/dl.php?file=fb3_1_1_1_mac
+      SHA256 5f9467376c1b98926fcab05d9c02217941daf9d1376a8e6d17c8243c6f073e7a
+Full Bucket FB-02 - Yamaha FB-01-inspired FM synthesizer.
+    Explore four-operator FM sounds inspired by the Yamaha FB-01, including digital basses, electric keys, bells and compact multitimbral arrangements.
+    Source: https://www.fullbucket.de/music/fb02.html
+    License: Freeware; https://www.fullbucket.de/music/fb02.html
+    Free; no account or serial required. Downloaded directly from Full Bucket. See the included license; redistribution requires author permission. Install the 64-bit plugin, then Scan Plugins.
+    Preview: https://www.fullbucket.de/music/images/fb02.jpg
+    windows-x86_64: 1.1.1; 18317002 bytes
+      https://www.fullbucket.de/music/dl.php?file=fb02_1.1.1_winvst
+      SHA256 18c358189ab41f7fa437e524540c49c19f5c72b8c3a502669ac6e431b7964e51
+    macos-universal: 1.1.1; 12017524 bytes
+      https://www.fullbucket.de/music/dl.php?file=fb02_1.1.1_mac
+      SHA256 75ffb10b6bad2e7798510b07ccb52f4f2f9b29f4912177d161f25252d30b6db2
+Full Bucket Fury-68 - Korg Poly-61-inspired synthesizer.
+    Create vintage analogue-style basses, leads and polyphonic sounds, with expanded controls and effects beyond the original Poly-61 hardware.
+    Source: https://www.fullbucket.de/music/fury68.html
+    License: Freeware; https://www.fullbucket.de/music/fury68.html
+    Free; no account or serial required. Downloaded directly from Full Bucket. See the included license; redistribution requires author permission. Install the 64-bit plugin, then Scan Plugins.
+    Preview: Original identification icon
+    windows-x86_64: 1.0.1; 19224500 bytes
+      https://www.fullbucket.de/music/dl.php?file=fury68_1_0_1_winvst
+      SHA256 84cdf0d883e9a23035884b38d07b9a2886f315b082fdc25f73e5f8b816dfb7c5
+    macos-universal: 1.0.1; 23853676 bytes
+      https://www.fullbucket.de/music/dl.php?file=fury68_1_0_1_mac
+      SHA256 a38b48859cb83358dcb556f455505a8ceecba3f998f9294d3baf98dbf15ed319
+Full Bucket Paralogy - Crumar-inspired synth and ensemble instrument.
+    Recreates aspects of the Crumar Trilogy and Stratus for layered synthesizer, organ and string-machine textures with vintage ensemble character.
+    Source: https://www.fullbucket.de/music/paralogy.html
+    License: Freeware; https://www.fullbucket.de/music/paralogy.html
+    Free; no account or serial required. Downloaded directly from Full Bucket. See the included license; redistribution requires author permission. Install the 64-bit plugin, then Scan Plugins.
+    Preview: https://www.fullbucket.de/music/images/paralogy.jpg
+    windows-x86_64: 1.0.2; 13817403 bytes
+      https://www.fullbucket.de/music/dl.php?file=paralogy_1_0_2_winvst
+      SHA256 59c51116dc6e7583eedeb27f90bf7d15350a04a9b99407bcfe351502c54a2ae8
+    macos-universal: 1.0.2; 7107881 bytes
+      https://www.fullbucket.de/music/dl.php?file=paralogy_1_0_2_mac
+      SHA256 bc59b0c742866916a047e09f8b618101cc98ffc4b72933d970477d56d983af5e
+Full Bucket Six-Traq - Sequential Six-Trak-inspired polysynth.
+    A vintage-style polyphonic synthesizer with extended voice modes, an onboard sequencer and arpeggiator for basses, leads, pads and rhythmic patterns.
+    Source: https://www.fullbucket.de/music/sixtraq.html
+    License: Freeware; https://www.fullbucket.de/music/sixtraq.html
+    Free; no account or serial required. Downloaded directly from Full Bucket. See the included license; redistribution requires author permission. Install the 64-bit plugin, then Scan Plugins.
+    Preview: https://www.fullbucket.de/music/images/sixtraq.jpg
+    windows-x86_64: 1.0.4; 14294488 bytes
+      https://www.fullbucket.de/music/dl.php?file=sixtraq_1_0_4_winvst
+      SHA256 e3635ead2bca726ee7c6e79b820eb44a506e0f9d2e7b95c19d0d7a3b818b9f73
+    macos-universal: 1.0.4; 8572689 bytes
+      https://www.fullbucket.de/music/dl.php?file=sixtraq_1_0_4_mac
+      SHA256 a333097b310b6391d679109a422357b7c1f313c0ccd668259c459bf68626ff98
+Full Bucket DrumTraqs - Sequential Drumtraks-inspired drum instrument.
+    Provides classic drum-machine character inspired by the Sequential Drumtraks. Play its percussion sounds from MIDI notes for retro electronic rhythms.
+    Source: https://www.fullbucket.de/music/drumtraqs.html
+    License: Freeware; https://www.fullbucket.de/music/drumtraqs.html
+    Free; no account or serial required. Downloaded directly from Full Bucket. See the included license; redistribution requires author permission. Install the 64-bit plugin, then Scan Plugins.
+    Preview: https://www.fullbucket.de/music/images/drumtraqs.jpg
+    windows-x86_64: 1.0.0; 13536219 bytes
+      https://www.fullbucket.de/music/dl.php?file=drumtraqs_1_0_0_winvst
+      SHA256 29226ac2f45673d3a9911b1996bb9abaf146cd6a2881aad4263f538fd6709c1f
+    macos-universal: 1.0.0; 7544771 bytes
+      https://www.fullbucket.de/music/dl.php?file=drumtraqs_1_0_0_mac
+      SHA256 51d3e360026b8d15f651bc39652d18d3dde461e5f3d212947b85309a5c91c3bc
+Full Bucket WhispAir - Three-oscillator wavetable synthesizer.
+    Combines wavetable oscillators and flexible modulation for evolving pads, airy textures, electronic leads and experimental sound design.
+    Source: https://www.fullbucket.de/music/whispair.html
+    License: Freeware; https://www.fullbucket.de/music/whispair.html
+    Free; no account or serial required. Downloaded directly from Full Bucket. See the included license; redistribution requires author permission. Install the 64-bit plugin, then Scan Plugins.
+    Preview: https://www.fullbucket.de/music/images/whispair.jpg
+    windows-x86_64: 1.1.5; 20180856 bytes
+      https://www.fullbucket.de/music/dl.php?file=whispair_1_1_5_winvst
+      SHA256 ba099a9edddaafd85866933973afe442a0d55dbc99e5915460edb7f873b0d69f
+    macos-universal: 1.1.5; 15061971 bytes
+      https://www.fullbucket.de/music/dl.php?file=whispair_1_1_5_mac
+      SHA256 23e39f384fe55898a2cb730a8189981faaea6367473770cdd6f02e41886f5c34
+Charlatan 3 - Streamlined virtual-analogue synthesizer.
+    A lightweight virtual-analogue synth with drawable waveforms, flexible modulation, dual filters and built-in effects. Useful for quick basses, leads and polyphonic sounds.
+    Source: https://blaukraut.info/
+    License: Freeware; https://blaukraut.info/
+    Free; no account or serial required. Windows and Linux packages; no native Mac package in this catalog.
+    Preview: https://blaukraut.info/images/charlatan3.png
+    windows-x86_64: 3.3.2; 1997790 bytes
+      https://blaukraut.info/downloads/charlatan3_3.3.2_win.zip
+      SHA256 76df71fea3ae41429c661dcbb0dbbc2322ba0e193fb844809827bda07b26f3c4
+    linux-x86_64: 3.3.2; 1337542 bytes
+      https://blaukraut.info/downloads/charlatan3_3.3.2_linux.zip
+      SHA256 cb242deadd25cc54dd44f774bfda165b4d66038cf36302e57616e3aa6969965e
+TDR Molotok - Character compressor with multiple response flavours.
+    A musical dynamics processor for adding punch to drums, controlling vocals and shaping guitar or bass. The free simplified edition of Molot GE offers eleven compression flavours.
+    Source: https://www.tokyodawn.net/tdr-molotok/
+    License: Freeware; https://www.tokyodawn.net/tdr-molotok/
+    Free edition; no account or serial required. Download the official package, install, then Scan Plugins.
+    Preview: https://www.tokyodawn.net/wp-content/uploads/2020/10/TDR-Molotok-1.png
+    windows-x86_64: 1.0.7; 14762270 bytes
+      https://www.tokyodawn.net/labs/Molotok/1.0.7/TDR%20Molotok%20%28no%20installer%29.zip
+      SHA256 438f2de9c91540fc033aed9a68968311c5a3fa67a948e6104f918cc094c7f0d0
+    macos-universal: 1.0.7; 20039708 bytes
+      https://www.tokyodawn.net/labs/Molotok/1.0.7/TDR%20Molotok.zip
+      SHA256 29b65ea823f5b34f5d0e2d1e556b7f92a9889d07bf6fa20dbb40207ca50c288f

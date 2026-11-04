@@ -17,7 +17,7 @@ use crate::rack::{self as rk, FillHit, FillType, Tab};
 pub const ROW_H: f32 = 30.0;
 pub const STEP_W: f32 = 16.0;
 /// Default outer size (§1): 16 steps, FL's 499 px plus Lemon Studio's wider name button (§17).
-pub const DEFAULT_SIZE: (f32, f32) = (499.0 + rk::NAME_W - rk::FL_NAME_W, 246.0);
+pub const DEFAULT_SIZE: (f32, f32) = (539.0 + rk::NAME_W - rk::FL_NAME_W, 246.0);
 /// Smallest height: one row (§5).
 pub const MIN_H: f32 = 96.0 + ROW_H;
 /// Space above the first row and below the last one inside the rows panel.
@@ -53,8 +53,8 @@ pub struct Cols {
 pub fn cols(s: &State) -> Cols {
     let mix_off = if s.rack.show_mixer { 0.0 } else { rk::MIX_W };
     let name_w = (rk::NAME_W * s.rack.name_pct as f32 / 100.0).round();
-    let dx = name_w - rk::FL_NAME_W - mix_off;
-    Cols { name_x: 108.0 - mix_off, name_w, dx, slot_x: 200.0 + dx, step_x: 217.0 + dx, loop_w: if s.rack.loop_mode { rk::LOOP_W } else { 0.0 } }
+    let dx = name_w - rk::FL_NAME_W - mix_off + 40.0;
+    Cols { name_x: 148.0 - mix_off, name_w, dx, slot_x: 200.0 + dx, step_x: 217.0 + dx, loop_w: if s.rack.loop_mode { rk::LOOP_W } else { 0.0 } }
 }
 
 /// Width of a window showing one step (§5: W = 259 + 16·(n − 1) in the default layout).
@@ -362,6 +362,13 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo) {
             ui.c.text_right(nf, x + 91.0, (mb.cy() - lh / 2.0).round(), num_c, &label);
             spin_mark(ui, x + 94.0, ry + 13.0, t.text_dim.shade(-0.1));
         }
+        let px = x + c.name_x - 40.0;
+        ui.hit(Rect::new(px, ry + 4.0, 18.0, 20.0), Action::Knob(KnobId::ChanPitch(i)), s.knob_text(KnobId::ChanPitch(i)));
+        row_knob(ui, px + 9.0, ry + 13.0, s.knob(KnobId::ChanPitch(i)));
+        let follow = Rect::new(px + 20.0, ry + 5.0, 16.0, 17.0);
+        ui.hit(follow, Action::RackPitchFollow(i), "Global Pitch Follow: toggle without changing the current pitch");
+        ui.c.fill_rrect(follow, 3.0, if ch.misc.main_pitch { t.accent } else { t.button_hi });
+        ui.c.text_center(Font::new(10), follow, if ch.misc.main_pitch { Color::rgb(0x000000) } else { Color::rgb(0xffffff) }, "G");
         // Name button (§13): the channel colour fills the face.
         let nhov = ui.hit(nb, Action::ChannelSelect(i), "Click: plugin window, Shift+click: rename, right-click: channel menu");
         let base = ch.color.map_or(t.name_button, |col| rgb(col).mix(t.name_button, NAME_MIX));
@@ -417,7 +424,20 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo) {
         }
         // Steps (§3, §9), clipped to the step area.
         let step_area = Rect::span(step_x0 - 1.0, steps_right, rows_clip.y, rows_clip.bottom());
-        if s.rack_roll_view || !plain_steps(notes, ch.index) {
+        if ch.kind == os_model::ChannelKind::AudioClip && ch.sample_path.is_some() {
+            let block=Rect::span(step_x0,steps_right,ry+2.0,ry+25.0);
+            ui.c.fill_rrect(block,3.0,t.sunken);
+            if let Some(w)=ch.sample_path.as_deref().and_then(|p|s.playlist.wave(p)) {
+                let width=block.w.max(1.0) as usize;
+                for k in 0..width {
+                    let a=k*w.peaks.len()/width;
+                    let b=((k+1)*w.peaks.len()/width).max(a+1).min(w.peaks.len());
+                    let (lo,hi)=w.peaks[a.min(w.peaks.len())..b].iter().fold((0f32,0f32),|(lo,hi),(l,h)|(lo.min(*l),hi.max(*h)));
+                    ui.c.line(block.x+k as f32,block.cy()-hi*block.h*0.45,block.x+k as f32,block.cy()-lo*block.h*0.45,1.0,t.accent);
+                }
+            }
+            ui.hit(block.intersect(&rows_clip),Action::ChannelSelect(i),"Audio waveform: click for sample settings; right-click for channel menu");
+        } else if s.rack_roll_view || !plain_steps(notes, ch.index) {
             let block = Rect::span(step_x0 - 2.0, steps_right + 2.0, ry - 2.0, ry + 28.0);
             mini_roll(ui, block, notes, ch.index, per_step, &bars, focused);
             ui.hit(block.intersect(&rows_clip), Action::RackRoll(i), "Piano roll preview - click to open the Piano roll");
@@ -504,12 +524,17 @@ fn title_bar(ui: &mut Ui, s: &State, win: Rect, c: Cols, f: &FrameInfo) {
     let (x, y, r) = (win.x, win.y, win.right());
     let ohov = ui.hit(Rect::new(x + 8.0, y + 6.0, 16.0, 17.0), Action::RackOptions, "Channel options");
     ui.c.fill_polygon(&[(x + 14.0, y + 10.5), (x + 18.5, y + 14.0), (x + 14.0, y + 17.5)], if ohov { ui.t.tx(0xffffff) } else { ui.t.tx(0xc2c8cc) });
-    // Loop starter: not available yet, greyed out.
-    let sw = Rect::new(x + 34.0, y + 6.0, 16.0, 16.0);
-    ui.off(sw, "Loop starter");
-    icons::draw(ui.c, Icon::Countdown, sw, os_ui::kit::ink(t, os_ui::kit::State::NORMAL.with_disabled(true)));
+    ui.hit(Rect::new(x + 29.0, y + 4.0, 22.0, 23.0), Action::Knob(KnobId::MasterPitch), s.knob_text(KnobId::MasterPitch));
+    row_knob(ui, x + 40.0, y + 15.0, s.knob(KnobId::MasterPitch));
+    ui.c.text(Font::new(8), x + 52.0, y + 3.0, t.text_dim, "Global pitch");
+    ui.c.text(Font::new(10), x + 52.0, y + 14.0, t.text, &format!("{:+.2} st", s.project.main_pitch.unwrap_or(0) as f32 / 100.0));
     // Display filter combo (§7, §21).
-    let combo = Rect::span(x + c.name_x - 1.0, x + c.name_x + c.name_w, y + 4.0, y + 27.0);
+    let follow=Rect::new(x+128.,y+5.,16.,20.);
+    let all=crate::rack_controls::all_follow(s);
+    ui.hit(follow,Action::RackPitchFollow(usize::MAX),"Global Pitch Follow for all channels: preserve current pitch");
+    ui.c.fill_rrect(follow,3.,if all {t.accent}else{t.button_hi});
+    ui.c.text_center(Font::new(10),follow,if all {Color::rgb(0)}else{Color::rgb(0xffffff)},"G");
+    let combo = Rect::span(x + 147.0, x + c.name_x + c.name_w, y + 4.0, y + 27.0);
     let chov = ui.hit(combo, Action::RackFilter, "Channel display filter (PgUp/PgDn)");
     if lemon {
         lk::well(ui.c, t, combo, if chov { t.sunken.mix(t.button_hi, 0.5) } else { t.sunken });

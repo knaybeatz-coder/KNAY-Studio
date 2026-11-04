@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // This file is part of Lemon Studio: https://github.com/ItsAlphaNeon/Lemon-Studio
 
-//! Plugin menus (the full-screen plugin picker is retired): F8, the toolbar's plugin button, the channel rack's "+",
+//! Plugin menus and destinations for the visual picker, channel rack's "+",
 //! Add one ▸ / Insert ▸ and the mixer slots open the app's own popup listing the installed plugins, and a pick adds
 //! the plugin where that menu says.
 // spec: ui/plugin-menu.md
@@ -22,10 +22,14 @@ pub enum PlugCmd {
     Generator { index: usize, after: Option<usize> },
     /// Generator `index` in place of rack row `row`'s (channel menu / plugin window menu > Replace ▸).
     Replace { index: usize, row: usize },
+    Stack { index:usize,row:usize },
+    ClipFx{channel:u16,slot:u8,index:usize},
+    StackEdit {row:usize,child:usize,action:u8},
     /// Effect `index` (into `Plugins::effects`) into the selected mixer track: slot `slot`, else its first empty slot.
     Effect { index: usize, slot: Option<u8> },
     /// Find new plugins (a background scan).
     Find,
+    Picker(Target),
     /// Settings > Plugins.
     Manage,
     OpenFolder(bool),
@@ -41,15 +45,19 @@ pub enum Target {
     Gen(Option<usize>),
     /// Generators in place of rack row `r`'s generator.
     Replace(usize),
+    Stack(usize),
+    ClipFx(u16,u8),
     /// Effects into the selected track: slot `k`, else its first empty slot.
     Fx(Option<u8>),
 }
 
 fn pick(target: Target, effect: bool, index: usize) -> Cmd {
     Cmd::Plugin(match (target, effect) {
+        (Target::ClipFx(channel,slot),_)=>PlugCmd::ClipFx{channel,slot,index},
         (Target::Fx(slot), _) => PlugCmd::Effect { index, slot },
         (_, true) => PlugCmd::Effect { index, slot: None },
         (Target::Gen(after), false) => PlugCmd::Generator { index, after },
+        (Target::Stack(row),false)=>PlugCmd::Stack{index,row},
         (Target::Replace(row), false) => PlugCmd::Replace { index, row },
         (Target::All, false) => PlugCmd::Generator { index, after: None },
     })
@@ -305,7 +313,7 @@ fn footer(s: &State) -> Vec<PItem> {
 
 /// The entries of a plugin menu for `target`; `nested` when they fill a submenu.
 pub fn items(s: &State, target: Target, nested: bool) -> Vec<PItem> {
-    let mut v = Vec::new();
+    let mut v = vec![PItem::new("Open plugin picker", Cmd::Plugin(PlugCmd::Picker(target))), PItem::sep()];
     match target {
         Target::All => {
             v.push(PItem::head("Generators"));
@@ -314,8 +322,8 @@ pub fn items(s: &State, target: Target, nested: bool) -> Vec<PItem> {
             v.push(PItem::head("Effects"));
             v.extend(section(s, true, target, nested));
         }
-        Target::Gen(_) | Target::Replace(_) => v.extend(section(s, false, target, nested)),
-        Target::Fx(_) => v.extend(section(s, true, target, nested)),
+        Target::Gen(_) | Target::Replace(_) | Target::Stack(_) => v.extend(section(s, false, target, nested)),
+        Target::Fx(_) | Target::ClipFx(..) => v.extend(section(s, true, target, nested)),
     }
     v.extend(footer(s));
     if !cfg!(test) {
@@ -333,12 +341,13 @@ pub fn menu(s: &State, target: Target, x: f32, y: f32) -> Popup {
 
 /// Whether the open popup is a plugin menu (F8 closes it).
 pub fn is_open(s: &State) -> bool {
-    s.playlist.popup.as_ref().is_some_and(|p| p.items.iter().any(|i| i.cmd == Cmd::Plugin(PlugCmd::Manage)))
+    s.plugin_picker.open || s.playlist.popup.as_ref().is_some_and(|p| p.items.iter().any(|i| i.cmd == Cmd::Plugin(PlugCmd::Manage)))
 }
 
 impl App {
     /// Opens the plugin menu for `target` at (x, y); F8 while one is open closes it.
     pub fn open_plugin_menu(&mut self, target: Target, at: (f32, f32)) {
+        if target == Target::All { crate::plugin_picker::open(self,target); return; }
         self.state.menu_open = None;
         self.state.playlist.popup = Some(menu(&self.state, target, at.0, at.1));
         self.invalidate();
@@ -347,10 +356,14 @@ impl App {
     /// F8 (spec §1): the all-plugins menu at the mouse, or closes an open plugin menu.
     pub fn toggle_plugin_menu(&mut self) {
         if is_open(&self.state) {
+            crate::plugin_picker::close(self);
             self.state.playlist.popup = None;
             self.invalidate();
         } else {
-            self.open_plugin_menu(Target::All, self.mouse);
+            let target=match self.top_hit(self.mouse.0,self.mouse.1).and_then(|h|h.win){
+                Some(crate::app::Win::Mixer)=>Target::Fx(None),Some(crate::app::Win::ChannelRack)=>Target::Gen(None),_=>Target::All,
+            };
+            crate::plugin_picker::open(self,target);
         }
     }
 }
@@ -358,7 +371,11 @@ impl App {
 /// Runs a plugin menu command. Returns a status message.
 pub fn run(app: &mut App, c: PlugCmd) -> Option<String> {
     let m = match c {
+        PlugCmd::Picker(target) => { crate::plugin_picker::open(app,target); None },
         PlugCmd::Generator { index, after } => add_generator(app, index, after),
+        PlugCmd::ClipFx{channel,slot,index}=>crate::clip_effects::add(app,channel,slot,index),
+        PlugCmd::Stack{index,row}=>crate::instrument_stack::add(app,row,index),
+        PlugCmd::StackEdit{row,child,action}=>crate::instrument_stack::edit(app,row,child,action),
         PlugCmd::Replace { index, row } => replace_generator(app, index, row),
         PlugCmd::Effect { index, slot } => add_effect(app, index, slot),
         PlugCmd::Find => {
@@ -408,7 +425,7 @@ pub fn add_generator(app: &mut App, index: usize, after: Option<usize>) -> Optio
     let s = &mut app.state;
     s.selected_channel = ch;
     s.rack.select_only(ch);
-    crate::rack::autosize(s);
+    crate::rack::added_instrument(s,ch);
     if after.is_none() {
         // Keep the new row in view.
         let r = crate::views::rack::rect(s);
@@ -491,6 +508,19 @@ mod tests {
         assert!(root.join("Plugin database/Effects/user-edit.txt").exists());
         assert!(std::fs::read_dir(&root).unwrap().map(Result::unwrap).any(|e|e.file_name().to_string_lossy().starts_with("Plugin database before import") && e.path().join("Effects/old.txt").exists()));
         assert!(apply_import(&root,br#"{"Effects/../../escape":"bad"}"#).is_err());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn factory_folders_are_organized_on_first_install() {
+        let root=std::env::temp_dir().join(format!("lemon-factory-layout-{}",std::process::id()));
+        let mut app=App::new(None);app.plugins=crate::plugins::Plugins::builtins();app.state.plugdb.rebuild(&app.plugins);
+        for(effect,list)in[(false,&app.state.plugdb.lists.gens),(true,&app.state.plugdb.lists.fx)] {
+            let dir=root.join(if effect{"Effects"}else{"Instruments"});sync_folder(&dir,list,effect).unwrap();sync_folder(&dir,list,effect).unwrap();let groups=folder_groups(&dir).unwrap();
+            assert!(!groups.contains_key("Unsorted"),"Every factory plugin needs a folder: {groups:?}");
+            for entry in list{let uid=format!("@{}",entry.uid);assert_eq!(groups.values().flatten().filter(|x|**x==uid).count(),1,"{}",entry.name);}
+            if !effect {let wave=list.iter().find(|e|e.name=="Lemon Wave").unwrap();assert!(groups["Synths"].contains(&format!("@{}",wave.uid)));}
+        }
         std::fs::remove_dir_all(root).unwrap();
     }
 

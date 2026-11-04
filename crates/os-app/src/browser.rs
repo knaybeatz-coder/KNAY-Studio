@@ -16,7 +16,7 @@ use crate::views::browser::{self as view, Item};
 /// Mouse travel before a press on an item becomes a drag (spec §3).
 const DRAG_START: f32 = 4.0;
 /// How long a clicked sample plays (spec §7).
-const PREVIEW_LIMIT: std::time::Duration = std::time::Duration::from_secs(5);
+pub(crate) const PREVIEW_LIMIT: std::time::Duration = std::time::Duration::from_secs(5);
 
 impl App {
     pub(crate) fn browser_auto_hide(&mut self,x:f32,y:f32) {
@@ -24,7 +24,7 @@ impl App {
         let enabled=s.show_browser && view::opt(s,view::OPT_AUTOHIDE);
         let width=s.browser_w.min(s.screen.0/2.).max(crate::views::BROWSER_W);
         let hidden=if !enabled {false} else if s.browser_auto_hidden {!(x<=8. && y>=crate::views::work_y(s))}
-            else {s.browser_hovered && x>width && s.playlist.popup.is_none() && !s.browser_search_focus && !s.feature_votes.focus && self.drag.is_none()};
+            else {s.browser_hovered && x>width && s.playlist.popup.is_none() && !s.browser_search_focus && !s.feature_votes.focus && s.feature_votes.forum.focus==0 && self.drag.is_none()};
         if x<=width && y>=crate::views::work_y(s) {s.browser_hovered=true;}
         if hidden {s.browser_hovered=false;}
         if hidden!=s.browser_auto_hidden {s.browser_auto_hidden=hidden;self.invalidate();}
@@ -32,6 +32,16 @@ impl App {
 
     /// Browser actions; returns whether `a` was one.
     pub(crate) fn browser_act(&mut self, a: &Action) -> bool {
+        if let Action::BrowserPreview(cmd)=*a {crate::browser_preview::act(self,cmd);return true;}
+        if *a == Action::BrowserScroll {
+            if let Some((_, thumb)) = view::scrollbar(&self.state) {
+                let y = self.mouse.1;
+                let offset = if y >= thumb.y && y <= thumb.bottom() { y - thumb.y } else { thumb.h / 2. };
+                self.browser_scroll_drag(y, offset);
+                self.drag = Some(Drag::BrowserScroll { offset });
+            }
+            return true;
+        }
         if *a == Action::BrowserSplitter {
             self.browser_split_press();
             return true;
@@ -39,10 +49,12 @@ impl App {
         if let Action::FeatureVote(i,cmd)=*a {crate::feature_votes::act(self,i,cmd);return true;}
         if let Action::StarterPack(cmd)=*a {crate::starter_pack::act(self,cmd);return true;}
         if let Action::PluginDownload(i,cmd)=*a {crate::plugin_downloads::act(self,i,cmd);return true;}
+        if matches!(a,Action::BrowserTab(_)|Action::BrowserCollapse) {crate::browser_preview::dismiss(self);}
+        if *a == Action::BrowserTab(view::PARAMETERS_TAB) { self.params_tick(); }
         let s = &mut self.state;
         match *a {
             Action::BrowserTab(i) => {
-                s.browser_tab = if i <= 6 { i } else { 0 };
+                s.browser_tab = if i <= view::PARAMETERS_TAB { i } else { 0 };
                 s.browser_auto_hidden=false;
                 if let Some(label)=match i {1=>Some("Current project"),2=>Some("Plugin database"),4=>Some("Plugin presets"),_=>None} {s.browser_open.insert(format!("{i}:{label}"));}
                 s.browser_search.clear();
@@ -63,10 +75,27 @@ impl App {
             }
             Action::BrowserSearch => s.browser_search_focus = true,
             Action::BrowserRow(i) => {
-                let Some(row) = view::rows(s).into_iter().nth(i) else { return true };
+                let Some(mut row) = view::rows(s).into_iter().nth(i) else { return true };
+                if matches!(s.browser_tab,0|3) && view::opt(s,view::OPT_SINGLE_FOLDER) && row.path.as_ref().is_some_and(|p|p.is_dir()) {
+                    s.browser_single_folder=row.path.clone();s.browser_search.clear();s.browser_scroll=0.;s.browser_sel=None;
+                    *s.browser_index.borrow_mut()=Default::default();self.invalidate();return true;
+                }
+                if row.open.is_some()&&row.key.starts_with("search:@") {
+                    if let Some(path)=&row.path {
+                        let roots=if s.browser_tab==3{favorites()}else{view::library_roots(s)};
+                        if let Some(root)=roots.iter().filter(|root|path.starts_with(root)).max_by_key(|root|root.components().count()) {
+                            let mut key=if s.browser_tab==3{format!("3:@{}",root.display())}else{view::disk_key(root)};
+                            s.browser_open.insert(key.clone());
+                            if let Ok(relative)=path.strip_prefix(root){for part in relative.components(){key.push('/');key.push_str(&part.as_os_str().to_string_lossy());s.browser_open.insert(key.clone());}}
+                            s.browser_search.clear();row.key=key;s.browser_open.remove(&row.key);s.browser_scroll=0.;
+                        }
+                    }
+                }
                 select(s, &row.key);
                 if row.open.is_some() && !s.browser_open.remove(&row.key) {
                     s.browser_open.insert(row.key.clone());
+                    if let Some(path)=&row.path {s.browser_dirs.borrow_mut().remove(path);}
+                    *s.browser_index.borrow_mut()=Default::default();
                 }
                 match row.item {
                     Item::Pattern(n) => {
@@ -81,7 +110,7 @@ impl App {
                 }
                 if let Item::Sample(path) = &row.item {
                     self.preview_sample(path);
-                }
+                } else {crate::browser_preview::dismiss(self);}
                 let s = &mut self.state;
                 s.browser_scroll = s.browser_scroll.min(view::max_scroll(s));
                 let midi=matches!(&row.item,Item::File(path) if crate::midi_file::is_midi_path(std::path::Path::new(path)));
@@ -95,13 +124,33 @@ impl App {
         true
     }
 
+    pub(crate) fn browser_scroll_drag(&mut self, y: f32, offset: f32) {
+        if let Some((track, thumb)) = view::scrollbar(&self.state) {
+            let travel = track.h - thumb.h;
+            if travel > 0. {
+                self.state.browser_scroll = ((y - offset - track.y) / travel).clamp(0., 1.) * view::max_scroll(&self.state);
+                self.invalidate();
+            }
+        }
+    }
+
+    fn browser_sample_step(&mut self, down: bool) {
+        let rows = view::rows(&self.state);
+        if rows.is_empty() { return; }
+        let current = rows.iter().position(|r| Some(&r.key) == self.state.browser_sel.as_ref());
+        let i = match current { Some(i) if down => (i + 1).min(rows.len() - 1), Some(i) => i.saturating_sub(1), None if down => 0, None => rows.len() - 1 };
+        if current == Some(i) { return; }
+        let row = &rows[i];
+        select(&mut self.state, &row.key);
+        if let Item::Sample(path) = &row.item { self.preview_sample(path); }
+        else { crate::browser_preview::dismiss(self); }
+        reveal(&mut self.state);
+        self.invalidate();
+    }
+
     /// Clicking a sample plays it once (spec §7): cut off after `PREVIEW_LIMIT` unless "Full sample preview" is ticked.
-    pub(crate) fn preview_sample(&self, path: &str) {
-        let mut p = crate::app::preview_project(path);
-        p.tempo = Some(self.state.tempo);
-        crate::preview_track::route(&mut p, &self.state.project, crate::prefs::number(&crate::prefs::BROWSER_PREVIEW_TRACK));
-        let limit = (!view::opt(&self.state, view::OPT_PREVIEW)).then_some(PREVIEW_LIMIT);
-        self.transport.preview_for(p, limit);
+    pub(crate) fn preview_sample(&mut self, path: &str) {
+        crate::browser_preview::select(self,path);
     }
 
     /// A browser options-menu command (spec §4); returns a message.
@@ -114,12 +163,13 @@ impl App {
             BCmd::ConfigureFolders => self.open_settings(crate::views::settings::FILE),
             BCmd::Find(dir) => return find(s, dir),
             BCmd::Toggle(k) => {
+                if k==view::OPT_TREE_PLUGINS {s.browser_open.insert("0:Plugin database".into());}
                 if !s.browser_opts.remove(k) {
                     s.browser_opts.insert(k);
                 }
                 crate::prefs::set_text(&format!("browser_option_{k}"),if view::opt(s,k) {"1"}else{"0"});
                 if !view::opt(s,view::OPT_AUTOHIDE) {s.browser_auto_hidden=false;}
-                if [(view::OPT_PROJECT,1),(view::OPT_PLUGINS,2),(view::OPT_PRESETS,4)].iter().any(|(key,id)|*key==k && *id==s.browser_tab && !view::opt(s,k)) {s.browser_tab=0;}
+                if [(view::OPT_PROJECT,1),(view::OPT_PLUGINS,2),(view::OPT_PRESETS,4),(view::OPT_PARAMETERS,view::PARAMETERS_TAB)].iter().any(|(key,id)|*key==k && *id==s.browser_tab && !view::opt(s,k)) {s.browser_tab=0;}
                 s.browser_scroll = s.browser_scroll.min(view::max_scroll(s));
             }
             BCmd::History(dir) => {
@@ -216,6 +266,12 @@ impl App {
         let shift = self.shift;
         let focus = self.state.browser_search_focus;
         let over = self.over_browser() || focus;
+        if over && !ctrl && !alt && !shift && matches!(self.state.browser_tab, 0 | 3) {
+            if let Key::Named(k @ (NamedKey::ArrowUp | NamedKey::ArrowDown)) = key {
+                self.browser_sample_step(*k == NamedKey::ArrowDown);
+                return true;
+            }
+        }
         let cmd = match key {
             Key::Named(NamedKey::F2) if !self.state.browser_search.is_empty() => Some(BCmd::Find(-1)),
             Key::Named(NamedKey::F3) if !self.state.browser_search.is_empty() => Some(BCmd::Find(1)),
@@ -399,9 +455,9 @@ impl App {
             Item::Sample(path) => {
                 if let Some((track, tick)) = spot {
                     let name = path.rsplit(['/', '\\']).next().unwrap_or(&path).to_string();
-                    s.message = Some(match pl::add_audio_clip(s, &path, track, tick) {
-                        Some(_) => format!("Added audio clip {name}"),
-                        None => format!("Could not read {name} as audio"),
+                    s.message = Some(match pl::import_audio_clip(s, &path, track, tick) {
+                        Ok(_) => format!("Added audio clip {name}"),
+                        Err(reason) => format!("{reason}: {name}"),
                     });
                 } else if win == Some(Win::ChannelRack) {
                     self.sample_to_rack(path, y);
@@ -419,6 +475,10 @@ impl App {
             // slot (spec §3).
             Item::Effect(i) => {
                 if win == Some(Win::Mixer) {
+                    // A picker/database drop on a strip belongs to that track, even when another is selected.
+                    if let Some(track)=self.hits.iter().rev().find_map(|h| {
+                        if h.rect.contains(x,y) { if let Action::Mix(crate::mixer::MHit::Strip(t))=h.action {return Some(t);} } None
+                    }) {crate::mixer::select(&mut self.state,track,false);}
                     let slot = match self.top_hit(x, y).map(|h| &h.action) {
                         Some(Action::Mix(crate::mixer::MHit::SlotName(k) | crate::mixer::MHit::SlotArrow(k))) => Some(*k),
                         _ => None,
@@ -794,45 +854,23 @@ pub fn row_menu(s: &crate::app::State, row: &view::Row) -> Vec<PItem> {
 pub fn options_menu(s: &crate::app::State) -> Vec<PItem> {
     let b = |label: &'static str, c: BCmd| PItem::new(label, Cmd::Browser(c));
     let t = |label: &'static str, k: &'static str| b(label, BCmd::Toggle(k)).mark(Mark::Check(view::opt(s, k)));
-    // Options with no effect yet: greyed out, showing their default tick.
-    let dead = |label: &'static str, k: &'static str| PItem::not_yet(label).mark(Mark::Check(view::opt(s, k)));
-    let searching = !s.browser_search.is_empty();
-    let find = |label, key, dir| {
-        let it = b(label, BCmd::Find(dir)).key(key);
-        if searching { it } else { it.off() }
-    };
+    let searching=!s.browser_search.is_empty();
+    let find=|label,key,dir| {let item=b(label,BCmd::Find(dir)).key(key);if searching {item}else{item.off()}};
     vec![
-        PItem::head("Search"),
-        find("Find previous", "F2", -1),
-        find("Find next", "F3", 1),
-        PItem::sep(),
-        t("Type to filter", view::OPT_TYPE),
-        t("Show parent folders in search results",view::OPT_PARENTS),
-        t("Include folders in search results",view::OPT_FOLDERS),
-        dead("Enable indexing", view::OPT_INDEX),
-        dead("Re-index changed folders on startup", view::OPT_REINDEX),
-        PItem::head("Navigation history"),
-        b("Previous", BCmd::History(-1)),
-        b("Next", BCmd::History(1)),
-        PItem::head("Actions"),
-        b("Send previous to selected channel", BCmd::Send(-1)).key("Shift+Up"),
-        b("Send next to selected channel", BCmd::Send(1)).key("Shift+Down"),
-        PItem::head("View"),
-        t("Auto-hide", view::OPT_AUTOHIDE),
-        PItem::sub("Restore browser tabs",vec![t("Current project",view::OPT_PROJECT),t("Plugin database",view::OPT_PLUGINS),t("Plugin presets",view::OPT_PRESETS)]),
-        t("Search box on top",view::OPT_TOP),
-        dead("Hide while dragging (when detached)", view::OPT_HIDEDRAG),
-        t("High contrast text", view::OPT_CONTRAST),
-
-        t("Full sample preview", view::OPT_PREVIEW),
-        PItem::head("Structure"),
-        b("Collapse structure", BCmd::Collapse).key("Ctrl+Up"),
-        b("Reread structure", BCmd::Reread).key("Ctrl+R"),
-        PItem::head("Content"),
-        b("Add sample folder...", BCmd::AddFolder),
-        b(if crate::starter_pack::busy() {"Cancel Starter Pack download"} else {"Download Lemon Studio Starter Pack"}, BCmd::StarterPack),
-        b("Configure extra folders", BCmd::ConfigureFolders),
-        b("Refresh plugin list (fast scan)", BCmd::Rescan),
+        b("Add sample folder...",BCmd::AddFolder),
+        PItem::sub("Content",vec![
+            t("Single Folder View",view::OPT_SINGLE_FOLDER),
+            t("Show generators and effects in Samples",view::OPT_TREE_PLUGINS),
+            PItem::sub("Browser tabs",vec![t("Current project",view::OPT_PROJECT),t("Plugin database",view::OPT_PLUGINS),t("Plugin presets",view::OPT_PRESETS),t("Parameters",view::OPT_PARAMETERS)]),
+            b("Configure sample folders...",BCmd::ConfigureFolders),
+            b("Refresh plugin list",BCmd::Rescan),
+            b(if crate::starter_pack::busy(){"Cancel Starter Pack download"}else{"Download Starter Pack"},BCmd::StarterPack),
+        ]),
+        PItem::sub("Audio preview",vec![t("Show preview panel",view::OPT_PANEL),t("Play full sample / track",view::OPT_PREVIEW)]),
+        PItem::sub("Appearance",vec![t("Auto-hide browser",view::OPT_AUTOHIDE),t("Search box on top",view::OPT_TOP),t("High contrast text",view::OPT_CONTRAST)]),
+        PItem::sub("Search",vec![find("Find previous","F2",-1),find("Find next","F3",1),PItem::sep(),t("Type to filter",view::OPT_TYPE),t("Show parent folders",view::OPT_PARENTS),t("Include folders",view::OPT_FOLDERS)]),
+        PItem::sub("Navigation",vec![b("Back",BCmd::History(-1)),b("Forward",BCmd::History(1)),PItem::sep(),b("Collapse folders",BCmd::Collapse).key("Ctrl+Up"),b("Refresh folders",BCmd::Reread).key("Ctrl+R")]),
+        PItem::sub("Send to selected channel",vec![b("Previous sample",BCmd::Send(-1)).key("Shift+Up"),b("Next sample",BCmd::Send(1)).key("Shift+Down")]),
     ]
 }
 
@@ -961,6 +999,40 @@ pub(crate) fn favorites() -> Vec<std::path::PathBuf> {
 mod favorite_tests {
     use super::*;
     #[test]
+    fn sample_browser_scrollbar_and_arrow_preview() {
+        use winit::keyboard::{Key, NamedKey};
+        let dir = std::env::temp_dir().join(format!("lemon-browser-arrows-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        for i in 0..80 { std::fs::write(dir.join(format!("Sample{i:03}.wav")), []).unwrap(); }
+        let mut app = App::new(None);
+        app.state.screen = (1000., 650.);
+        app.state.show_browser = true;
+        app.state.browser_tab = 0;
+        app.add_browser_folder(dir.clone());
+        app.mouse = (30., view::list_top(&app.state) + 10.);
+        let rows = view::rows(&app.state);
+        let first = rows.iter().find(|r| matches!(r.item, Item::Sample(_))).unwrap();
+        app.state.browser_sel = Some(first.key.clone());
+        assert!(app.browser_key(&Key::Named(NamedKey::ArrowDown), false, false));
+        assert_ne!(app.state.browser_sel.as_ref(), Some(&first.key));
+        assert!(app.state.browser_preview.path.as_ref().unwrap().ends_with("Sample001.wav"));
+        assert!(app.drag.is_none());
+        assert!(app.browser_key(&Key::Named(NamedKey::ArrowUp), false, false));
+        assert!(app.state.browser_preview.path.as_ref().unwrap().ends_with("Sample000.wav"));
+        let (track, thumb) = view::scrollbar(&app.state).unwrap();
+        app.browser_scroll_drag(track.bottom() + 500., thumb.h / 2.);
+        assert_eq!(app.state.browser_scroll, view::max_scroll(&app.state));
+        app.browser_scroll_drag(track.y - 500., 0.);
+        assert_eq!(app.state.browser_scroll, 0.);
+        app.mouse.0 = 700.;
+        assert!(!app.browser_key(&Key::Named(NamedKey::ArrowDown), false, false));
+        // No device is opened: preview decoding is asynchronous and is not pumped.
+        app.state.browser_folders.clear();
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
     fn personal_library_browsing_search_and_restart() {
         let dir=std::env::temp_dir().join(format!("lemon-personal-library-{}",std::process::id()));
         let primary=dir.join("Primary");let added=dir.join("My Samples ü");
@@ -1013,6 +1085,20 @@ mod favorite_tests {
         std::fs::remove_dir_all(dir).unwrap();
     }
 
+    #[test] fn batch2_single_folder_view_navigates_and_preserves_tree(){
+        let root=std::env::temp_dir().join(format!("lemon-single-folder-{}",std::process::id()));
+        std::fs::create_dir_all(root.join("A/Sub")).unwrap();std::fs::create_dir_all(root.join("B")).unwrap();
+        std::fs::write(root.join("A/one.wav"),[]).unwrap();std::fs::write(root.join("B/two.wav"),[]).unwrap();
+        let mut app=App::new(None);app.state.browser_folders=vec![root.clone()];
+        app.browser_cmd(BCmd::Toggle(view::OPT_SINGLE_FOLDER));app.state.browser_single_folder=Some(root.join("A"));
+        let rows=view::rows(&app.state);assert!(rows.iter().any(|r|r.label=="one"));assert!(!rows.iter().any(|r|r.label=="two"));
+        let sub=rows.iter().position(|r|r.label=="Sub").unwrap();app.browser_act(&Action::BrowserRow(sub));
+        assert_eq!(app.state.browser_single_folder,Some(root.join("A/Sub")));
+        app.browser_act(&Action::BrowserRow(0));assert_eq!(app.state.browser_single_folder,Some(root.join("A")));
+        app.browser_cmd(BCmd::Toggle(view::OPT_SINGLE_FOLDER));assert!(!view::opt(&App::new(None).state,view::OPT_SINGLE_FOLDER));
+        // Test-owned scratch fixture only.
+        std::fs::remove_dir_all(root).unwrap();
+    }
     #[test]
     fn browser_menu_restores_tabs_and_auto_hide() {
         let mut app=App::new(None);
@@ -1090,4 +1176,27 @@ mod favorite_tests {
         crate::prefs::set_text("browser_favorites", "[]");
         let _ = std::fs::remove_dir_all(dir);
     }
+}
+
+#[cfg(test)] mod community_update_browser_tests {
+ use super::*;
+ #[test] fn community_update_browser_refresh_and_preview_lifecycle(){
+  let dir=std::env::temp_dir().join(format!("lemon-refresh-{}",std::process::id()));let folder=dir.join("New drums");std::fs::create_dir_all(&folder).unwrap();
+  let mut app=App::new(None);app.state.browser_tab=0;app.state.browser_folders=vec![dir.clone()];crate::prefs::set_text("browser_samples_root",&dir.to_string_lossy());
+  let key=view::disk_key(&dir);app.state.browser_open.insert(format!("{key}/New drums"));
+  assert!(view::list_dir(&app.state,&folder).is_empty());
+  std::fs::write(folder.join("new.wav"),b"fixture").unwrap();std::fs::write(dir.join("readme.txt"),b"fixture").unwrap();
+  let i=view::rows(&app.state).iter().position(|r|r.path.as_ref()==Some(&folder)).unwrap();
+  app.state.browser_preview.path=Some("selected.wav".into());
+  app.browser_act(&Action::BrowserRow(i));assert!(!crate::browser_preview::visible(&app.state));
+  app.browser_act(&Action::BrowserRow(i));assert!(view::rows(&app.state).iter().any(|r|r.label=="new"));
+  assert!(view::rows(&app.state).iter().any(|r|r.label=="readme.txt"));
+  std::fs::write(folder.join("another.wav"),b"fixture").unwrap();app.browser_cmd(BCmd::Reread);assert!(view::rows(&app.state).iter().any(|r|r.label=="another"));
+  let missing=dir.join("Later");assert!(view::list_dir(&app.state,&missing).is_empty());std::fs::create_dir(&missing).unwrap();std::fs::write(missing.join("now.wav"),b"fixture").unwrap();assert_eq!(view::list_dir(&app.state,&missing).len(),1);
+  app.state.browser_opts.insert(view::OPT_FOLDERS);app.state.browser_search="New drums".into();
+  let start=std::time::Instant::now();loop {let _=view::rows(&app.state);view::search_changed(&app.state);if !view::search_busy(&app.state){break;}assert!(start.elapsed().as_secs()<10);std::thread::sleep(std::time::Duration::from_millis(10));}
+  let i=view::rows(&app.state).iter().position(|r|r.path.as_ref()==Some(&folder)).unwrap();app.browser_act(&Action::BrowserRow(i));assert!(app.state.browser_search.is_empty());assert!(view::rows(&app.state).iter().any(|r|r.label=="another"));
+  app.state.browser_preview.path=Some("selected.wav".into());app.browser_act(&Action::BrowserTab(3));assert!(!crate::browser_preview::visible(&app.state));
+  crate::prefs::set_text("browser_samples_root","");std::fs::remove_dir_all(dir).unwrap();
+ }
 }

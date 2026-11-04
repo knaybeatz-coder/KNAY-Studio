@@ -1,0 +1,26 @@
+Plugin picker — visual previews and context, 2 November 2026
+
+Open from the channel rack or an instrument Add/Replace menu: instruments only, across the full width.
+Open from a mixer effect slot: effects only, across the full width. Right-click an empty slot opens the picker for that exact slot.
+F8 over the rack chooses instruments; F8 over the mixer chooses effects.
+The toolbar and View / Add > Plugin picker open Hybrid view for general drag-and-drop. F8 elsewhere also opens Hybrid view. Your customized picker shortcut is respected.
+
+The built-in plugins show real mini previews of their interfaces. Exact matches from the existing plugin catalog also show their catalog image. Hover a plugin for a larger preview. Other plugins show an instrument/effect symbol; select or hover one and click Choose picture to assign a PNG/JPEG. Pictures are stored per plugin identity in your active Lemon Studio profile, resized to at most480x300, with no remote upload. Images can be replaced using the same button. No plugin is opened just to produce a preview.
+
+Type to search names, categories, vendors or formats. Stars save favorites. Instrument/effect destinations offer All and Favorites only; the general picker also offers Hybrid, Instruments and Effects. Arrow keys select, Enter adds, Escape closes. Scroll or use the page arrows to browse more plugins.
+
+Click to add to the original destination; drag to the rack/playlist or mixer/slot to place. Effects dropped on a mixer strip use the actual strip under the pointer. Existing occupied-slot and mixer-track menus are preserved.
+
+Installed locally on Windows. Public downloads and Mac/Linux builds have not changed. Please check the look and real-plugin workflow in your session.
+
+Automatic plugin previews (Windows)
+
+Open the plugin picker and click Generate previews. The generator uses your installed plugin list, opens each missing plugin editor in its own offscreen helper, captures only that editor, and saves its thumbnail. Built-in/catalog/user/generated pictures already present are preserved. Each Waves shell class is handled separately by its plugin ID. If a newly installed plugin is missing from the list, find it using Manage plugins first.
+
+Progress and the current plugin are shown at the top. Cancel generation stops the active helper and keeps completed pictures. Run Generate previews again to process remaining/new plugins and retry skipped entries. Preview report lists skips and their reasons. The report is saved under your active profile's Plugin pictures folder. Pictures are reused across restarts; nothing is uploaded.
+
+Generation requires stopped playback and cancels if playback starts. It opens no audio device, microphone or project. Each plugin has a25-second timeout and a separate process; Windows closes the helper group if the app exits. No project instances are used or modified. Activation dialogs and some GPU/protected editors may not produce a usable offscreen image; those entries are skipped rather than caching a blank image. No activation prompts are clicked automatically.
+
+This generation backend is Windows-only in this update. Existing pictures remain usable on the other platforms. Worker success/failure/timeout/cancel behavior and image/queue validation were tested with disposable fixtures; real installed-plugin capture remains for your hands-on run.
+
+Channel rack: right-click empty space or the + area for Plugin picker - insert instrument. Right-click a channel name or piano-roll preview for Plugin picker - replace instrument as the first item. Insert adds a separate channel; Replace changes the selected channel. Channel actions and pattern editing are grouped separately; unavailable placeholder commands are hidden.

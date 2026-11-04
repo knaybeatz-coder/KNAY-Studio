@@ -111,7 +111,7 @@ impl LemonEq {
     }
 
     /// The parameters and options as they stand, handed to the processing: a changed value counts as an automation
-    /// value (coefficients anew from this block on, no smoothing, spec: "State and timing").
+    /// value (HQ Enhanced ramps continuous band coefficients; other modes retain their original timing).
     fn apply(&mut self) {
         self.read_extra();
         self.eq.set_options(self.opts);

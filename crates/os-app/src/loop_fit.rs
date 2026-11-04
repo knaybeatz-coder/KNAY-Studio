@@ -90,6 +90,9 @@ pub(crate) fn set_fitted_time(sound:&mut os_model::ChannelSound,beats:f64) {
 pub fn run(app: &mut App, i: usize, cmd: Fit) -> Option<String> {
     let clip = *pl::clips(&app.state).get(i)?;
     if pl::source_kind(&app.state, clip.source) != pl::PickKind::Audio { return None; }
+    if let ClipSource::Channel(id)=clip.source {if app.state.project.channels.iter().any(|c|c.index==id && crate::ara::is(c)) && cmd!=Fit::Trim {
+        return Some("Change timing in the ARA editor, or remove ARA before using sampler stretch".into());
+    }}
     if matches!(cmd, Fit::Edges | Fit::Trim) {
         app.state.playlist.stretch = cmd == Fit::Edges;
         crate::playlist_tools::select(&mut app.state, pl::PlTool::Paint);

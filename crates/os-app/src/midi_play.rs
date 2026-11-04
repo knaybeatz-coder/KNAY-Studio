@@ -198,7 +198,29 @@ impl App {
         }
         let ext = cfg::ext_sync();
         let mut notes = false;
-        for ev in evs {
+        let row=self.state.selected_channel;
+        let chop_slab=evs.iter().any(|e|e.dev.to_ascii_lowercase().contains("slab")) && self.plugins.descriptor(row).is_some_and(|d| d.name=="Lemon Chop" && crate::project_plugins::is_builtin(&d)) &&
+            self.plugins.state(row).and_then(|b|serde_json::from_slice::<serde_json::Value>(b.get(8..)?).ok())
+            .and_then(|v|v["fields"]["chop-document"].as_str().and_then(|s|serde_json::from_str::<lemon_chop::params::Document>(s).ok())).is_some_and(|d|d.slab);
+        for mut ev in evs {
+            if self.mpe_input(&ev.dev,ev.msg){continue;}
+            // A held SLAB pad still releases after selecting another rack channel or disabling its profile.
+            if !chop_slab && ev.dev.to_ascii_lowercase().contains("slab") {
+                if let Msg::Off{ch,key,vel}=ev.msg {
+                    if let Some(mapped)=lemon_chop::controller::pad_note(ch,key).filter(|k|self.midi_play.held.iter().any(|h|h.src==Src::Midi(*k))) {
+                        ev.msg=Msg::Off{ch:0,key:mapped,vel};
+                    }
+                }
+            }
+            if chop_slab && ev.dev.to_ascii_lowercase().contains("slab") {
+                match ev.msg {
+                    Msg::On{ch,key,vel} if lemon_chop::controller::pad_note(ch,key).is_some()=>ev.msg=Msg::On{ch:0,key:lemon_chop::controller::pad_note(ch,key).unwrap(),vel},
+                    Msg::Off{ch,key,vel} if lemon_chop::controller::pad_note(ch,key).is_some()=>ev.msg=Msg::Off{ch:0,key:lemon_chop::controller::pad_note(ch,key).unwrap(),vel},
+                    Msg::On{ch,key,..}|Msg::Off{ch,key,..} if lemon_chop::controller::button(ch,key).is_some()=>{self.midi_forward(ev.msg);continue;},
+                    Msg::Cc{ch,n,v} if lemon_chop::controller::cc(ch,n,v).is_some()=>{self.midi_forward(ev.msg);continue;},
+                    _=>{},
+                }
+            }
             match ev.msg {
                 Msg::Start | Msg::Continue | Msg::Stop | Msg::Spp(_) => {
                     if ext.as_deref() == Some(&*ev.dev) {
@@ -342,6 +364,7 @@ impl App {
 
     /// Every device note ends (the device list changed, remote control switched off).
     pub(crate) fn midi_release_all(&mut self) {
+        self.mpe_release_all();
         self.midi_play.pedal = false;
         for h in std::mem::take(&mut self.midi_play.held) {
             self.midi_end(h, 64);
@@ -715,6 +738,20 @@ mod tests {
         app.state.selected_channel = 0;
         assert!(app.state.project.channels.len() >= 2, "the new project has channels");
         app
+    }
+
+    #[test]
+    fn chop_slab_notes_keep_recording_and_release_after_channel_change() {
+        let mut a=app();a.plugins=crate::plugins::Plugins::builtins();
+        let idx=a.plugins.index_of("Lemon Chop").unwrap();a.plugins.create(0,idx).unwrap();
+        let state=a.plugins.state(0).unwrap();let mut j:serde_json::Value=serde_json::from_slice(&state[8..]).unwrap();
+        let doc=lemon_chop::params::Document{slab:true,..Default::default()};j["fields"]["chop-document"]=serde_json::json!(serde_json::to_string(&doc).unwrap());
+        let body=serde_json::to_vec(&j).unwrap();let mut state=(body.len() as u64).to_le_bytes().to_vec();state.extend(body);a.plugins.create_with(0,idx,Some(&state)).unwrap();
+        let ev=|msg|Ev{dev:std::sync::Arc::from("SLAB"),msg};
+        a.midi_events(vec![ev(Msg::On{ch:7,key:12,vel:100})]);
+        assert_eq!(a.midi_play.held.len(),1);assert_eq!(a.midi_play.held[0].play,36);
+        a.state.selected_channel=1;a.midi_events(vec![ev(Msg::Off{ch:7,key:12,vel:0})]);assert!(a.midi_play.held.is_empty());
+        a.state.selected_channel=0;a.midi_events(vec![ev(Msg::On{ch:0,key:81,vel:127})]);assert!(a.midi_play.held.is_empty(),"controller undo must not become a recorded note");
     }
 
     /// spec §3 Foot pedal controls note off.

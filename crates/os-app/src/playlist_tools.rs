@@ -9,7 +9,6 @@ use os_ui::{Canvas, Color, Rect};
 pub const POP_MS: u128 = 180;
 
 pub fn select(s: &mut State, tool: PlTool) {
-    let tool = match tool { PlTool::Draw => PlTool::Paint, t => t };
     s.playlist.tool = tool;
     s.playlist.tool_changed = Some(std::time::Instant::now());
     s.playlist.overlay = None;

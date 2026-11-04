@@ -66,7 +66,7 @@ pub fn open(app:&mut App) {
 }
 pub fn snapshot(app:&mut App,t:u16) {
     let key=fx_key(t,SLOT);
-    let snaps=(0..14).filter_map(|i|app.state.params.lists.get(&key).and_then(|l|l.params.get(i)).and_then(|p|app.plugins.param_value(key,p.id)).map(|v|crate::history::Snap::Param(key,i,v))).collect();
+    let snaps=(0..21).filter_map(|i|app.state.params.lists.get(&key).and_then(|l|l.params.get(i)).and_then(|p|app.plugins.param_value(key,p.id)).map(|v|crate::history::Snap::Param(key,i,v))).collect();
     crate::history::record(&mut app.state,"Mixer parametric EQ",crate::history::Snap::Several(snaps));
 }
 pub fn drag(app:&mut App,t:u16,band:u8,g:Rect,(x,y):(f32,f32)) {
@@ -78,6 +78,17 @@ pub fn drag(app:&mut App,t:u16,band:u8,g:Rect,(x,y):(f32,f32)) {
     app.plugins.set_param_named(key,&format!("Band {} freq",band+1),hz);
     app.plugins.set_param_named(key,&format!("Band {} level",band+1),(db+18.)/36.);
     // Flush queued CLAP edits on the UI thread even when transport is stopped.
+    if let Some(h)=app.plugins.hosted.get(&key) {if let Ok(mut p)=h.plugin.lock() {p.idle();}}
+    app.plugins.mark_edited(key);
+    sync(app,t);
+}
+/// Same Alt-click reset as the full editor: preserve the band's type and order.
+pub fn reset_band(app:&mut App,t:u16,band:u8) {
+    let b=settings(&app.state,t).bands[band as usize];
+    let key=fx_key(t,SLOT);
+    for (name,value) in [("freq",eq::default_freq(band as usize)),("level",0.5),("width",eq::default_width(b.kind))] {
+        app.plugins.set_param_named(key,&format!("Band {} {name}",band+1),value);
+    }
     if let Some(h)=app.plugins.hosted.get(&key) {if let Ok(mut p)=h.plugin.lock() {p.idle();}}
     app.plugins.mark_edited(key);
     sync(app,t);

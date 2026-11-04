@@ -59,7 +59,13 @@ fn switch(on: bool) -> f32 {
 pub fn restore(s: &mut State) {
     s.startup_layout_pending = get("window_playlist").is_none() && get("window_mixer").is_none()
         && !["window_playlist_detached", "window_mixer_detached"].iter().any(|k|get(k).as_deref()==Some("1"));
-    crate::mixer::set_layout(s,if get("mixer_view").as_deref()==Some("compact"){crate::mixer::COMPACT}else{crate::mixer::WIDE});
+    s.mixer.traditional_layout=get("mixer_traditional_layout").and_then(|v|v.parse::<u8>().ok()).filter(|v|*v<8).unwrap_or(3);
+    crate::mixer::set_layout(s,match get("mixer_view").as_deref() {
+        Some("channel-strip")=>crate::rack_mixer::VIEW,
+        Some("compact")=>crate::mixer::COMPACT,
+        Some("traditional")=>crate::mixer::TRADITIONAL+s.mixer.traditional_layout,
+        _=>crate::mixer::WIDE,
+    });
     s.native_detached=WINS.iter().filter(|(_,k)|get(&format!("{k}_detached")).as_deref()==Some("1")).map(|(w,_)|*w).collect();
     for (w,k) in WINS {if s.native_detached.contains(&w)&&get(&format!("{k}_detached_open")).as_deref()==Some("1"){s.raise(w);}}
     for (w, key) in WINS {
@@ -80,6 +86,8 @@ pub fn restore(s: &mut State) {
             *placed = true;
         }
     }
+    // A reopened project's layout takes precedence over the last application session.
+    restore_project_layout(s);
 }
 
 /// First-run default only; defer until the main canvas supplies the actual display size.
@@ -102,7 +110,8 @@ pub fn apply_startup_layout(s: &mut State) {
 /// Keeps where the windows inside the main window are, for the next start. The monitor, tapper and touch controller only
 /// once they have a place (opened in this run or an earlier one).
 pub fn save(s: &State) {
-    write("mixer_view",if s.mixer.layout==crate::mixer::COMPACT {"compact"} else {"full"});
+    write("mixer_view",if s.mixer.layout==crate::rack_mixer::VIEW {"channel-strip"}else if crate::mixer::traditional(s) {"traditional"} else if s.mixer.layout==crate::mixer::COMPACT {"compact"} else {"full"});
+    write("mixer_traditional_layout",&s.mixer.traditional_layout.to_string());
     for (w,k) in WINS {write(&format!("{k}_detached"),if s.native_detached.contains(&w){"1"}else{"0"});write(&format!("{k}_detached_open"),if s.shown(w){"1"}else{"0"});}
     for (w, key) in WINS {
         if let Some(i) = w.slot() {
@@ -188,14 +197,14 @@ mod tests {
         s.perf.placed = true;
         s.tapper.pos = (700.0, 420.0);
         s.tapper.placed = true;
-        s.mixer.layout=crate::mixer::COMPACT;
+        crate::mixer::set_layout(s,crate::mixer::TRADITIONAL);
         save(&app.state);
 
         let mut next = App::new(None);
         assert!(next.state.wins.iter().all(|w| w.maxed), "a new App starts with the defaults");
         restore(&mut next.state);
         let (a, b) = (&app.state, &next.state);
-        assert_eq!(b.mixer.layout,crate::mixer::COMPACT);
+        assert_eq!(b.mixer.layout,crate::mixer::TRADITIONAL);
         for i in 0..3 {
             assert_eq!((b.wins[i].rect, b.wins[i].maxed, b.wins[i].mini), (a.wins[i].rect, a.wins[i].maxed, a.wins[i].mini), "window {i}");
         }
@@ -280,4 +289,60 @@ mod preview_reset_tests {
         let text="default_template=Lemon Studio/Lemon Starter\nwindow_mixer=1,2,3,4,0,0\nwindow_playlist_detached=1\nbrowser_favorites=[x]\nwindow_main=1,2,3,4,0\nheadphones_on=true\n";
         assert_eq!(super::without_window_layout(text),"default_template=Lemon Studio/Lemon Starter\nbrowser_favorites=[x]\nwindow_main=1,2,3,4,0\nheadphones_on=true\n");
     }
+}
+// Project-specific window positions. An optional private chunk leaves legacy projects unchanged.
+const PROJECT_LAYOUT_TAG:os_flp::Tag=os_flp::Tag(*b"LMUI");
+pub fn project_snapshot(s:&State,plugins:&crate::plugins::Plugins)->serde_json::Value {
+    let wins:Vec<_>=WINS.iter().map(|(w,_)|{let v=s.wins[w.slot().unwrap()];serde_json::json!([v.rect.x,v.rect.y,v.rect.w,v.rect.h,v.maxed,v.mini,s.shown(*w)])}).collect();
+    let mut editors:Vec<serde_json::Value>=Vec::new();
+    #[cfg(windows)] for (&key,h) in &plugins.hosted {
+        let pos=h.window.as_ref().and_then(|w|w.position()).or(h.placed);
+        if let (Some(pos),Some(d))=(pos,plugins.descriptor(key)){editors.push(serde_json::json!({"key":key,"uid":d.uid(),"position":[pos.0,pos.1],"detached":h.window.as_ref().map_or(h.detached,|w|w.detached()),"open":h.window.is_some()}));}
+    }
+    #[cfg(not(windows))] let _=plugins;
+    let detached:Vec<_>=WINS.iter().map(|(w,_)|s.native_detached.contains(w)).collect();
+    let frames:Vec<_>=WINS.iter().map(|(w,_)|s.native_frames.iter().find(|(k,_)|k==w).map(|(_,f)|serde_json::json!([f.pos.0,f.pos.1,f.size.0,f.size.1,f.max]))).collect();
+    serde_json::json!({"version":1,"windows":wins,"rack":[s.rack_pos.0,s.rack_pos.1,s.rack_size.0,s.rack_size.1,s.shown(Win::ChannelRack)],"editors":editors,"detached":detached,"frames":frames})
+}
+pub fn write_project_layout(file:&mut os_flp::FlpFile,value:serde_json::Value){
+    file.chunks.retain(|c|c.tag!=PROJECT_LAYOUT_TAG);
+    if let Ok(body)=serde_json::to_vec(&value){file.chunks.push(os_flp::Chunk{tag:PROJECT_LAYOUT_TAG,body:os_flp::ChunkBody::Raw(body)});}
+}
+fn project_layout(s:&State)->Option<serde_json::Value>{
+    let c=s.file.as_ref()?.chunks.iter().find(|c|c.tag==PROJECT_LAYOUT_TAG)?;
+    let os_flp::ChunkBody::Raw(bytes)=&c.body else{return None};
+    if bytes.len()>1024*1024{return None;}
+    let v:serde_json::Value=serde_json::from_slice(bytes).ok()?;
+    (v["version"]==1).then_some(v)
+}
+pub fn restore_project_layout(s:&mut State){
+    let Some(v)=project_layout(s)else{return};
+    if let Some(flags)=v["detached"].as_array().filter(|a|a.len()==WINS.len()) {
+        s.native_layout_generation=s.native_layout_generation.wrapping_add(1);
+        s.native_detached=WINS.iter().zip(flags).filter(|(_,on)|on.as_bool()==Some(true)).map(|((w,_),_)|*w).collect();
+        s.native_frames.clear();
+        for (i,(w,_)) in WINS.iter().enumerate(){let a=&v["frames"][i];
+            let pos=|n:usize|a[n].as_i64().and_then(|v|i32::try_from(v).ok()).filter(|v|v.unsigned_abs()<100000);
+            let size=|n:usize|a[n].as_u64().filter(|v|*v>0&&*v<=32768).map(|v|v as u32);
+            if let (Some(x),Some(y),Some(width),Some(height))=(pos(0),pos(1),size(2),size(3)){s.native_frames.push((*w,MainWin{pos:(x,y),size:(width,height),max:a[4].as_bool().unwrap_or(false)}));}
+        }
+    }
+    let rect=|a:&serde_json::Value|->Option<Rect>{let a=a.as_array()?;let f=|i:usize|a.get(i)?.as_f64().filter(|n|n.is_finite()&&n.abs()<100000.).map(|n|n as f32);let r=Rect::new(f(0)?,f(1)?,f(2)?,f(3)?);(r.w>=100.&&r.h>=50.).then_some(r)};
+    for (i,(w,_)) in WINS.iter().enumerate(){let a=&v["windows"][i];if let Some(r)=rect(a){s.wins[w.slot().unwrap()]=WinState{rect:r,maxed:a[4].as_bool().unwrap_or(false),mini:a[5].as_bool().unwrap_or(false)};if a[6].as_bool()==Some(true){s.raise(*w);}else{s.hide(*w);}}}
+    if let Some(r)=rect(&v["rack"]){s.rack_pos=(r.x,r.y);s.rack_size=(r.w,r.h);if v["rack"][4].as_bool()==Some(true){s.raise(Win::ChannelRack);}else{s.hide(Win::ChannelRack);}}
+    s.startup_layout_pending=false;
+}
+pub fn restore_project_plugins(app:&mut crate::app::App){
+    #[cfg(windows)] {
+        let Some(v)=project_layout(&app.state)else{return};let Some(editors)=v["editors"].as_array()else{return};
+        for e in editors.iter().take(512){
+            let (Some(key),Some(x),Some(y),Some(uid))=(e["key"].as_u64().and_then(|n|usize::try_from(n).ok()),e["position"][0].as_i64().and_then(|n|i32::try_from(n).ok()),e["position"][1].as_i64().and_then(|n|i32::try_from(n).ok()),e["uid"].as_str())else{continue};
+            if app.plugins.descriptor(key).is_none_or(|d|d.uid()!=uid){continue;}
+            if let Some(h)=app.plugins.hosted.get_mut(&key){h.placed=Some((x,y));h.detached=e["detached"].as_bool().unwrap_or(false);}
+            if e["open"].as_bool()!=Some(true)||app.plugins.owner==0{continue;}
+            let info=if key>=crate::plugins::FX_KEY{crate::mixer::fx_info(&app.state.project,&app.state.mixer,key)}else{crate::app::channel_info(&app.state.project,key)};
+            if let Some(info)=info{if app.plugins.open_window(key,info).is_ok(){if let Some(w)=app.plugins.hosted.get(&key).and_then(|h|h.window.as_ref()).filter(|w|w.detached()){w.move_into_workspace();}app.state.raise(Win::Hosted(key));}}
+        }
+    }
+    #[cfg(not(windows))] let _=app;
 }

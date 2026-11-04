@@ -63,14 +63,14 @@ pub fn is_wrapped(d: &Descriptor) -> bool {
     if WRAP_BUILTINS.with(|w| w.get()) {
         return matches!(d.format, Format::Clap | Format::Vst3 | Format::Vst2);
     }
-    matches!(d.format, Format::Clap | Format::Vst3 | Format::Vst2) && (!is_builtin(d) || crate::plugins::LINKED_EFFECTS.contains(&d.name.as_str()))
+    matches!(d.format, Format::Clap | Format::Vst3 | Format::Vst2) && (!is_builtin(d) || matches!(d.name.as_str(),"Lemon Chop"|"Lemon Wave") || crate::plugins::LINKED_EFFECTS.contains(&d.name.as_str()))
 }
 
 /// The project-file identity of a hosted plugin with its saved state. A built-in effect with no file plugin of its own
 /// (`plugins::LINKED_EFFECTS`) names its CLAP bundle in the per-user CLAP folder, where `bundle-plugins --install` puts
 /// it: the wrapper takes the format from the file's extension, and another host can find the bundle there.
 pub fn plugin_ref(d: &Descriptor, state: Vec<u8>) -> PluginRef {
-    let path = if is_builtin(d) && crate::plugins::LINKED_EFFECTS.contains(&d.name.as_str()) {
+    let path = if is_builtin(d) && (matches!(d.name.as_str(),"Lemon Chop"|"Lemon Wave") || crate::plugins::LINKED_EFFECTS.contains(&d.name.as_str())) {
         let file = format!("{}.clap", d.name);
         os_clap::standard_dirs().into_iter().next().map_or_else(|| file.clone().into(), |dir| dir.join(&file))
     } else {
@@ -91,27 +91,35 @@ pub fn plugin_ref(d: &Descriptor, state: Vec<u8>) -> PluginRef {
 /// plugin holding the plugin's identity and current state. A channel or slot the file already held as a wrapped
 /// plugin keeps the wrapper records Lemon Studio does not edit. A copy in another format that stands in for the plugin
 /// the file names, and that the user has not edited, leaves the file's wrapper as it is ([`untouched_stand_in`]).
-pub fn store_hosted(proj: &mut Project, plugins: &Plugins) {
+pub fn store_hosted(proj: &mut Project, plugins: &Plugins) -> Result<(), String> {
+    let mut copy=proj.clone();
+    store_hosted_inner(&mut copy,plugins)?;
+    *proj=copy;
+    Ok(())
+}
+fn store_hosted_inner(proj: &mut Project, plugins: &Plugins) -> Result<(), String> {
     for key in plugins.hosted.keys().copied().collect::<Vec<_>>() {
-        let Some(d) = plugins.descriptor(key) else { continue };
+        if plugins.hosted.get(&key).is_some_and(|h|h.ara_saved.is_some()){continue;}
+        let d = plugins.descriptor(key).ok_or_else(||format!("Plugin {key} is unavailable; previous saved settings preserved"))?;
         if d.format == Format::Native {
             // The plugin's own state stream is what the file stores for it (spec §1, event 213). An instance that
             // did not give the file's state back byte for byte leaves the file's bytes alone (`sync_native`).
             if plugins.hosted.get(&key).is_some_and(|h| h.keep_file_state) {
                 continue;
             }
-            if let Some(state) = plugins.state(key) {
-                store_native(proj, key, state);
-            }
+            let state=plugins.state(key).ok_or_else(||format!("{} could not save its settings",d.name))?;
+            store_native(proj,key,state);
             continue;
         }
-        if !is_wrapped(&d) || plays_fl_slot(proj, key, &d) {
+        let explicit_wrapper = fx_of(key).and_then(|(t,k)|proj.mixer.iter().find(|m|m.index==t)?.slots[k as usize].as_ref()).is_some_and(|slot|slot.name==WRAPPER);
+        if (!is_wrapped(&d) && !explicit_wrapper) || plays_fl_slot(proj, key, &d) {
             continue;
         }
         if untouched_stand_in(proj, plugins, key, &d) {
             continue;
         }
-        let r = plugin_ref(&d, plugins.state(key).unwrap_or_default());
+        let state=plugins.state(key).ok_or_else(||format!("{} could not save its settings; previous saved settings preserved",d.name))?;
+        let r = plugin_ref(&d,state);
         match fx_of(key) {
             None => {
                 let Some(ch) = proj.channels.get_mut(key).filter(|c| c.kind == ChannelKind::Plugin) else { continue };
@@ -127,6 +135,7 @@ pub fn store_hosted(proj: &mut Project, plugins: &Plugins) {
             }
         }
     }
+    Ok(())
 }
 
 /// Whether the built-in effect `d` hosted under `key` plays a slot that `proj` stores as the FL effect it recreates
@@ -226,7 +235,8 @@ pub fn set_slot_sidechain(proj: &mut Project, plugins: &Plugins, track: u16, slo
     };
     if s.name != WRAPPER {
         let Some(d) = plugins.descriptor(key).filter(is_wrapped) else { return false };
-        s.state = wrapper::encode(None, &plugin_ref(&d, plugins.state(key).unwrap_or_default()));
+        let Some(state)=plugins.state(key) else{return false;};
+        s.state = wrapper::encode(None, &plugin_ref(&d, state));
         s.name = WRAPPER.into();
     }
     let Some(state) = wrapper::set_input_port(&s.state, 1, i32::try_from(port).unwrap_or(0)) else { return false };
@@ -609,6 +619,17 @@ mod tests {
     /// A hosted plugin channel and a mixer slot plugin are saved as wrapped plugins holding their identity and state,
     /// and the reopened project hosts them again with that state; a second save keeps working on the saved file
     /// (spec: flp/events/plugins.md). The built-in Lemon plugins stand in for third-party plugins.
+    #[test] fn community_rejected_plugin_state_stays_in_project(){
+        let mut app=App::new(None);app.state.project=crate::app::test_project();app.plugins.effects=crate::plugins::builtin_effects();
+        let index=app.plugins.effect_index(LEMON_EQ).unwrap();let d=app.plugins.effects[index].desc.clone();
+        let r=plugin_ref(&d,vec![0xff]);let stored=wrapper::encode(None,&r);
+        app.state.project.mixer[1].slots[0]=Some(SlotPlugin{name:WRAPPER.into(),state:stored.clone()});
+        app.sync_wrapped();assert!(!app.plugins.hosted.contains_key(&fx_key(1,0)));
+        store_hosted(&mut app.state.project,&app.plugins).unwrap();
+        assert_eq!(app.state.project.mixer[1].slots[0].as_ref().unwrap().state,stored);
+        assert!(app.state.message.as_deref().is_some_and(|m|m.contains("rejected")),"{:?}",app.state.message);
+    }
+
     #[test]
     fn hosted_plugins_save_and_reopen() {
         WRAP_BUILTINS.with(|w| w.set(true));

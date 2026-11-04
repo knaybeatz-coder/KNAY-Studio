@@ -1,0 +1,27 @@
+Lemon Chop — expanded sampling workflow
+
+Open the instrument picker > Instruments > Sampler > Lemon Chop.
+
+New controls
+- Select all: below the pad controls, selects all 32 pads. Filter, attack, release, pitch, speed, level, reverse and output then edit together, including typed values and resets. Ctrl-click pads for a smaller group; click a pad normally to return to individual editing. Key shift and tempo at the top are global controls.
+- Grid: Grid start sets beat 1. Set anchor pins the nearest numbered beat at the cursor; anchors can be several beats or bars apart. Drag a gold anchor or grey beat line to adjust the timing on either side. Ctrl-drag the grid to slip it as a whole. Slip/Adjust arrows, Tap, Click, Remove, Clear, Save and Cancel are available. Source BPM edits scale the grid. Existing consecutive-bar grids migrate automatically.
+- Output: Main uses the rack channel's mixer track. Mixer +1 to +15 send the selected pads to subsequent mixer tracks. Example: channel assigned to Insert 5, pad +2 plays through Insert 7. Near the end of the mixer, destinations clamp to its last track.
+- Glide: Sustain continues the playing cue; Trigger restarts its cue and envelope for each overlapping note. Requires Mono, Keyboard and a nonzero Glide time.
+- Export: renders the selected pad with its processing and stem mix at full note velocity, without host mixer effects. Hold renders the cue as a held note; Trigger follows its envelope. Cancel stops a render before replacing its destination.
+- Import cues: reads Markers2 and supported legacy Markers_ cues with colors. Saved loop regions occupy pads 17–32 and play as bounded cues, not automatically repeating loops. Favorites are preserved and source files are never changed. Unsupported or missing metadata is reported.
+- Trigger envelopes: on new sources, a positive Release fades after Attack; zero Release plays to the cue end. Hold begins release on note-off. Older projects preserve their previous end fade. Right-click Hold/Trigger to switch between the new envelope and legacy end fade.
+- MIDI chopping: an empty pad captures the current playhead and sounds immediately, with 1/8-beat snapping when Snap is on. It is retained even if the project is saved before the background worker finishes. Playing a single pad selects it for editing; an existing multi-pad selection stays intact.
+- Slicer: after Autoset in Beat slicer mode, Size and Region changes immediately re-slice non-favorite pads. Right-click Speed or tempo for half/double options.
+- Preview: drag or click the waveform/overview to seek while the source preview is playing. The grid metronome is audible only during source preview, not MIDI pad playback or export.
+- Eject clears the source and stops voices. Cancel stops analysis/separation/export. Locate preserves cue edits when finding a missing source.
+- Stem changes redraw the waveform on a background worker.
+- SLAB MIDI: optional general-MIDI input profile. Enable it in Chop and use the existing MIDI settings to connect SLAB. Pages 1–2 play 32 pads; keep Chop open for transport/edit/encoder controls. This is not Serato's native hardware integration and has not been tested on a physical SLAB.
+
+Please test with your own samples
+1. Drag audio from Explorer; trigger, trim and save/reopen the project.
+2. Route two pads to different mixer tracks and adjust their faders/effects.
+3. Edit a grid on a recording with changing tempo, including anchors several bars apart; audition the metronome through Preview.
+4. Compare both glide modes; export a reversed/pitched pad and listen to the WAV.
+5. Try your installed stem separator and change the stem mix.
+
+Synthetic/headless checks do not replace listening or a hardware test. This update is installed locally for review; it has not been publicly published. Serato's proprietary analysis/stretch/stems algorithms are not reproduced. See Feature research.txt for exact remaining differences and import coverage.

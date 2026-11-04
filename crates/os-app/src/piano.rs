@@ -189,6 +189,7 @@ impl PianoState {
 /// Mapping between grid pixels and ticks / keys for one frame.
 pub struct Geom {
     pub grid: Rect,
+    pub keys: Vec<i32>,
     pub ppt: f32,
     pub scroll_x: f32,
     pub scroll_y: f32,
@@ -211,6 +212,7 @@ impl Geom {
             s.project.pattern_bars(s.pattern).into_iter().map(|(start, bar, (num, _))| (start, bar, (bar / u32::from(num.max(1))).max(1))).collect();
         Geom {
             grid,
+            keys: visible_key_list(s),
             ppt: s.piano.px_per_beat / ppq as f32,
             scroll_x: s.piano.scroll_x,
             scroll_y: s.piano.scroll_y,
@@ -253,11 +255,11 @@ impl Geom {
 
     /// Top of `key`'s row (`row - 1` px of fill, then the separator).
     pub fn y_of(&self, key: i32) -> f32 {
-        self.grid.y + (TOP_KEY - key) as f32 * self.row - self.scroll_y
+        self.grid.y + self.keys.iter().position(|k| *k == key).map_or(-10000.0, |i| i as f32) * self.row - self.scroll_y
     }
 
     pub fn key_at(&self, y: f32) -> i32 {
-        TOP_KEY - ((y - self.grid.y + self.scroll_y) / self.row).floor() as i32
+        { let i = ((y - self.grid.y + self.scroll_y) / self.row).floor() as i32; self.keys[i.clamp(0, self.keys.len() as i32 - 1) as usize] }
     }
 
     /// Keys with at least one visible pixel, lowest first.
@@ -270,7 +272,7 @@ impl Geom {
     /// A note covers its row plus the separators above and below (§5).
     pub fn note_rect(&self, n: &Note) -> Option<Rect> {
         let key = i32::from(n.key);
-        if key > TOP_KEY {
+        if !self.keys.contains(&key) {
             return None;
         }
         let len = if n.length == 0 { self.step } else { n.length };
@@ -760,11 +762,14 @@ pub fn slice(s: &mut State, tick: u32) -> usize {
         return 0;
     }
     snapshot(s);
+    let mut expressions=std::collections::BTreeMap::new();
+    for &i in &cut{let n=notes(s)[i];if let Some(e)=s.project.mpe.get(n.expression).cloned(){let at=(tick-n.position)as f32/n.length as f32;let a=s.project.mpe.add(e.window(0.,at));let b=s.project.mpe.add(e.window(at,1.));expressions.insert(i,(a,b));}}
     let p = pattern_mut(s);
     for &i in &cut {
         let n = p.notes[i];
         p.notes[i].length = tick - n.position;
-        p.notes.push(Note { position: tick, length: n.position + n.length - tick, ..n });
+        let (a,b)=expressions.get(&i).copied().unwrap_or((n.expression,n.expression));p.notes[i].expression=a;
+        p.notes.push(Note { expression:b,position: tick, length: n.position + n.length - tick, ..n });
     }
     s.piano.clear_selection();
     finish_edit(s);
@@ -840,8 +845,10 @@ pub fn center_keys(s: &mut State, view_h: f32) {
         _ => 60.0,
     };
     let row = s.piano.row_h;
-    let max = (TOP_KEY + 1) as f32 * row - view_h;
-    s.piano.scroll_y = ((TOP_KEY as f32 - center) * row - view_h / 2.0 + row / 2.0).clamp(0.0, max.max(0.0)).round();
+    let keys = visible_key_list(s);
+    let index = keys.iter().enumerate().min_by_key(|(_, k)| ((**k as f32 - center).abs() * 100.0) as i32).map_or(0, |(i,_)| i);
+    let max = keys.len() as f32 * row - view_h;
+    s.piano.scroll_y = (index as f32 * row - view_h / 2.0 + row / 2.0).clamp(0.0, max.max(0.0)).round();
     s.piano.scroll_x = 0.0;
 }
 
@@ -882,7 +889,7 @@ pub fn auto_zoom(s: &mut State, grid: Rect) {
 }
 
 pub fn clamp_scroll(s: &mut State, view_h: f32) {
-    let max = ((TOP_KEY + 1) as f32 * s.piano.row_h - view_h).max(0.0);
+    let max = (visible_key_list(s).len() as f32 * s.piano.row_h - view_h).max(0.0);
     s.piano.scroll_y = s.piano.scroll_y.clamp(0.0, max).round();
     s.piano.scroll_x = s.piano.scroll_x.max(0.0);
 }
@@ -1337,4 +1344,8 @@ mod tests {
         }
         set_check(&AUTO_ZOOM_PIANO, false);
     }
+}
+
+pub fn visible_key_list(s: &State) -> Vec<i32> {
+    (0..=TOP_KEY).rev().filter(|k| !s.piano.harmony.scale_only || !s.piano.harmony.shade || s.piano.harmony.allows(*k)).collect()
 }

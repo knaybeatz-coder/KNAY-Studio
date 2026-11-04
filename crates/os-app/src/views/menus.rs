@@ -669,6 +669,32 @@ pub fn pick(menu: usize, i: usize) -> Action {
     }
 }
 
+/// Compact root menus retain stable action indices and use the shared scrolling popup.
+pub fn organized_items(s:&State,menu:usize)->Vec<crate::playlist::PItem> {
+ use crate::playlist::{Cmd,PItem,Mark as PM};
+ let Some(m)=MENUS.get(menu) else{return vec![];};
+ let all:Vec<_>=m.cols.iter().flat_map(|(_,items)|items.iter()).collect();
+ let entry=|i:usize|->Option<PItem>{let it=*all.get(i)?;if it.kind!=Kind::Item||!works(menu,it)||!in_menu(s,menu,it){return None;}
+  let label=label_now(s,menu,it);let mut p=if let Some(build)=submenu(menu,it.label){PItem::sub(label,build(s))}else{PItem::new(label,Cmd::MainMenu(menu,i))};
+  p.key=shortcut_now(it);p.enabled=active(s,menu,it);p.mark=match mark_of(s,menu,it){Mark::None=>PM::None,Mark::Check(v)=>PM::Check(v),Mark::Radio(v)=>PM::Radio(v)};Some(p)
+ };
+ let groups:Vec<(&str,Vec<usize>)>=match menu {
+  0=>vec![("",vec![0,1,2]),("Save",vec![4,5,6,7,8]),("Import / export",vec![11,12,13,14,15]),("Project maintenance",vec![9,17])],
+  PATTERNS=>vec![("Find empty pattern",vec![0,1,2]),("Edit pattern",vec![4,5,6,7,8,9,10,12,13,14]),("Arrange",vec![16,17,19]),("Render",vec![20,21,22])],
+  VIEW=>vec![("",(1..=11).collect()),("Window layout",(14..=20).collect()),("Browser shortcuts",(22..all.len()).collect())],
+  OPTIONS_MENU=>vec![("Settings",(1..=6).collect()),("Project",vec![8,9]),("MIDI",vec![13,14,15]),("Recording / transport",(17..all.len()).collect())],
+  TOOLS_MENU=>vec![("Recording",vec![1,8,9]),("Parameters",vec![15,16]),("Audio clips",vec![26,27,35]),("Project cleanup",vec![23,24,30,31,32]),("",vec![18,19]),("Plugin windows",vec![33,34])],
+  _=>vec![("",(0..all.len()).collect())],
+ };
+ let mut out=Vec::new();let mut included=std::collections::HashSet::new();
+ for(label,ids) in groups {let rows:Vec<_>=ids.into_iter().filter_map(|i|{let p=entry(i)?;included.insert(i);Some(p)}).collect();if rows.is_empty(){continue;}if label.is_empty(){out.extend(rows)}else{out.push(PItem::sub(label,rows));}}
+ // Retain any implemented command not covered by a group as menus grow.
+ for i in 0..all.len(){if !included.contains(&i)&&!(menu==0&&i==FILE_EXIT){if let Some(p)=entry(i){out.push(p);}}}
+ if menu==PATTERNS {out.insert(0,PItem::sub("Select pattern",crate::patterns::listed(s).into_iter().map(|n|PItem::new(crate::patterns::name_of(s,n),Cmd::MainMenu(menu,PATTERN_PICK+n as usize)).mark(PM::Radio(n==s.pattern))).collect()));}
+ if menu==0 {let recent=recent_rows().into_iter().filter_map(|r|match r{Recent::Head=>None,Recent::More=>Some(PItem::sub("Older projects",crate::recent::more_items(s))),_=>{let(label,key,_)=recent_text(&r);Some(PItem::new(label,Cmd::MainMenu(0,match r{Recent::Project(n,_)=>RECENT_PICK+n,_=>RECENT_MORE})).key(key))}}).collect::<Vec<_>>();if !recent.is_empty(){out.push(PItem::sub("Recent projects",recent));}out.push(PItem::sep());if let Some(p)=entry(FILE_EXIT){out.push(p);}}
+ out
+}
+
 // Row heights follow the display scale like FL's popup menus (spec: ui/ui-scaling.md §2).
 fn row_h(m: &os_ui::kit::menu::Metrics, it: &Item) -> f32 {
     match it.kind {
@@ -681,6 +707,7 @@ fn row_h(m: &os_ui::kit::menu::Metrics, it: &Item) -> f32 {
 /// Paints menu `menu`'s dropdown under its title. `k`: the canvas is at the Pop-ups scaling, a window position `x` is
 /// `x / k` (see `Ui::scaled`).
 pub fn paint_dropdown(ui: &mut Ui, s: &State, menu: usize, k: f32) {
+    if s.menu_sub.is_none()&&s.playlist.popup.is_some(){return;}
     let Some(m) = MENUS.get(menu) else { return };
     let x0 = bar_layout(ui.c)[menu].0;
     let t = ui.t;
@@ -1075,15 +1102,13 @@ pub fn toolbar_items(s: &State) -> Vec<crate::playlist::PItem> {
         switch("Edit", Switch::Edit, s.bar.editing),
         switch("Separators", Switch::Separators, o.separators),
         switch("Flat buttons", Switch::Flat, o.flat),
-        PItem::not_yet("Show detected MIDI chords near the hint bar").mark(Mark::Check(false)),
         PItem::sep(),
         switch("Hint bar", Switch::HintBar, o.hint_bar),
-        switch("CPU and memory", Switch::CpuMemory, s.bar.layout.has(crate::toolbar::Panel::Cpu)),
+        switch("CPU and memory", Switch::CpuMemory, crate::settings_file::flag("toolbar_cpu_visible",true)),
         // A command: always the dim mark (§1).
         switch("Hide", Switch::Hide, false).key("Ctrl+F11"),
-        PItem::col(),
     ];
-    items.extend(preset_items(s));
+    items.push(PItem::sub("Layout presets",preset_items(s)));
     items
 }
 
@@ -1130,4 +1155,24 @@ pub fn clock_popup(s: &State, x: f32, y: f32) -> crate::playlist::Popup {
     items.push(PItem::new("Step", Cmd::ClockBeat(false)).mark(Mark::Radio(!c.beat)));
     items.push(PItem::new("Beat", Cmd::ClockBeat(true)).mark(Mark::Radio(c.beat)));
     Popup { x, y, items, sub: None, scroll: [0; 2], cascade: Vec::new() }
+}
+
+#[cfg(test)] mod cleanup_tests {
+ use super::*;
+ #[test] fn community_cleanup_menus_toolbar_and_resize(){
+  let mut app=crate::app::App::new(None);
+  for m in 0..MENUS.len(){let rows=organized_items(&app.state,m);assert!(!rows.is_empty());assert!(rows.len()<22,"menu {m} still too long");
+   fn commands(rows:&[crate::playlist::PItem],out:&mut Vec<(usize,usize)>){for r in rows{assert!(!matches!(r.cmd,crate::playlist::Cmd::NotYet(_)));if let crate::playlist::Cmd::MainMenu(m,i)=r.cmd{out.push((m,i));}commands(&r.children,out);}}
+   let mut cmds=vec![];commands(&rows,&mut cmds);let mut unique=cmds.clone();unique.sort();unique.dedup();assert_eq!(cmds.len(),unique.len());
+   for(i,item) in MENUS[m].cols.iter().flat_map(|(_,v)|v.iter()).enumerate(){if item.kind==Kind::Item&&works(m,item)&&in_menu(&app.state,m,item)&&submenu(m,item.label).is_none(){assert!(cmds.contains(&(m,i)),"missing {}",item.label);}}
+  }
+  let old=crate::settings_file::flag("toolbar_cpu_visible",true);
+  for cpu in [true,false]{crate::settings_file::set_flag("toolbar_cpu_visible",cpu);for hint in [true,false]{app.state.toolbar.hint_bar=hint;for w in [1000,1600]{let mut c=os_ui::Canvas::new(w,700,1.).unwrap();app.paint(&mut c,None);
+   assert_eq!(app.hits.iter().any(|h|h.action==Action::CpuPanel&&h.rect.y<50.),cpu);
+   assert!(!app.hits.iter().any(|h|h.hint=="Hint bar"&&h.rect.y>100.));
+   if w==1600{assert_eq!(app.hits.iter().any(|h|h.hint=="Hint bar"),hint);}
+   app.act(Action::Menu(VIEW));app.paint(&mut c,None);assert!(app.state.playlist.popup.as_ref().is_some_and(|p|p.items.iter().any(|i|i.label=="Toolbars")));app.act(Action::Menu(VIEW));
+  }}}
+  crate::settings_file::set_flag("toolbar_cpu_visible",old);
+ }
 }

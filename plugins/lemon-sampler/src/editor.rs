@@ -1025,7 +1025,7 @@ impl Logic {
                 m.add(MenuItem::item("Edit in pitch corrector").enabled(false), Cmd::None);
                 m.add(MenuItem::item("Edit in time warper").enabled(false), Cmd::None);
                 m.sep();
-                m.add(MenuItem::item("Detect tempo").enabled(has), Cmd::DetectTempo);
+                m.add(MenuItem::item("Estimate tempo from length").enabled(has), Cmd::DetectTempo);
                 m.add(MenuItem::item("Get properties").enabled(has), Cmd::Properties);
                 m.sep();
                 m.add(MenuItem::item("Spectrum view").mark(Mark::Check(self.view.spectrum)), Cmd::Spectrum);
@@ -1145,7 +1145,7 @@ impl Logic {
                 let beats = self.detect_beats();
                 let secs = self.shared.secs().unwrap_or(0.0);
                 if secs > 0.0 {
-                    self.hint = format!("Tempo: {:.2} BPM ({beats} beats)", f64::from(beats) * 60.0 / secs);
+                    self.hint = format!("Length estimate: {:.2} BPM ({beats} beats; uses project tempo)", f64::from(beats) * 60.0 / secs);
                 }
             }
             Cmd::Properties => {
@@ -1901,7 +1901,7 @@ mod win32 {
                         }
                     }
                     Act::OpenDialog => {
-                        if let Some(path) = file_dialog(self.hwnd, false) {
+                        if os_hostlink::to_host(self.hwnd as isize,os_hostlink::Cmd::BrowseSample,0)!=1 && let Some(path) = file_dialog(self.hwnd, false) {
                             self.load(&path);
                         }
                         repaint = true;
@@ -2015,7 +2015,7 @@ mod win32 {
                     }
                     1
                 }
-                Cmd::Changed | Cmd::Note | Cmd::Automate | Cmd::Audio | Cmd::Resizable | Cmd::SetSize => 0,
+                Cmd::BrowseSample | Cmd::Changed | Cmd::Note | Cmd::Automate | Cmd::Audio | Cmd::Resizable | Cmd::SetSize => 0,
             }
         }
 
@@ -2730,7 +2730,7 @@ mod gui {
                         }
                     }
                     Act::OpenDialog => {
-                        if let Some(path) = file_dialog(&self.win, false) {
+                        if self.link.to_host(Cmd::BrowseSample,0)!=1 && let Some(path) = file_dialog(&self.win, false) {
                             self.load(&path);
                         }
                         self.dirty = true;
