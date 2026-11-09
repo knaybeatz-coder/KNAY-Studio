@@ -85,6 +85,7 @@ pub fn input_menu(s: &State,t: u16,x: f32,y: f32)->Popup {
 }
 impl App {
     pub(crate) fn set_mixer_input(&mut self,t:u16,input:Option<Input>)->Option<String> {
+        if crate::mixer::locked(&self.state, t) { return Some(crate::mixer::LOCK_MESSAGE.into()); }
         if self.audio_rec.is_some(){return Some("Stop the current take before changing its input".into());}
         crate::mixer::track(&self.state,t)?;
         self.input_monitor.retry();
@@ -112,6 +113,7 @@ impl App {
         }
     }
     pub(crate) fn arm_mixer_disk(&mut self,t:u16)->Option<String> {
+        if crate::mixer::locked(&self.state, t) { return Some(crate::mixer::LOCK_MESSAGE.into()); }
         if self.audio_rec.is_some(){return Some("Stop the current take before changing its recording arm".into());}
         if self.state.mixer.recording.armed.remove(&t) {
             if self.state.mixer.recording.armed.is_empty() && Opt::Smart.on(){auto_filter();}

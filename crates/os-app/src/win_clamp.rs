@@ -196,7 +196,7 @@ const JOIN_EPS: f32 = 1.0;
 fn near(a: f32, b: f32) -> bool { (a-b).abs() <= JOIN_EPS }
 fn overlap(a: f32, b: f32, c: f32, d: f32) -> bool { b.min(d)-a.max(c) > JOIN_EPS }
 fn minimum(s: &State, w: Win) -> (f32,f32) {
-    if w==Win::Mixer&&s.mixer.layout==crate::rack_mixer::VIEW {let (width,height)=w.min_size();(width,height.max(crate::rack_mixer::minimum_height(s).min(s.work_rect().h)))}
+    if w==Win::Mixer&&crate::mixer::view(s)==crate::rack_mixer::VIEW {let (width,height)=w.min_size();(width,height.max(crate::rack_mixer::minimum_height(s).min(s.work_rect().h)))}
     else if w == Win::ChannelRack { (views::rack::min_w(s), views::rack::MIN_H) } else { w.min_size() }
 }
 pub fn layout(s: &State) -> Layout {

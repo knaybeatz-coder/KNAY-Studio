@@ -23,6 +23,7 @@
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use cpal::traits::{DeviceTrait, StreamTrait};
 use cpal::{BufferSize, FromSample, SampleFormat, SizedSample, StreamConfig};
@@ -145,6 +146,10 @@ pub fn periods(device: Option<&str>) -> Option<Periods> {
 pub(crate) trait Source: Send {
     /// Writes the next `stereo.len() / 2` frames (interleaved L/R) into `stereo`, overwriting what is there.
     fn play(&mut self, stereo: &mut [f32]);
+    /// A recording can use the predicted hardware playback time of this block's first frame.
+    fn play_at(&mut self, stereo: &mut [f32], _playback_at: Option<Instant>) {
+        self.play(stereo);
+    }
     /// Its owner let go of it: the callback no longer plays it and hands it back (`OutputDevice::collect`).
     fn detached(&self) -> bool;
 }
@@ -181,7 +186,12 @@ impl Mix {
     }
 
     /// The next `frames` frames of every source, summed (interleaved stereo, not clipped).
+    #[cfg(any(windows, test))]
     fn block(&mut self, frames: usize) -> &[f32] {
+        self.block_at(frames, None)
+    }
+
+    fn block_at(&mut self, frames: usize, playback_at: Option<Instant>) -> &[f32] {
         BLOCKS.fetch_add(1, Ordering::Relaxed);
         while self.sources.len() < MAX_SOURCES {
             match self.inbox.pop() {
@@ -209,7 +219,7 @@ impl Mix {
                     }
                 }
             }
-            self.sources[i].play(&mut self.one);
+            self.sources[i].play_at(&mut self.one, playback_at);
             for (a, b) in self.sum.iter_mut().zip(&self.one) {
                 *a += *b;
             }
@@ -644,8 +654,13 @@ where
     device
         .build_output_stream::<T, _, _>(
             config.clone(),
-            move |out: &mut [T], _| {
-                let stereo = mix.block(out.len() / channels);
+            move |out: &mut [T], info| {
+                let now = Instant::now();
+                let stamp = info.timestamp();
+                let playback_at = stamp.playback.checked_duration_since(stamp.callback)
+                    .filter(|&delay| delay <= Duration::from_secs(1))
+                    .and_then(|delay| now.checked_add(delay));
+                let stereo = mix.block_at(out.len() / channels, playback_at);
                 // Left and right on the first two channels (a mono device gets the left), silence on the others.
                 for (frame, s) in out.chunks_mut(channels).zip(stereo.chunks_exact(2)) {
                     for (c, slot) in frame.iter_mut().enumerate() {

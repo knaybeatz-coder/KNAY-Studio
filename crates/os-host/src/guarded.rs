@@ -262,6 +262,8 @@ impl<P: Plugin> Plugin for Guarded<P> {
     fn param_count(&self) -> usize {
         self.look(0, |p| p.param_count())
     }
+    fn programs(&self)->Vec<(u32,u32,String)> {self.look(Vec::new(),|p|p.programs())}
+    fn select_program(&mut self,id:u32,index:u32)->bool {self.run(false,|p|p.select_program(id,index))}
     fn param_info(&self, index: usize) -> Option<ParamInfo> {
         self.look(None, |p| p.param_info(index))
     }

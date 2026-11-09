@@ -3,7 +3,7 @@
 // This file is part of Lemon Studio: https://github.com/ItsAlphaNeon/Lemon-Studio
 
 //! Settings window (OPTIONS > MIDI / Audio / General / File / Theme settings, Project settings, Project info,
-//! Debugging log; F10 / F11): ten tabs of grouped controls. The controls that work today are listed in `LIVE` and
+//! Debugging log; F10 / F11): grouped controls. The controls that work today are listed in `LIVE` and
 //! handled in `App::settings_act`, or are program settings declared in `crate::prefs`; every other control is drawn
 //! greyed out and only says it is not available yet.
 //! The Plugins tab is the plugin manager (search folders, scanning, the plugin table).
@@ -23,6 +23,9 @@ use crate::plugin_db::{self as db, Col, Prefer};
 pub enum SAct {
     /// The window body (swallows clicks, wheel scrolls the page).
     Body,
+    VisibilitySearch,
+    MenuLayout(crate::menu_layout::Action),
+    ThemeEditor(crate::advanced_theme::Hit),
     Close,
     Tab(usize),
     /// A working check (radio LED) by its label (`LIVE`).
@@ -159,6 +162,10 @@ pub struct SettingsUi {
     pub tab: usize,
     /// Page scroll in pixels.
     pub scroll: f32,
+    pub visibility_search: crate::dialog::Field,
+    pub visibility_search_focused: bool,
+    pub menu_editor: crate::menu_layout::Editor,
+    pub advanced_theme: Option<crate::advanced_theme::Session>,
     /// Groups whose open state differs from their default.
     pub folded: HashSet<&'static str>,
     /// Filled when the window opens: output devices and ASIO drivers, theme files (name, path), selected preset.
@@ -214,7 +221,7 @@ pub struct SettingsUi {
 
 /// Tabs: label, page title, group (0 system / 1 project / 2 info) (spec §2). Plugins takes the place of FL's Account
 /// tab (spec: ui/plugin-manager.md §2); tabs are laid out from their text widths (`tab_rects`).
-pub const TABS: [(&str, &str, u8); 10] = [
+pub const TABS: [(&str, &str, u8); 12] = [
     ("MIDI", "MIDI input / output devices", 0),
     ("Audio", "Audio devices / mixer", 0),
     ("General", "System / miscellaneous", 0),
@@ -225,6 +232,8 @@ pub const TABS: [(&str, &str, u8); 10] = [
     ("Info", "Project credits", 1),
     ("Debug", "Debugging log", 2),
     ("About", "About", 2),
+    ("Visibility", "Workspace Visibility", 2),
+    ("Menus", "Menu customization", 2),
 ];
 pub const MIDI: usize = 0;
 pub const AUDIO: usize = 1;
@@ -235,7 +244,7 @@ pub const PLUGINS: usize = 4;
 /// Opt in to the experimental FL native plugin host (spec plugins/fruity-abi.md), on the Plugins page only with
 /// `OPENSTUDIO_NATIVE_SETTINGS` (`SettingsUi::native`). Labels are the keys for `SAct::Check`; `App::settings_act`
 /// acts on them.
-pub const NATIVE_HOST_CHECK: &str = "Experimental: host installed native plugins";
+pub const NATIVE_HOST_CHECK: &str = "Load installed FL Studio plugins (experimental)";
 /// Shown only while the native host is on: an opened project's native plugins are played by the installed plugins,
 /// never by the built-in Lemon recreations (spec plugins/fruity-abi.md "Opened projects").
 pub const NATIVE_FIRST_CHECK: &str = "Experimental: real native plugins instead of Lemon recreations";
@@ -302,6 +311,11 @@ const NO_PERFORMANCE: &str = "KNAY Studio has no playlist performance mode";
 /// `LIVE`, and the checks declared in `crate::prefs`.
 fn live(key: &str) -> bool {
     LIVE.contains(&key) || crate::prefs::find_check(key).is_some()
+        || crate::workspace_visibility::key(key).is_some()
+        || matches!(key, crate::vintage::LABEL | OPEN_VISIBILITY | crate::workspace_visibility::RESET | crate::menu_layout::OPEN
+            | crate::advanced_theme::OPEN | crate::advanced_theme::APPLY | crate::advanced_theme::CANCEL
+            | crate::advanced_theme::EXPORT | crate::advanced_theme::WALLPAPER | crate::advanced_theme::CLEAR_WALLPAPER
+            | crate::mixer_skin::OPEN | crate::mixer_skin::BACK | crate::mixer_skin::CLOSE | crate::theme_identity::OPEN)
 }
 
 /// The combos that work (they open a menu of choices, `App::audio_menu`).
@@ -405,6 +419,23 @@ pub const THEME: usize = 5;
 pub const PROJECT: usize = 6;
 pub const INFO: usize = 7;
 pub const DEBUG: usize = 8;
+pub const ABOUT: usize = 9;
+pub const VISIBILITY: usize = 10;
+pub const MENUS: usize = 11;
+pub const OPEN_VISIBILITY: &str = "Workspace Visibility...";
+
+pub(crate) fn tab_shown(tab: usize) -> bool {
+    let key = match tab {
+        THEME => "visible_settings-theme",
+        PROJECT => "visible_settings-project",
+        INFO => "visible_settings-info",
+        DEBUG => "visible_settings-debug",
+        ABOUT => "visible_settings-about",
+        MENUS => crate::menu_layout::VISIBILITY,
+        _ => return tab < TABS.len(),
+    };
+    crate::workspace_visibility::shown(key)
+}
 
 /// Plugin table rows shown at once (spec: ui/plugin-manager.md §2).
 pub const TABLE_ROWS: usize = 18;
@@ -446,6 +477,10 @@ pub fn rect(s: &State) -> Rect {
 pub enum Row {
     /// Check: label, default.
     Check(&'static str, bool),
+    VisibilitySearch,
+    MenuControls(bool),
+    MenuName,
+    MenuEntry(crate::menu_layout::Entry),
     /// Two checks side by side (second at x 340).
     Check2(&'static str, bool, &'static str, bool),
     /// Disabled check (drawn dim). No page has one at the moment.
@@ -471,6 +506,7 @@ pub enum Row {
     Tiles(TileList, Vec<String>, usize),
     /// Theme adjustment knobs and colour circles.
     ThemeKnobs,
+    ThemeEditor(crate::advanced_theme::Row),
     /// Theme: the applied theme's text is hard to read; a Fix text button (`crate::theme_library`).
     ThemeWarn,
     Gap(f32),
@@ -559,6 +595,41 @@ pub fn page(tab: usize, s: &State) -> Vec<Group> {
     use Row::*;
     let st = &s.settings;
     match tab {
+        MENUS => {
+            let (entries, changed) = crate::menu_layout::entries(s);
+            vec![
+                g("Customize menus", vec![
+                    txt("Choose a menu. Changes are saved to this profile as you edit."),
+                    txt("Some commands only appear when they apply to the current selection."),
+                    MenuControls(changed),
+                    MenuName,
+                ]),
+                g("Menu structure", entries.into_iter().map(MenuEntry).collect()),
+            ]
+        }
+        VISIBILITY => {
+            use crate::workspace_visibility as v;
+            let query = st.visibility_search.text.trim().to_ascii_lowercase();
+            let mut groups = vec![g("Workspace Visibility", vec![
+                txt("Choose what to show. Visibility is saved for this profile."),
+                txt("Existing toolbar layouts and view options still apply."),
+                VisibilitySearch,
+                Buttons(vec![(v::RESET, 180.0)]),
+            ])];
+            for &(section, options) in v::GROUPS {
+                let rows = options.iter().filter(|&&(label, _)| {
+                    query.is_empty() || section.to_ascii_lowercase().contains(&query)
+                        || label.to_ascii_lowercase().contains(&query)
+                }).map(|&(label, key)| Check(label, v::shown(key))).collect::<Vec<_>>();
+                if !rows.is_empty() {
+                    groups.push(g(section, rows));
+                }
+            }
+            if groups.len() == 1 {
+                groups.push(g("", vec![txt("No controls match your search.")]));
+            }
+            groups
+        }
         // spec: ui/midi-settings.md §1. The device rows are `super::midi_page`'s; the checks, link combos, sync type and
         // channel boxes are `crate::prefs` declarations.
         MIDI => {
@@ -676,6 +747,13 @@ pub fn page(tab: usize, s: &State) -> Vec<Group> {
             ]
         }
         GENERAL => vec![
+            g("Workspace", vec![Buttons({
+                let mut buttons = vec![(OPEN_VISIBILITY, 182.0)];
+                if tab_shown(MENUS) {
+                    buttons.push((crate::menu_layout::OPEN, 156.0));
+                }
+                buttons
+            })]),
             // Display and Language apply at once, so they leave off FL's "(requires a restart to take effect)" (spec:
             // ui/settings.md "General").
             gf("Display", false, vec![
@@ -702,15 +780,24 @@ pub fn page(tab: usize, s: &State) -> Vec<Group> {
                 combo("Sharps - #", 96.0, "Black notes"),
                 Buttons(vec![("Update languages", 138.0)]),
             ]),
-            gf("Input", false, vec![
-                combo("Multi-button mouse", 136.0, "Optimize for"),
-                Buttons(vec![(MANAGE_SHORTCUTS, 212.0)]),
-                Check("Click-and-hold & special gesture functions", false),
-                Check("Use both mouse buttons in step sequencer", false),
-                Slider("Vertical scrolling speed", 0.5),
-                Slider("Horizontal scrolling speed", 0.5),
-                Check("Invert pencil buttons", false),
-            ]),
+            gf("Input", false, {
+                let mut rows = vec![
+                    combo("Multi-button mouse", 136., "Optimize for"),
+                    Buttons(vec![(MANAGE_SHORTCUTS, 212.)]),
+                ];
+                if crate::workspace_visibility::shown("visible_piano-zoom-keys") {
+                    let keys = &crate::prefs::PIANO_ZOOM_KEYS;
+                    rows.push(combo(crate::prefs::choice(keys), 174., keys.label));
+                }
+                rows.extend([
+                    Check("Click-and-hold & special gesture functions", false),
+                    Check("Use both mouse buttons in step sequencer", false),
+                    Slider("Vertical scrolling speed", 0.5),
+                    Slider("Horizontal scrolling speed", 0.5),
+                    Check("Invert pencil buttons", false),
+                ]);
+                rows
+            }),
             // spec: ui/settings-choices.md "Undo history: the four checks (2026-10-16)" (`crate::history`).
             gf("Undo history", false, vec![
                 Value(crate::prefs::number(&crate::prefs::MAX_UNDO_LEVELS).to_string(), "Maximum undo levels"),
@@ -734,9 +821,11 @@ pub fn page(tab: usize, s: &State) -> Vec<Group> {
             ]),
             gf("Miscellaneous", false, vec![
                 Check("Auto name channels", true),
+                Check(crate::prefs::ROUTE_RACK_SAMPLES.label, false),
                 Check("Auto name effect slots", false),
                 Check("Auto zip empty channels", false),
                 Check("Auto select linked modules", true),
+                Check("Auto-scroll mixer while routing",true),
                 Check("Auto zoom in piano roll", false),
                 Check("Small scrollbars in editors", false),
                 Check2("Detach all new plugins", false, "Open detached plugins with the main window", false),
@@ -813,12 +902,98 @@ pub fn page(tab: usize, s: &State) -> Vec<Group> {
                 g("Plugins", vec![Table]),
             ]
         }
+        THEME if st.advanced_theme.as_ref().is_some_and(|s| s.identity) => {
+            use crate::advanced_theme::{self as a, IdentityRow as I, Row as E};
+            let row = |r| ThemeEditor(E::Identity(r));
+            vec![
+                g("Icons & Fonts", vec![
+                    Buttons(vec![(crate::mixer_skin::BACK, 180.0), (crate::mixer_skin::CLOSE, 150.0)]),
+                Buttons(vec![(a::APPLY, 88.0), (a::CANCEL, 85.0), (THEME_UNDO, 58.0), (THEME_REDO, 58.0), (a::EXPORT, 100.0)]),
+                    row(I::Preview),
+                ]),
+                g("Icon pack — controls and toolbar symbols", std::iter::once(
+                    txt("Classic Clean, Soft, Square, Solid and Open are restrained variations of the original artwork."))
+                    .chain((0..os_ui::icon_packs::PACKS.len()).step_by(5).map(|i| row(I::Packs(i as u8)))).collect()),
+                g("Cursor pack — independent of icons", std::iter::once(row(I::FollowIcons))
+                    .chain((0..crate::playlist_tools::CURSOR_PACK_COUNT).step_by(5).map(|i| row(I::CursorPacks(i)))).collect()),
+                g("Custom icon and cursor appearance", vec![
+                    txt("Click Choose color for cursors. Icon colors use #RRGGBB. Cursor size is 50–200%."),
+                    txt("Default keeps original cursors and system size. Individual choices override the selected pack."),
+                    row(I::Appearance),
+                ]),
+                gf("Individual icons — family and color", true,
+                    std::iter::once(txt("Mix any pack, even with Default. Arrows choose; Default restores; Pack inherits. Color is optional."))
+                        .chain((0..crate::icons::CHOICES.len()).map(|i| row(I::Icon(i)))).collect()),
+                gf("Individual cursors — mix tool, hand and resize designs", true,
+                    std::iter::once(txt("Choose each cursor independently. Default restores the original; Pack follows the cursor selector."))
+                        .chain((0..crate::playlist_tools::CURSOR_CHOICES.len()).map(|i| row(I::Cursor(i)))).collect()),
+                g("Interface font", vec![row(I::Fonts), row(I::Files),
+                    txt("Import fonts you have permission to share. Export includes the font file."),
+                ]),
+            ]
+        }
+        THEME if st.advanced_theme.as_ref().is_some_and(|s| s.mixer_designer.is_some()) => {
+            use crate::advanced_theme::{self as a, MixerRow as M, Row as E};
+            let part = st.advanced_theme.as_ref().unwrap().mixer_designer.as_ref().unwrap().part;
+            let row = |r| ThemeEditor(E::Mixer(r));
+            let mut rows = vec![
+                Buttons(vec![(crate::mixer_skin::BACK, 180.0), (crate::mixer_skin::CLOSE, 150.0)]),
+                Buttons(vec![(a::APPLY, 88.0), (a::CANCEL, 85.0), (THEME_UNDO, 58.0), (THEME_REDO, 58.0), (a::EXPORT, 100.0)]),
+                txt("Design controls for the full Mixer and Channel Strip layouts."),
+                row(M::Target), row(M::Components), row(M::Preview),
+            ];
+            if part != crate::mixer_skin::Part::Meter { rows.push(row(M::States)); }
+            if matches!(part, crate::mixer_skin::Part::Knob | crate::mixer_skin::Part::Fader | crate::mixer_skin::Part::Meter) {
+                rows.push(row(M::Value));
+            }
+            rows.extend([row(M::Style), row(M::Detail), row(M::Edge), row(M::Colors), row(M::Artwork)]);
+            vec![g("Mixer Skin Designer", rows)]
+        }
+        THEME if st.advanced_theme.is_some() => {
+            use crate::advanced_theme as a;
+            let editor = st.advanced_theme.as_ref().unwrap();
+            let mut sections = vec![g("Theme Editor", vec![
+                txt("Preview live. Enter saves a field. Apply keeps the changes."),
+                Buttons(vec![(a::APPLY, 94.0), (a::CANCEL, 92.0), (THEME_UNDO, 62.0), (THEME_REDO, 62.0), (a::EXPORT, 110.0)]),
+                ThemeEditor(a::Row::Search),
+                ThemeEditor(a::Row::Preview),
+                Buttons(vec![(a::WALLPAPER, 132.0), (a::CLEAR_WALLPAPER, 120.0), (crate::mixer_skin::OPEN, 166.0), (crate::theme_identity::OPEN, 120.0)]),
+            ])];
+            if st.unreadable.is_some() {
+                sections.push(g("", vec![txt("Some text has low contrast against its background.")]));
+            }
+            if editor.groups.is_empty() {
+                sections.push(g("", vec![txt("No colors or styles match your search.")]));
+            }
+            sections.extend(editor.groups.iter().map(|(title, rows)| {
+                let rows = rows.iter().copied().map(ThemeEditor).collect();
+                if editor.query.text.trim().is_empty() { gf(title, *title != "Shape & finish", rows) } else { g(title, rows) }
+            }));
+            sections
+        }
         THEME => {
+            let vintage = s.vintage_2005;
+            let featured = g("Featured appearance", vec![
+                Check(crate::vintage::LABEL, vintage),
+                txt(if vintage {
+                    "Vintage appearance is active. Switch it off to return to your theme."
+                } else {
+                    "Switch the workspace to the steel-gray, beveled look of 2005."
+                }),
+            ]);
+            if vintage {
+                return vec![featured, g("Options", vec![Check(crate::prefs::BRIGHT_PLAYLIST_CLIPS.label, false)])];
+            }
             // Skins (shapes and base colours) and themes (`.flstheme` colours for either skin), spec:
             // ui/theme-presets.md "Settings".
             let skins = os_theme::Design::ALL.iter().map(|d| d.name().to_string()).collect();
             let themes = st.themes.iter().map(|(n, _)| n.clone()).collect();
             vec![
+                featured,
+                g("Customize", vec![Buttons(vec![(crate::advanced_theme::OPEN, 160.0), (crate::mixer_skin::OPEN, 166.0), (crate::theme_identity::OPEN, 120.0), (crate::advanced_theme::EXPORT, 110.0)])]),
+                g("Mixer", vec![combo(s.fl_text.as_deref().and_then(|text| os_theme::fl::get_key(text, crate::mixer_skin::FINISH))
+                    .filter(|v| crate::mixer_skin::Scope::ALL.iter().any(|style| style.label() == *v))
+                    .unwrap_or_else(|| crate::prefs::choice(&crate::prefs::MIXER_STYLE)), 170.0, crate::prefs::MIXER_STYLE.label)]),
                 g("Skins", vec![Tiles(TileList::Skins, skins, st.skin)]),
                 g("Themes", vec![Tiles(TileList::Themes, themes, st.preset)]),
             ]
@@ -826,7 +1001,7 @@ pub fn page(tab: usize, s: &State) -> Vec<Group> {
             .chain(st.unreadable.map(|_| g("", vec![ThemeWarn])))
             .chain([
                 gf("Adjustments", false, vec![ThemeKnobs]),
-                g("Options", vec![Check(NOTE_COLORS_CHECK, s.fl_theme().override_clips)]),
+                g("Options", vec![Check(NOTE_COLORS_CHECK, s.fl_theme().override_clips), Check(crate::prefs::BRIGHT_PLAYLIST_CLIPS.label,false)]),
                 g(
                     "",
                     vec![Buttons(vec![("Load theme...", 110.0), ("Reset", 64.0), (SAVE_PRESET, 100.0), (THEME_UNDO, 64.0), (THEME_REDO, 64.0)])],
@@ -958,13 +1133,15 @@ fn row_h(r: &Row) -> f32 {
     match r {
         Row::Check(..) | Row::Check2(..) | Row::Off(..) => 21.0,
         Row::Combo(..) | Row::Value(..) | Row::ValueR(..) => 27.0,
-        Row::Buttons(..) => 36.0,
+        Row::Buttons(..) | Row::VisibilitySearch | Row::MenuControls(..) | Row::MenuName => 36.0,
+        Row::MenuEntry(..) => 30.0,
         Row::Slider(..) | Row::Ppi => 28.0,
         Row::List(c, _, n) => (if c.iter().any(|c| !c.0.is_empty()) { 18.0 } else { 0.0 }) + 17.0 * *n as f32 + 10.0,
         Row::Text(_, dim) => if *dim { 16.0 } else { 20.0 },
         Row::Big(_) => 28.0,
         Row::Tiles(_, t, _) => t.len().div_ceil(TILES_PER_ROW) as f32 * TILE_PITCH_Y + 4.0,
         Row::ThemeKnobs => 140.0,
+        Row::ThemeEditor(row) => row.height(),
         Row::ThemeWarn => 36.0,
         Row::Gap(h) => *h,
         Row::Pair(a, b) => row_h(a).max(row_h(b)),
@@ -1005,6 +1182,25 @@ pub fn page_h(s: &State) -> f32 {
 }
 
 pub fn paint(ui: &mut Ui, s: &State) {
+    if s.settings.advanced_theme.is_some() {
+        // Keep Apply, Cancel, and color entry readable even in an extreme preview.
+        static CHROME: std::sync::OnceLock<os_theme::Palette> = std::sync::OnceLock::new();
+        let theme = ui.t;
+        ui.theme_preview = Some(theme);
+        ui.c.mute_theme_font(true);
+        ui.c.set_icon_pack(0, false);
+        ui.t = CHROME.get_or_init(|| os_theme::design::palette(os_theme::Design::Lemon, None));
+        paint_window(ui, s);
+        ui.c.mute_theme_font(false);
+        ui.c.set_icon_pack(theme.appearance.icon_pack, false);
+        ui.t = theme;
+        ui.theme_preview = None;
+    } else {
+        paint_window(ui, s);
+    }
+}
+
+fn paint_window(ui: &mut Ui, s: &State) {
     let st = &s.settings;
     let r = rect(s);
     let t = ui.t;
@@ -1023,17 +1219,16 @@ pub fn paint(ui: &mut Ui, s: &State) {
         ui.c.fill_rect(r.inset(1.0), t.s(0x2b2d30));
         ui.c.fill_rect(Rect::new(r.x + 1.0, r.y + 1.0, r.w - 2.0, TABS_B - 1.0), t.s(0x25272a));
     }
-    ui.c.icon(&os_ui::tabler::SETTINGS, Rect::new(r.x + 7.0, r.y + 7.0, 16.0, 16.0), t.text_dim);
+    crate::icons::draw(ui.c, crate::icons::Icon::Gear, Rect::new(r.x + 7.0, r.y + 7.0, 16.0, 16.0), t.text_dim);
     let (_, title, _) = TABS[st.tab.min(TABS.len() - 1)];
     ui.c.text(Font::new(13), r.x + 28.0, r.y + 7.0, t.text, &format!("Settings - {title}"));
     let x = Rect::new(r.right() - 26.0, r.y + 5.0, 20.0, 20.0);
     let hov = ui.hit(x, Action::Settings(SAct::Close), "Close");
-    ui.c.icon(&os_ui::tabler::X, x.inset(3.0), if hov { t.glyph } else { t.text });
+    crate::icons::draw(ui.c, crate::icons::Icon::Close, x.inset(3.0), if hov { t.glyph } else { t.text });
     // Tabs (spec §2): active text coloured by group.
     let font = Font::new(13);
-    let rects = tab_rects(ui, r);
-    for (i, &(label, _, grp)) in TABS.iter().enumerate() {
-        let tr = rects[i];
+    for (i, tr) in tab_rects(ui, r) {
+        let (label, _, grp) = TABS[i];
         let hov = ui.hit(tr, Action::Settings(SAct::Tab(i)), TABS[i].1);
         let on = i == st.tab;
         let body = if on { t.s(0x1d1e1f) } else { t.s(0x222425) };
@@ -1067,7 +1262,8 @@ pub fn paint(ui: &mut Ui, s: &State) {
         };
         let lh = ui.c.line_height(font);
         let ty = if lemon { tr.cy() - 2.0 } else { tr.cy() };
-        ui.c.text(font, tr.x + 10.0, (ty - lh / 2.0).round(), col, label);
+        let text_x = tr.x + (tr.w - ui.c.text_width(font, label)) / 2.0;
+        ui.c.text(font, text_x, (ty - lh / 2.0).round(), col, label);
     }
     ui.c.fill_rect(Rect::new(r.x + 1.0, r.y + TABS_B, r.w - 2.0, 1.0), t.s(0x1c1e21));
     // Page.
@@ -1172,7 +1368,7 @@ fn picker(ui: &mut Ui, s: &State, p: &crate::theme_adjust::Picker, win: Rect) {
     use crate::theme_adjust::{self as adj, from_hsv, SWATCHES};
     let t = ui.t;
     let text = adj::applied_text(s, t.style.design);
-    let parts = adj::parts(&text, p.swatch);
+    let parts = if p.custom.is_some() { Vec::new() } else { adj::parts(&text, p.swatch) };
     let rr = adj::picker_rects(p, parts.len(), win);
     let lemon = super::lemon(ui);
     let rad = if lemon { lk::r_panel(t) } else { 0.0 };
@@ -1180,13 +1376,15 @@ fn picker(ui: &mut Ui, s: &State, p: &crate::theme_adjust::Picker, win: Rect) {
     ui.c.fill_rrect(rr.panel.outset(3.0), rad + 3.0, Color::rgb(0).with_alpha(70));
     ui.c.fill_rrect(rr.panel, rad, t.s(0x1c1e21));
     ui.c.fill_rrect(rr.panel.inset(1.0), (rad - 1.0).max(0.0), t.s(0x2b2d30));
-    let title = match parts.get(p.part) {
+    let title = if let Some((token, _)) = p.custom {
+        if token == "LemonStudioStyle.cursor-color" { "Cursor color".into() } else { token.replace('_', " ") }
+    } else { match parts.get(p.part) {
         Some(part) if parts.len() > 1 => format!("{} colour {}", SWATCHES[p.swatch], part.label.to_lowercase()),
         _ => format!("{} colour", SWATCHES[p.swatch]),
-    };
+    }};
     ui.c.text(Font::new(13).bold(), rr.panel.x + 10.0, rr.panel.y + 9.0, t.text, &title);
     let hov = ui.hit(rr.close, Action::Settings(SAct::PickClose), "Close (Esc)");
-    ui.c.icon(&os_ui::tabler::X, rr.close.inset(3.0), if hov { t.glyph } else { t.text });
+    crate::icons::draw(ui.c, crate::icons::Icon::Close, rr.close.inset(3.0), if hov { t.glyph } else { t.text });
     for (k, (b, part)) in rr.chips.iter().zip(&parts).enumerate() {
         let hov = ui.hit(*b, Action::Settings(SAct::PickPart(k as u8)), "Pick this colour");
         let frame = if k == p.part {
@@ -1228,8 +1426,10 @@ fn picker(ui: &mut Ui, s: &State, p: &crate::theme_adjust::Picker, win: Rect) {
     ui.c.fill_rect(Rect::new(rr.hue.x - 1.0, hy - 1.0, rr.hue.w + 2.0, 2.0), Color::rgb(0xffffff));
     // New colour over the old one (a click goes back to it), the hex value, Revert.
     let new = from_hsv(p.hsv);
-    let before = p.before.clone().unwrap_or_else(|| os_theme::design::default_text(t.style.design));
-    let old = adj::parts(&before, p.swatch).get(p.part).map_or(new, |q| q.colour);
+    let old = if let Some((_, color)) = p.custom { color } else {
+        let before = p.before.clone().unwrap_or_else(|| os_theme::design::default_text(t.style.design));
+        adj::parts(&before, p.swatch).get(p.part).map_or(new, |q| q.colour)
+    };
     ui.c.fill_rect(rr.new, new);
     ui.hit(rr.old, Action::Settings(SAct::PickRevert), "The colour before: click to go back to it");
     ui.c.fill_rect(rr.old, old);
@@ -1247,19 +1447,30 @@ fn picker(ui: &mut Ui, s: &State, p: &crate::theme_adjust::Picker, win: Rect) {
 }
 
 /// Tab rects in window `r`: text width + 10 px each side, 4 px apart, 15 px more between groups.
-fn tab_rects(ui: &mut Ui, r: Rect) -> Vec<Rect> {
+fn tab_rects(ui: &mut Ui, r: Rect) -> Vec<(usize, Rect)> {
     let font = Font::new(13);
+    let visible: Vec<_> = TABS.iter().enumerate().filter(|(i, _)| tab_shown(*i))
+        .map(|(i, &(label, _, group))| (i, ui.c.text_width(font, label), group))
+        .collect();
+    let group_gap = 15.0;
+    let gaps = group_gap * visible.windows(2).filter(|pair| pair[0].2 != pair[1].2).count() as f32;
+    let label_width: f32 = visible.iter().map(|&(_, width, _)| width).sum();
+    let room = r.w - label_width - gaps - 14.0;
+    let count = visible.len() as f32;
+    let padding = (room / count).clamp(10.0, 20.0);
+    let spacing = ((room - padding * count) / (count - 1.0)).clamp(0.0, 11.0);
     let mut x = r.x + 3.0;
-    let mut v = Vec::new();
-    for (i, &(label, _, grp)) in TABS.iter().enumerate() {
-        if i > 0 && TABS[i - 1].2 != grp {
-            x += 15.0;
+    let mut previous_group = None;
+    visible.into_iter().map(|(i, label_width, group)| {
+        if previous_group.is_some_and(|previous| previous != group) {
+            x += group_gap;
         }
-        let w = ui.c.text_width(font, label) + 20.0;
-        v.push(Rect::new(x.round(), r.y + 34.0, w.round(), TABS_B - 34.0));
-        x += w + 11.0;
-    }
-    v
+        previous_group = Some(group);
+        let width = label_width + padding;
+        let rect = Rect::new(x.round(), r.y + 34.0, width.round(), TABS_B - 34.0);
+        x += width + spacing;
+        (i, rect)
+    }).collect()
 }
 
 fn paint_group(ui: &mut Ui, s: &State, gr: &Group, r: Rect, open: bool, clip: Rect) {
@@ -1302,7 +1513,11 @@ fn paint_group(ui: &mut Ui, s: &State, gr: &Group, r: Rect, open: bool, clip: Re
     for row in &gr.rows {
         let h = row_h(row);
         if y + h > clip.y && y < clip.bottom() {
-            paint_row(ui, s, gr.title, row, r, y, h);
+            if s.settings.tab == MENUS {
+                ui.clip_hit_rows(clip, |ui| paint_row(ui, s, gr.title, row, r, y, h));
+            } else {
+                paint_row(ui, s, gr.title, row, r, y, h);
+            }
         }
         y += h;
     }
@@ -1314,6 +1529,19 @@ fn check(ui: &mut Ui, key: &'static str, on: bool, x: f32, cy: f32, enabled: boo
     let on = crate::prefs::find_check(key).map_or(on, crate::prefs::check);
     let t = ui.t;
     let tw = ui.c.text_width(Font::new(13), key);
+    if key == crate::vintage::LABEL {
+        let track = Rect::new(x - 6.0, cy - 7.0, 29.0, 14.0);
+        let hit = Rect::new(x - 8.0, cy - 10.0, tw + 46.0, 20.0);
+        let hover = ui.hit(hit, Action::Settings(SAct::Check(key)), "Switch the workspace appearance");
+        let fill = if on { t.accent_dim } else { t.sunken_dark };
+        kit::bordered(ui.c, track, 7.0, t.window_border, fill);
+        ui.c.fill_circle(if on { track.right() - 7.0 } else { track.x + 7.0 }, cy, 4.5,
+            if on { t.accent } else { t.text_dim });
+        let lh = ui.c.line_height(Font::new(13));
+        ui.c.text(Font::new(13).bold(), track.right() + 8.0, (cy - lh / 2.0).round(),
+            if hover { t.glyph } else { t.text }, key);
+        return;
+    }
     let hr = Rect::new(x - 8.0, cy - 9.0, tw + 26.0, 18.0);
     let hov = enabled && ui.hit(hr, Action::Settings(SAct::Check(key)), "");
     if !enabled {
@@ -1390,6 +1618,18 @@ fn name_of(label: &'static str, group: &'static str) -> &'static str {
     } else {
         "This option"
     }
+}
+
+fn menu_button(ui: &mut Ui, r: Rect, label: &str, action: Option<crate::menu_layout::Action>, hint: &str) {
+    let active = action.is_some();
+    let hover = action.is_some_and(|act| ui.hit(r, Action::Settings(SAct::MenuLayout(act)), hint.to_string()));
+    let t = ui.t;
+    if super::lemon(ui) {
+        lk::outlined(ui.c, r, lk::r_btn(t), t.s(0x161819), lk::face(t.s(0x2a2d2f), kit::State::hover(hover)));
+    } else {
+        kit::bordered(ui.c, r, 2., t.s(0x161819), kit::face(t.s(0x212425), kit::State::hover(hover)));
+    }
+    ui.c.text_center(LABEL, r, if hover { t.glyph } else if active { t.text } else { t.text_dim }, label);
 }
 
 fn paint_row(ui: &mut Ui, s: &State, group: &'static str, row: &Row, g: Rect, y: f32, h: f32) {
@@ -1485,6 +1725,64 @@ fn paint_row_at(ui: &mut Ui, s: &State, group: &'static str, row: &Row, g: Rect,
             ui.c.text_right(f, b.x - 8.0, ty, t.text, label);
             let lw = ui.c.text_width(f, label);
             grey(ui, Rect::span(b.x - 8.0 - lw, b.right(), b.y, b.bottom()));
+        }
+        Row::ThemeEditor(row) => {
+            crate::advanced_theme::paint(ui, s, *row, Rect::new(x0, y, g.right() - x0 - 10.0, h));
+        }
+        Row::MenuControls(changed) => {
+            use crate::menu_layout::{self as layout, Action as M};
+            let r = Rect::new(x0, y + 4., 274., 28.);
+            menu_button(ui, r, &format!("Choose  ·  {}", layout::current(s)), Some(M::Choose), "Choose a menu");
+            menu_button(ui, Rect::new(r.right() + 8., r.y, 126., r.h), "Undo last edit",
+                changed.then_some(M::Undo), "Undo the most recent change to this menu");
+            menu_button(ui, Rect::new(r.right() + 142., r.y, 150., r.h), "Reset this menu",
+                changed.then_some(M::Reset), "Restore the original layout and visibility of this menu");
+        }
+        Row::MenuName => {
+            use crate::menu_layout::Action as M;
+            let r = Rect::new(x0, y + 4., 274., 28.);
+            let editor = &s.settings.menu_editor;
+            let hover = ui.hit(r, Action::Settings(SAct::MenuLayout(M::Name)), "Name your new submenu");
+            super::sunken(ui, r, t.sunken);
+            let label = if editor.name.text.is_empty() { "New submenu name…" } else { &editor.name.text };
+            cell_text(ui, r, label, editor.name_focused.then_some(&editor.name), hover);
+            menu_button(ui, Rect::new(r.right() + 8., r.y, 126., r.h), "Add submenu",
+                (!editor.name.text.trim().is_empty()).then_some(M::Add), "Create a submenu in the first menu");
+        }
+        Row::MenuEntry(entry) => {
+            use crate::menu_layout::Action as M;
+            let x = x0 + 18. * entry.depth.min(8) as f32;
+            let right = g.right() - 12.;
+            let r = Rect::new(x, y + 3., 24., 24.);
+            if entry.folder {
+                menu_button(ui, r, if entry.expanded { "-" } else { "+" },
+                    Some(M::Expand(entry.id.clone())), "Expand or collapse the submenu in this editor");
+            }
+            let ink = if entry.hidden || entry.parent_hidden { t.text_dim } else { t.text };
+            ui.c.text_clip(if entry.folder { f.bold() } else { f }, r.right() + 7., ty,
+                right - 228. - r.right(), ink, &entry.label);
+            let visibility = if entry.hidden { "Hidden" } else if entry.parent_hidden { "In hidden group" } else { "Shown" };
+            menu_button(ui, Rect::new(right - 214., r.y, 91., r.h), visibility,
+                Some(M::Toggle(entry.id.clone(), !entry.hidden)), "Show or hide this entry");
+            menu_button(ui, Rect::new(right - 118., r.y, 23., r.h), "↑",
+                entry.up.then(|| M::Reorder(entry.id.clone(), -1)), "Move up within this menu");
+            menu_button(ui, Rect::new(right - 92., r.y, 23., r.h), "↓",
+                entry.down.then(|| M::Reorder(entry.id.clone(), 1)), "Move down within this menu");
+            menu_button(ui, Rect::new(right - 65., r.y, 39., r.h), "Move",
+                Some(M::MovePicker(entry.id.clone())), "Move this entry to the first menu or another submenu");
+            if entry.id.starts_with('@') {
+                menu_button(ui, Rect::new(right - 23., r.y, 23., r.h), "x",
+                    Some(M::Dissolve(entry.id.clone())), "Remove the submenu and keep its entries");
+            }
+        }
+        Row::VisibilitySearch => {
+            let box_rect = Rect::new(x0, y + 4.0, 270.0, 28.0);
+            let focused = s.settings.visibility_search_focused;
+            let field = &s.settings.visibility_search;
+            let hover = ui.hit(box_rect, Action::Settings(SAct::VisibilitySearch), "Search visibility controls");
+            super::sunken(ui, box_rect, t.sunken);
+            let label = if field.text.is_empty() { "Search visibility controls..." } else { &field.text };
+            cell_text(ui, box_rect, label, focused.then_some(field), hover);
         }
         Row::Buttons(bs) => {
             let mut x = x0;
@@ -1899,7 +2197,7 @@ fn search_folders(ui: &mut Ui, s: &State, b: Rect) {
 
 /// A list cell's text, or the text being typed into it: a darker well, the text scrolled sideways to keep the caret in
 /// view, the caret or the selection.
-fn cell_text(ui: &mut Ui, r: Rect, text: &str, typing: Option<&crate::dialog::Field>, hov: bool) {
+pub(crate) fn cell_text(ui: &mut Ui, r: Rect, text: &str, typing: Option<&crate::dialog::Field>, hov: bool) {
     let t = ui.t;
     let f = Font::new(13);
     let lh = ui.c.line_height(f);
@@ -1952,7 +2250,7 @@ fn folders(ui: &mut Ui, list: &[(String, &'static str, bool, bool)], b: Rect) {
         if *added {
             let xr = Rect::new(rr.right() - 21.0, rr.y + 2.0, 17.0, 17.0);
             let hov = ui.hit(xr, Action::Settings(SAct::Plug(Plug::Remove(i))), "Remove this folder");
-            ui.c.icon(&os_ui::tabler::X, xr.inset(2.0), if hov { t.glyph } else { t.text_dim });
+            crate::icons::draw(ui.c, crate::icons::Icon::Close, xr.inset(2.0), if hov { t.glyph } else { t.text_dim });
         }
     }
 }
@@ -2039,9 +2337,13 @@ fn table(ui: &mut Ui, s: &State, area: Rect) {
             let hov = ui.hit(sr, Action::Settings(SAct::Plug(Plug::Star(vi))), if row.favorite { "Favourite: listed first in the plugin menus" } else { "Star: list it first in the plugin menus" });
             let ir = Rect::new(sr.cx() - 6.5, sr.cy() - 6.5, 13.0, 13.0);
             if row.favorite {
-                ui.c.icon(&STAR_ON, ir, if super::lemon(ui) { t.brand_lit(os_theme::design::lemon::MAIN) } else { t.h(0xfdc13d) });
+                if ui.c.icon_pack() == 0 {
+                    ui.c.icon(&STAR_ON, ir, if super::lemon(ui) { t.brand_lit(os_theme::design::lemon::MAIN) } else { t.h(0xfdc13d) });
+                } else {
+                    crate::icons::draw(ui.c, crate::icons::Icon::Star, ir, if super::lemon(ui) { t.brand_lit(os_theme::design::lemon::MAIN) } else { t.h(0xfdc13d) });
+                }
             } else {
-                ui.c.icon(&os_ui::tabler::STAR, ir, if hov { t.glyph } else { t.s(0x58595a) });
+                crate::icons::draw(ui.c, crate::icons::Icon::Star, ir, if hov { t.glyph } else { t.s(0x58595a) });
             }
             let shr = Rect::new(x0 + COLS[1].0, rr.y, COLS[1].1, rr.h);
             let hov = ui.hit(shr, Action::Settings(SAct::Plug(Plug::Show(vi))), if row.shown { "Listed in the plugin menus: click to hide" } else { "Hidden from the plugin menus: click to list" });
@@ -2077,7 +2379,7 @@ fn table(ui: &mut Ui, s: &State, area: Rect) {
     let hov = ui.hit(fr, Action::Settings(SAct::Plug(Plug::Find)), "Find: type to keep the plugins whose name, vendor or file contain the text (Esc clears)");
     let well = if d.finding { t.s(0x141516) } else if hov { t.s(0x1d1f21) } else { t.s(0x191b1c) };
     kit::sunken(ui.c, t, fr, well);
-    ui.c.icon(&os_ui::tabler::SEARCH, Rect::new(fr.x + 5.0, fr.cy() - 6.5, 13.0, 13.0), t.text_dim);
+    crate::icons::draw(ui.c, crate::icons::Icon::Search, Rect::new(fr.x + 5.0, fr.cy() - 6.5, 13.0, 13.0), t.text_dim);
     let tx = fr.x + 23.0;
     let ty = (fr.cy() - lh / 2.0).round();
     if d.find.is_empty() && !d.finding {

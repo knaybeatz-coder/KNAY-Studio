@@ -3,46 +3,10 @@
 use std::{ffi::c_void,time::{Duration,Instant}};
 use windows_sys::Win32::UI::Controls::SetScrollInfo;
 use windows_sys::Win32::{Foundation::{HWND,LPARAM,LRESULT,WPARAM,RECT,POINT},Graphics::Gdi::*,System::LibraryLoader::GetModuleHandleW,UI::WindowsAndMessaging::*};
-#[derive(Clone,Copy,Debug,PartialEq)]
-struct Page {left:f32,right:f32}
-impl Page {fn width(self)->f32{self.right-self.left}}
-#[derive(Clone,Copy)]enum Profile{Whole,Scheps,SslClassic,SslEv2,Tg12345}
-fn profile(d:&os_host::Descriptor)->Profile{
-    if !d.vendor.eq_ignore_ascii_case("Waves"){return Profile::Whole;}
-    if d.name.starts_with("Scheps Omni Channel 2"){Profile::Scheps}
-
-    else if d.name.starts_with("Abbey Road EMI TG12345 Ch"){Profile::Tg12345}
-    else if d.name.starts_with("SSL EV2 Channel"){Profile::SslEv2}
-    else if d.name.starts_with("SSLChannel")||d.name.starts_with("SSLGChannel"){Profile::SslClassic}
-    else{Profile::Whole}
-}
-fn pages(profile:Profile,size:(u32,u32))->Vec<Page>{
-    let ratio=size.0 as f32/size.1.max(1) as f32;
-    // Geometry from the installed Waves V15 GUIXML. Unknown aspect/layout falls
-    // back to the complete original editor, never equal-width guessed pages.
-    let spec:Option<(f32,&[f32])>=match profile{
-        Profile::Scheps if (1.26..=1.42).contains(&ratio)=>Some((840.,&[0.,115.,227.,339.,451.,601.,840.])),
-        Profile::SslClassic if (0.49..=0.55).contains(&ratio)=>Some((357.,&[0.,185.,357.])),
-        _=>None,
-    };
-    // Installed TG12345 has distinct mono/stereo layouts. Keep each complete
-    // dynamics, EQ and output section; stereo overlap retains boundary controls.
-    if matches!(profile,Profile::Tg12345){
-        let spec=if (0.85..=0.92).contains(&ratio){Some((518.,[(0.,166.),(166.,332.),(332.,518.)]))}
-            else if (1.08..=1.16).contains(&ratio){Some((658.,[(0.,224.),(209.,420.),(392.,658.)]))}else{None};
-        if let Some((width,parts))=spec{return parts.into_iter().map(|(l,r)|Page{left:l*size.0 as f32/width,right:r*size.0 as f32/width}).collect();}
-    }
-    // EV2's section-edge hit areas overlap: include them in full on their own
-    // page instead of slicing at the decorative 155/310 dividers.
-    if matches!(profile,Profile::SslEv2)&&(0.72..=0.80).contains(&ratio){
-        return [(0.,164.),(154.,320.),(310.,465.)].into_iter().map(|(l,r)|Page{left:l*size.0 as f32/465.,right:r*size.0 as f32/465.}).collect();
-    }
-    if let Some((width,cuts))=spec{cuts.windows(2).map(|p|Page{left:p[0]*size.0 as f32/width,right:p[1]*size.0 as f32/width}).collect()}
-    else{vec![Page{left:0.,right:size.0 as f32}]}
-}
+use crate::strip_geometry::*;
 fn ease(t:f32)->f32{let t=t.clamp(0.,1.);t*t*(3.-2.*t)}
 struct Data {inner:HWND,port:HWND,size:(i32,i32),offset:i32,x:f32,page_width:f32}
-pub struct Editor {hwnd:HWND,data:Box<Data>,pub owner:isize,pub scale:f32,rect:[i32;4],clip:Vec<[i32;4]>,profile:Profile,pages:Vec<Page>,page:usize,slide:Option<(Instant,f32,f32)>,open_height:i32,pending_height:Option<(i32,Instant)>}
+pub struct Editor {hidden_since:Option<Instant>,hwnd:HWND,data:Box<Data>,pub owner:isize,pub scale:f32,rect:[i32;4],clip:Vec<[i32;4]>,profile:Profile,pages:Vec<Page>,page:usize,slide:Option<(Instant,f32,f32)>,open_height:i32,pending_height:Option<(i32,Instant)>}
 fn wide(s:&str)->Vec<u16>{s.encode_utf16().chain(Some(0)).collect()}
 unsafe fn repaint(hwnd:HWND){unsafe{RedrawWindow(hwnd,std::ptr::null(),std::ptr::null_mut(),RDW_INVALIDATE|RDW_ERASE|RDW_ALLCHILDREN);}}
 unsafe fn position(hwnd:HWND,d:&mut Data){unsafe{
@@ -50,9 +14,10 @@ unsafe fn position(hwnd:HWND,d:&mut Data){unsafe{
     d.offset=d.offset.clamp(0,(d.size.1-r.bottom).max(0));
     let info=SCROLLINFO{cbSize:std::mem::size_of::<SCROLLINFO>() as u32,fMask:SIF_RANGE|SIF_PAGE|SIF_POS,nMin:0,nMax:d.size.1-1,nPage:r.bottom.max(1) as u32,nPos:d.offset,nTrackPos:0};SetScrollInfo(hwnd,SB_VERT,&info,1);
     GetClientRect(hwnd,&mut r);
-    let w=d.page_width.round().max(1.) as i32;
+    let left=d.x.round() as i32;
+    let w=((d.x+d.page_width).round() as i32-left).max(1);
     SetWindowPos(d.port,std::ptr::null_mut(),(r.right-w).max(0)/2,0,w,r.bottom.max(1),SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOCOPYBITS);
-    SetWindowPos(d.inner,std::ptr::null_mut(),-d.x.round() as i32,-d.offset,d.size.0.max(1),d.size.1.max(1),SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOCOPYBITS);
+    SetWindowPos(d.inner,std::ptr::null_mut(),-left,-d.offset,d.size.0.max(1),d.size.1.max(1),SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOCOPYBITS);
     repaint(hwnd);crate::plugin_window::embedded_exposed();
 }}
 unsafe extern "system" fn proc(hwnd:HWND,msg:u32,wp:WPARAM,lp:LPARAM)->LRESULT{unsafe{
@@ -72,8 +37,12 @@ impl Editor{
         let port=create(hwnd,WS_VISIBLE);if port.is_null(){DestroyWindow(hwnd);return Err("Could not create section viewport".into());}
         let inner=create(port,WS_VISIBLE);if inner.is_null(){DestroyWindow(hwnd);return Err("Could not create editor parent".into());}
         let mut data=Box::new(Data{inner,port,size:(1,1),offset:0,x:0.,page_width:1.});SetWindowLongPtrW(hwnd,GWLP_USERDATA,(&mut *data as *mut Data) as isize);
-        Ok(Self{hwnd,data,owner,scale,rect:[0;4],clip:vec![],profile:Profile::Whole,pages:vec![Page{left:0.,right:1.}],page:0,slide:None,open_height:0,pending_height:None})
+        Ok(Self{hidden_since:None,hwnd,data,owner,scale,rect:[0;4],clip:vec![],profile:Profile::Whole,pages:vec![Page{left:0.,right:1.}],page:0,slide:None,open_height:0,pending_height:None})
     }}
+    pub fn hide_for_scroll(&mut self)->bool {
+        if self.hidden_since.is_none(){unsafe{ShowWindow(self.hwnd,SW_HIDE);}self.hidden_since=Some(Instant::now());}
+        self.hidden_since.is_some_and(|t|t.elapsed()<Duration::from_secs(2))
+    }
     pub fn refresh(&self){unsafe{repaint(self.hwnd);}crate::plugin_window::embedded_exposed();}
     pub fn area(&self)->*mut c_void{self.data.inner as _}
     pub fn accept_size(&mut self,size:(u32,u32))->bool{
@@ -101,8 +70,10 @@ impl Editor{
     }
     pub fn screen_point(&self,p:(i32,i32))->(i32,i32){unsafe{let mut pt=POINT{x:p.0,y:p.1};ClientToScreen(self.data.inner,&mut pt);(pt.x,pt.y)}}
     pub fn place(&mut self,r:[i32;4],clip:[i32;4],covers:&[[i32;4]]){unsafe{
+        if self.hidden_since.take().is_some(){self.clip.clear();}
         let mut key=vec![clip];key.extend_from_slice(covers);if r==self.rect&&key==self.clip{return;}self.clip=key;crate::plugin_window::embedded_exposed();
-        if r!=self.rect{SetWindowPos(self.hwnd,HWND_BOTTOM,r[0],r[1],(r[2]-r[0]).max(1),(r[3]-r[1]).max(1),SWP_NOACTIVATE|SWP_NOCOPYBITS);self.rect=r;position(self.hwnd,&mut self.data);}
+        let size_changed=r[2]-r[0]!=self.rect[2]-self.rect[0] || r[3]-r[1]!=self.rect[3]-self.rect[1];
+        if r!=self.rect{SetWindowPos(self.hwnd,HWND_BOTTOM,r[0],r[1],(r[2]-r[0]).max(1),(r[3]-r[1]).max(1),SWP_NOACTIVATE|SWP_NOCOPYBITS);self.rect=r;if size_changed{position(self.hwnd,&mut self.data);}}
         let region=CreateRectRgn(clip[0]-r[0],clip[1]-r[1],clip[2]-r[0],clip[3]-r[1]);
         for c in covers{let cut=CreateRectRgn(c[0]-r[0],c[1]-r[1],c[2]-r[0],c[3]-r[1]);CombineRgn(region,region,cut,RGN_DIFF);DeleteObject(cut);}
         if SetWindowRgn(self.hwnd,region,1)==0{DeleteObject(region);}ShowWindow(self.hwnd,SW_SHOWNOACTIVATE);repaint(self.hwnd);
@@ -132,6 +103,7 @@ impl crate::plugins::Plugins {
         if h.rack_editor.is_none(){
             let result=(||{
                 let mut e=Editor::new(owner,scale)?;e.rect=r;
+                unsafe{SetPropW(e.hwnd,wide("LemonStripTrack").as_ptr(),(crate::plugins::fx_of(key).unwrap().0 as usize+1) as _);}
                 let mut p=h.plugin.lock().map_err(|_|"Plugin busy".to_string())?;
                 let d=p.desc().clone();e.profile=profile(&d);e.open_height=r[3]-r[1];
                 let fit=prepare(&d,scale,r,|scale|{let result=p.open_editor(e.area(),scale);p.close_editor();result})?;
@@ -157,7 +129,7 @@ fn prepare(d:&os_host::Descriptor,scale:f32,r:[i32;4],mut probe:impl FnMut(f32)-
     let experimental=!d.vendor.eq_ignore_ascii_case("Waves");
     if experimental {
         let a=probe(1.)?;let b=probe(0.75)?;
-        if a==b{return Err("This unsupported strip does not respond to host resizing. Only Waves strips are supported; other strips must be resizable.".into());}
+        if a==b{return Err("This unsupported strip does not respond to host resizing. UAD and other non-Waves strips must respond to host resizing.".into());}
     }
     let fit=((r[3]-r[1]).max(1) as f32/spec.1 as f32).clamp(0.25,scale.max(1.)*3.);
     let size=match probe(fit){Ok(size)=>size,Err(_) => {let size=probe(scale)?;if !crate::rack_mixer::vertical_shape(size){return Err("This plugin reported an invalid editor size.".into());}return Ok(scale);}};
@@ -165,19 +137,6 @@ fn prepare(d:&os_host::Descriptor,scale:f32,r:[i32;4],mut probe:impl FnMut(f32)-
     Ok(fit)
 }
 #[cfg(test)]mod tests{
-    #[test]fn section_pages_stop_at_complete_module_boundaries(){
-        for factor in [0.5,1.,1.5,2.] {let p=super::pages(super::Profile::Scheps,((840.*factor) as u32,(614.*factor) as u32));assert_eq!(p.len(),6);for (page,pair) in p.iter().zip([0.,115.,227.,339.,451.,601.,840.].windows(2)){assert!((page.left-pair[0]*factor).abs()<0.01);assert!((page.right-pair[1]*factor).abs()<0.01);}assert_eq!(p.last().unwrap().right,840.*factor);}
-        for (profile,size,cuts) in [(super::Profile::SslClassic,(357,675),vec![0.,185.,357.])]{let p=super::pages(profile,size);assert_eq!(p.len()+1,cuts.len());for (p,c) in p.iter().zip(cuts.windows(2)){assert_eq!((p.left,p.right),(c[0],c[1]));}}
-        let ev=super::pages(super::Profile::SslEv2,(465,614));assert_eq!(ev.len(),3);
-        assert!(ev[0].right>=162.);assert!(ev[1].left<=159.&&ev[1].right>=318.);assert_eq!(ev[2].right,465.);
-        assert_eq!(super::pages(super::Profile::Whole,(1200,600)).len(),1);
-        assert_eq!(super::pages(super::Profile::Scheps,(1400,600)).len(),1,"Unknown expanded layout must not guess module boundaries");
-        for (size,cuts) in [((518,587),[(0.,166.),(166.,332.),(332.,518.)]),((658,587),[(0.,224.),(209.,420.),(392.,658.)])]{
-            for factor in [0.5,1.,1.5,2.] {let p=super::pages(super::Profile::Tg12345,((size.0 as f32*factor) as u32,(size.1 as f32*factor) as u32));assert_eq!(p.len(),3);for (p,(l,r)) in p.iter().zip(cuts){assert!((p.left-l*factor).abs()<0.01);assert!((p.right-r*factor).abs()<0.01);}}
-        }
-        assert_eq!(super::pages(super::Profile::Tg12345,(300,587)).len(),1);
-        assert_eq!(super::ease(0.),0.);assert_eq!(super::ease(1.),1.);
-    }
     fn desc()->os_host::Descriptor{let mut d=crate::plugins::builtin_effects()[0].desc.clone();d.name="Magma Channel Strip Mono".into();d.vendor="Waves".into();d.kind=os_host::Kind::Effect;d.id="direct-strip-fit-test".into();d}
     #[test]fn vertical_direct_loading_measures_and_accepts_unscaled_original(){
         let d=desc();let mut scales=vec![];

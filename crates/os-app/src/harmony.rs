@@ -607,7 +607,9 @@ pub fn menu(s: &State, which: u8, x: f32, y: f32) -> Popup {
 pub fn run(app: &mut App, cmd: HCmd) {
     use HCmd::*;
     if let Menu(which) = cmd {
-        app.state.playlist.popup = Some(menu(&app.state, which, app.mouse.0, app.mouse.1));
+        let anchor=app.hits.iter().rev().find(|h| h.action==Action::Harmony(cmd) && h.rect.contains(app.mouse.0,app.mouse.1))
+            .map_or(app.mouse,|h|(h.rect.x,h.rect.bottom()+1.));
+        app.state.playlist.popup = Some(menu(&app.state, which, anchor.0, anchor.1));
         app.invalidate();
         return;
     }

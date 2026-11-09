@@ -9,6 +9,8 @@ fn key(name:&str)->String{crate::plugin_menu::normalized(name)}
 fn native()->&'static Images{
     static DATA:OnceLock<Images>=OnceLock::new();
     DATA.get_or_init(||[
+        (crate::master_assistant::NAME,include_bytes!("../assets/plugin-picker/master-assistant.png") as &[u8]),
+        ("Lemon Wave",include_bytes!("../assets/plugin-picker/lemon-wave.png") as &[u8]),
         ("Lemon Chop", include_bytes!("../assets/plugin-picker/chop.png") as &[u8]),
         ("Lemon Sampler", include_bytes!("../assets/plugin-picker/sampler.png") as &[u8]),
         ("Lemon Trio", include_bytes!("../assets/plugin-picker/trio.png") as &[u8]),

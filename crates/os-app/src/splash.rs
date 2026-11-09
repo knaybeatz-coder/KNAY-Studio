@@ -322,6 +322,7 @@ struct Parts {
     shimmer: Path,
     record: Path,
     record_edge: Path,
+    edition_rim: Path,
     center: Path,
     rind: Path,
     rind_edge: Path,
@@ -338,6 +339,7 @@ impl Parts {
         Some(Parts {
             label: p(logo::LABEL)?,
             shimmer: p(logo::SHIMMER)?,
+            edition_rim: p(include_str!("../assets/logo/edition-rim.path"))?,
             record_edge: outline(&record, 1.0)?,
             record,
             center: p(logo::CENTER)?,
@@ -414,7 +416,7 @@ struct Painter {
 impl Painter {
     fn new(scale: f32) -> Option<Painter> {
         let (w, h) = device(scale);
-        let caption = Canvas::new((DISC.2 * scale).round() as u32, ((CAPTION_H + 22.0) * scale).round() as u32, scale).ok()?;
+        let caption = Canvas::new((DISC.2 * scale).round() as u32, (CAPTION_H * scale).round() as u32, scale).ok()?;
         Some(Painter {
             scale,
             frame: Canvas::new(w, h, scale).ok()?,
@@ -1239,7 +1241,7 @@ mod tests {
             if let Some(dir) = std::env::var_os("LEMON_SPLASH_PREVIEW") {
                 let dir = std::path::PathBuf::from(dir);
                 std::fs::create_dir_all(&dir).unwrap();
-                px.save_png(dir.join(format!("edition-{scale}.png"))).unwrap();
+                p.paint(&look(1.0, 1.0)).save_png(dir.join(format!("edition-{scale}.png"))).unwrap();
             }
             let rgba = |x: usize, y: usize| {
                 let c = px.pixel(x as u32, y as u32).unwrap().demultiply();
@@ -1292,8 +1294,7 @@ mod tests {
         assert!(erfc(4.0) < 1e-7);
     }
 
-    /// "Silent startup" (spec, as above): stored and shown, off as found. Lemon Studio has no startup sound, so it
-    /// silences nothing yet.
+    /// The Windows startup sound preference is stored and defaults to off.
     #[test]
     fn silent_startup_is_stored() {
         assert_eq!(find_check("Silent startup").map(|c| c.key), Some(SILENT_STARTUP.key));

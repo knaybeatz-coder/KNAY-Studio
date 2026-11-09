@@ -134,7 +134,63 @@ pub const RACK_MODE: usize = 128;
 pub const RACK_START: usize = 129;
 pub const RACK_SLOTS: usize = 16;
 pub const RACK_STRIDE: usize = 12;
-pub const COUNT: usize = RACK_START + RACK_SLOTS * RACK_STRIDE;
+pub const RACK_END: usize = RACK_START + RACK_SLOTS * RACK_STRIDE;
+pub const A_ON:usize=321;
+pub const B_ON:usize=322;
+pub const SUB_ON:usize=323;
+pub const SUB_SHAPE:usize=324;
+pub const SUB_OCT:usize=325;
+pub const SUB_PAN:usize=326;
+pub const SUB_TRACK:usize=327;
+pub const SUB_DIRECT:usize=328;
+pub const NOISE_ON:usize=329;
+pub const NOISE_TYPE:usize=330;
+pub const NOISE_PITCH:usize=331;
+pub const NOISE_PAN:usize=332;
+pub const NOISE_TRACK:usize=333;
+pub const NOISE_ONESHOT:usize=334;
+pub const NOISE_RANDOM:usize=335;
+pub const NOISE_DIRECT:usize=336;
+pub const DUAL_FILTER:usize=337;
+pub const FILTER_TOPOLOGY:usize=338;
+pub const F1_ON:usize=339;
+pub const F2_ON:usize=340;
+pub const F1_A:usize=341;
+pub const F1_B:usize=342;
+pub const F1_S:usize=343;
+pub const F1_N:usize=344;
+pub const F2_A:usize=345;
+pub const F2_B:usize=346;
+pub const F2_S:usize=347;
+pub const F2_N:usize=348;
+pub const F1_MIX:usize=349;
+pub const F1_KEY:usize=350;
+pub const F1_PAN:usize=351;
+pub const F2_MIX:usize=352;
+pub const F2_KEY:usize=353;
+pub const F2_PAN:usize=354;
+pub const F2_CUTOFF:usize=355;
+pub const F2_RESONANCE:usize=356;
+pub const F2_FILTER:usize=357;
+pub const F2_DRIVE:usize=358;
+pub const F2_MODEL:usize=359;
+pub const CHORD_ON: usize = 360;
+pub const CHORD_KEY: usize = 361;
+pub const CHORD_SCALE: usize = 362;
+pub const CHORD_SHAPE: usize = 363;
+pub const CHORD_INV: usize = 364;
+pub const ARP_ON: usize = 365;
+pub const ARP_ORDER: usize = 366;
+pub const ARP_RATE: usize = 367;
+pub const ARP_OCT: usize = 368;
+pub const ARP_GATE: usize = 369;
+pub const A_PHASE_FM: usize = 370;
+pub const A_FM_RATIO: usize = 371;
+pub const B_PHASE_FM: usize = 372;
+pub const B_FM_RATIO: usize = 373;
+pub const B_RING: usize = 374;
+pub const COUNT:usize=375;
+pub const FILTER_INPUTS:[[usize;4];2]=[[F1_A,F1_B,F1_S,F1_N],[F2_A,F2_B,F2_S,F2_N]];
 pub const FX_ROUTES: [[usize; 2]; 5] = [[DIST_A,DIST_B],[OTT_A,OTT_B],[CHORUS_A,CHORUS_B],[DELAY_A,DELAY_B],[REVERB_A,REVERB_B]];
 pub const MOD_SOURCES: [&str; 5] = ["Off", "LFO 1", "Envelope 2", "Velocity", "Key track"];
 pub const MOD_TARGETS: [&str; 8] = [
@@ -1198,6 +1254,60 @@ pub const SETTINGS: [Setting; COUNT] = [
     Setting {id:"fx16_9",name:"FX 16 Control 4",range:(0,1000),start:500,magnet:None},
     Setting {id:"fx16_10",name:"FX 16 Control 5",range:(0,1000),start:500,magnet:None},
     Setting {id:"fx16_11",name:"FX 16 Mix",range:(0,1000),start:500,magnet:None},
+    Setting {id:"a_on",name:"Oscillator A on",range:(0,1),start:1,magnet:None},
+    Setting {id:"b_on",name:"Oscillator B on",range:(0,1),start:1,magnet:None},
+    Setting {id:"sub_on",name:"Sub oscillator on",range:(0,1),start:1,magnet:None},
+    Setting {id:"sub_shape",name:"Sub waveform",range:(0,5),start:0,magnet:None},
+    Setting {id:"sub_oct",name:"Sub octave",range:(-4,2),start:-1,magnet:None},
+    Setting {id:"sub_pan",name:"Sub pan",range:(-100,100),start:0,magnet:None},
+    Setting {id:"sub_track",name:"Sub key tracking",range:(0,1),start:1,magnet:None},
+    Setting {id:"sub_direct",name:"Sub direct out",range:(0,1),start:0,magnet:None},
+    Setting {id:"noise_on",name:"Noise oscillator on",range:(0,1),start:1,magnet:None},
+    Setting {id:"noise_type",name:"Noise source",range:(0,8),start:0,magnet:None},
+    Setting {id:"noise_pitch",name:"Noise pitch",range:(-48,48),start:0,magnet:None},
+    Setting {id:"noise_pan",name:"Noise pan",range:(-100,100),start:0,magnet:None},
+    Setting {id:"noise_track",name:"Noise key tracking",range:(0,1),start:0,magnet:None},
+    Setting {id:"noise_oneshot",name:"Noise one shot",range:(0,1),start:0,magnet:None},
+    Setting {id:"noise_random",name:"Noise random start",range:(0,1),start:1,magnet:None},
+    Setting {id:"noise_direct",name:"Noise direct out",range:(0,1),start:0,magnet:None},
+    Setting {id:"dual_filter",name:"Dual filter routing",range:(0,1),start:0,magnet:None},
+    Setting {id:"filter_topology",name:"Filter topology",range:(0,2),start:0,magnet:None},
+    Setting {id:"f1_on",name:"Filter 1 on",range:(0,1),start:1,magnet:None},
+    Setting {id:"f2_on",name:"Filter 2 on",range:(0,1),start:0,magnet:None},
+    Setting {id:"f1_a",name:"Filter 1 A input",range:(0,1),start:1,magnet:None},
+    Setting {id:"f1_b",name:"Filter 1 B input",range:(0,1),start:1,magnet:None},
+    Setting {id:"f1_s",name:"Filter 1 S input",range:(0,1),start:1,magnet:None},
+    Setting {id:"f1_n",name:"Filter 1 N input",range:(0,1),start:1,magnet:None},
+    Setting {id:"f2_a",name:"Filter 2 A input",range:(0,1),start:0,magnet:None},
+    Setting {id:"f2_b",name:"Filter 2 B input",range:(0,1),start:0,magnet:None},
+    Setting {id:"f2_s",name:"Filter 2 S input",range:(0,1),start:0,magnet:None},
+    Setting {id:"f2_n",name:"Filter 2 N input",range:(0,1),start:0,magnet:None},
+    Setting {id:"f1_mix",name:"Filter 1 mix",range:(0,1000),start:1000,magnet:None},
+    Setting {id:"f1_key",name:"Filter 1 key tracking",range:(0,1000),start:0,magnet:None},
+    Setting {id:"f1_pan",name:"Filter 1 pan",range:(-100,100),start:0,magnet:None},
+    Setting {id:"f2_mix",name:"Filter 2 mix",range:(0,1000),start:1000,magnet:None},
+    Setting {id:"f2_key",name:"Filter 2 key tracking",range:(0,1000),start:0,magnet:None},
+    Setting {id:"f2_pan",name:"Filter 2 pan",range:(-100,100),start:0,magnet:None},
+    Setting {id:"f2_cutoff",name:"Filter 2 cutoff",range:(0,1000),start:750,magnet:None},
+    Setting {id:"f2_resonance",name:"Filter 2 resonance",range:(0,1000),start:70,magnet:None},
+    Setting {id:"f2_filter",name:"Filter 2 type",range:(0,3),start:1,magnet:None},
+    Setting {id:"f2_drive",name:"Filter 2 drive",range:(0,1000),start:0,magnet:None},
+    Setting {id:"f2_model",name:"Filter 2 model",range:(0,2),start:1,magnet:None},
+    Setting {id:"chord_on",name:"Chord",range:(0,1),start:0,magnet:None},
+    Setting {id:"chord_key",name:"Key",range:(0,11),start:0,magnet:None},
+    Setting {id:"chord_scale",name:"Scale",range:(0,4),start:0,magnet:None},
+    Setting {id:"chord_shape",name:"Chord structure",range:(0,16),start:0,magnet:None},
+    Setting {id:"chord_inv",name:"Voicing",range:(0,2),start:0,magnet:None},
+    Setting {id:"arp_on",name:"Arpeggiator",range:(0,1),start:0,magnet:None},
+    Setting {id:"arp_order",name:"Arp order",range:(0,3),start:0,magnet:None},
+    Setting {id:"arp_rate",name:"Arp division",range:(0,5),start:1,magnet:None},
+    Setting {id:"arp_oct",name:"Arp octaves",range:(0,2),start:0,magnet:None},
+    Setting {id:"arp_gate",name:"Arp gate",range:(0,3),start:2,magnet:None},
+    Setting {id:"a_phase_fm",name:"A Phase FM",range:(0,1000),start:0,magnet:None},
+    Setting {id:"a_fm_ratio",name:"A FM ratio",range:(1,8),start:1,magnet:None},
+    Setting {id:"b_phase_fm",name:"B Phase FM",range:(0,1000),start:0,magnet:None},
+    Setting {id:"b_fm_ratio",name:"B FM ratio",range:(1,8),start:1,magnet:None},
+    Setting {id:"b_ring",name:"B Ring modulation",range:(0,1000),start:0,magnet:None},
 ];
 pub const CONTROLS: [Control; 50] = [
     Control::Knob {
@@ -1671,7 +1781,7 @@ pub const SPEC: &Spec = &Spec {
     any_version: false,
     fields: &[],
     tail: &[],
-    size: (1180, 820),
+    size: (1584, 1056),
     cards: &CARDS,
     controls: &CONTROLS,
     display: None, // Per-instance waveforms are drawn by TableEditor.
@@ -1701,6 +1811,7 @@ pub fn lfo_hz(v: f32) -> f32 {
     0.05 * 400.0_f32.powf(v / 1000.)
 }
 pub fn text(k: usize, v: i32) -> String {
+    if let Some(names)=crate::performance::labels(k){return names[(v as usize).min(names.len()-1)].into();}
     if ROUTES[2..].contains(&k) {
         return ALL_MOD_SOURCES[v.clamp(0, 12) as usize].into();
     }
@@ -1720,7 +1831,15 @@ pub fn text(k: usize, v: i32) -> String {
         return text(LFO_RATE, v);
     }
     if FX_ROUTES.iter().flatten().any(|i| *i == k) { return if v > 0 { "On" } else { "Off" }.into(); }
+    if k>=A_ON && SETTINGS[k].range==(0,1) {return if v>0{"On"}else{"Off"}.into();}
     match k {
+        SUB_SHAPE=>["Sine","Round","Triangle","Saw","Square","Pulse"][v.clamp(0,5) as usize].into(),
+        SUB_OCT=>format!("{v:+} oct"),
+        NOISE_TYPE=>crate::sources::NOISE_NAMES[v.clamp(0,8) as usize].into(),
+        NOISE_PITCH=>format!("{v:+} st"),
+        SUB_PAN|NOISE_PAN|F1_PAN|F2_PAN=>if v==0 {"Center".into()}else{format!("{}{}",v.abs(),if v<0{"L"}else{"R"})},
+        FILTER_TOPOLOGY=>["Parallel","1 > 2","2 > 1"][v.clamp(0,2) as usize].into(),
+        F2_CUTOFF=>text(CUTOFF,v),F2_RESONANCE=>text(RESONANCE,v),F2_FILTER=>text(FILTER,v),F2_MODEL=>text(FILTER_MODEL,v),
         OTT_TIME => format!("{} ms", 20 + v / 2),
         LFO_DRAW => ["Classic shape", "Drawn shape"][v.clamp(0, 1) as usize].into(),
         ENV_ENGINE => ["Classic", "Curved AHDSR"][v.clamp(0, 1) as usize].into(),
@@ -1743,6 +1862,7 @@ pub fn text(k: usize, v: i32) -> String {
             .into(),
         A_TUNE | B_TUNE => format!("{v:+} st"),
         A_UNISON | B_UNISON => format!("{v} voices"),
+        A_FM_RATIO | B_FM_RATIO => format!("{v}:1"),
         A_DETUNE | B_DETUNE => format!("{v} cents"),
         CUTOFF => format!("{:.0} Hz", cutoff(v as f32)),
         ATTACK | DECAY | RELEASE | ENV_ATTACK | ENV_DECAY | ENV_RELEASE => {
@@ -1755,7 +1875,13 @@ pub fn text(k: usize, v: i32) -> String {
     }
 }
 fn parse(k: usize, s: &str) -> Option<i32> {
+    if let Some(names)=crate::performance::labels(k){return names.iter().position(|n|n.eq_ignore_ascii_case(s.trim())).map(|i|i as i32);}
     let s = s.trim();
+    if matches!(k, A_FM_RATIO | B_FM_RATIO) {
+        return s.strip_suffix(":1").unwrap_or(s).parse::<i32>().ok().filter(|v| (1..=8).contains(v));
+    }
+    if k>=A_ON && (SETTINGS[k].range==(0,1)||matches!(k,SUB_SHAPE|NOISE_TYPE|FILTER_TOPOLOGY|F2_FILTER|F2_MODEL)) {return (SETTINGS[k].range.0..=SETTINGS[k].range.1).find(|v|text(k,*v).eq_ignore_ascii_case(s));}
+    if matches!(k,SUB_PAN|NOISE_PAN|F1_PAN|F2_PAN) {if s.eq_ignore_ascii_case("center"){return Some(0);}if let Some(v)=s.strip_suffix('L').and_then(|s|s.parse::<i32>().ok()){return Some(-v.clamp(0,100));}if let Some(v)=s.strip_suffix('R').and_then(|s|s.parse::<i32>().ok()){return Some(v.clamp(0,100));}}
     if ROUTES[2..].iter().any(|s| k == *s || k == s + 1)
         || LFO_CONTROLS.iter().any(|s| s[1..].contains(&k))
         || k == LFO_DRAW
@@ -1796,14 +1922,14 @@ fn parse(k: usize, s: &str) -> Option<i32> {
         ATTACK | DECAY | RELEASE | ENV_ATTACK | ENV_DECAY | ENV_RELEASE => {
             x.max(1.).log10() / 4. * 1000.
         }
-        CUTOFF => (x.max(20.) / 20.).log10() / 3. * 1000.,
+        CUTOFF | F2_CUTOFF => (x.max(20.) / 20.).log10() / 3. * 1000.,
         LFO_RATE | LFO2_RATE | LFO3_RATE | LFO4_RATE => {
             (x.max(0.05) / 0.05).ln() / 400.0_f32.ln() * 1000.
         }
         OTT_TIME => (x - 20.) * 2.,
         CHORUS_RATE => (x - 0.05) * 200.,
         DELAY_TIME => x - 50.,
-        A_TUNE | B_TUNE | A_UNISON | B_UNISON | A_DETUNE | B_DETUNE | A_PHASE | B_PHASE => x,
+        SUB_OCT | NOISE_PITCH | SUB_PAN | NOISE_PAN | F1_PAN | F2_PAN | A_TUNE | B_TUNE | A_UNISON | B_UNISON | A_DETUNE | B_DETUNE | A_PHASE | B_PHASE => x,
         _ => x / 100. * SETTINGS[k].range.1 as f32,
     };
     Some((v.round() as i32).clamp(SETTINGS[k].range.0, SETTINGS[k].range.1))

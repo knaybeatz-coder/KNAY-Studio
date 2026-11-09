@@ -8,7 +8,7 @@
 //!
 // spec: plugins/lemon-sampler.md (§Controls: ids, ranges, defaults, value texts)
 
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, RwLock};
 
 use nih_plug::prelude::*;
@@ -24,6 +24,8 @@ pub type Fmt = Arc<dyn Fn(f32) -> String + Send + Sync>;
 /// [`Live::live`]: the editor's newest value wins until the host's own value moves to it (confirmed) or away from the
 /// value it had at the edit (automation / undo in the host). Entries are keyed by the parameter's address, unique per
 /// plugin instance.
+// Updated under LIVE so the audio thread can bypass the lock when there are no pending edits.
+static HAS_LIVE_EDITS: AtomicBool = AtomicBool::new(false);
 static LIVE: std::sync::Mutex<Vec<LiveEdit>> = std::sync::Mutex::new(Vec::new());
 
 #[derive(Clone, Copy)]
@@ -42,6 +44,7 @@ pub fn live_set(addr: usize, norm: f32, host: f32) {
         if (norm - host).abs() > 1e-7 {
             l.push(LiveEdit { addr, norm, base: host });
         }
+        HAS_LIVE_EDITS.store(!l.is_empty(), Ordering::Release);
     }
 }
 
@@ -56,6 +59,7 @@ pub fn live_norm(addr: usize, host: f32) -> Option<f32> {
     } else {
         // Confirmed, or the host changed it since: the host's value from now on.
         l.swap_remove(i);
+        HAS_LIVE_EDITS.store(!l.is_empty(), Ordering::Release);
         None
     }
 }
@@ -64,6 +68,7 @@ pub fn live_norm(addr: usize, host: f32) -> Option<f32> {
 fn live_forget(from: usize, to: usize) {
     if let Ok(mut l) = LIVE.lock() {
         l.retain(|e| e.addr < from || e.addr >= to);
+        HAS_LIVE_EDITS.store(!l.is_empty(), Ordering::Release);
     }
 }
 
@@ -93,6 +98,7 @@ pub trait Live {
 impl Live for FloatParam {
     type Plain = f32;
     fn live(&self) -> f32 {
+        if !HAS_LIVE_EDITS.load(Ordering::Acquire) { return self.value(); }
         match live_norm(self as *const Self as usize, self.unmodulated_normalized_value()) {
             Some(n) => self.preview_plain(n),
             None => self.value(),
@@ -103,6 +109,7 @@ impl Live for FloatParam {
 impl Live for IntParam {
     type Plain = i32;
     fn live(&self) -> i32 {
+        if !HAS_LIVE_EDITS.load(Ordering::Acquire) { return self.value(); }
         match live_norm(self as *const Self as usize, self.unmodulated_normalized_value()) {
             Some(n) => self.preview_plain(n),
             None => self.value(),
@@ -113,6 +120,7 @@ impl Live for IntParam {
 impl Live for BoolParam {
     type Plain = bool;
     fn live(&self) -> bool {
+        if !HAS_LIVE_EDITS.load(Ordering::Acquire) { return self.value(); }
         match live_norm(self as *const Self as usize, self.unmodulated_normalized_value()) {
             Some(n) => self.preview_plain(n),
             None => self.value(),
@@ -348,8 +356,9 @@ impl EnvParams {
 
     /// The record in channel-envelope units, `None` when off. `amount_scale` = units of the amount at full scale.
     pub fn envelope(&self, amount_scale: f32) -> Option<envelope::Params> {
+        if !self.on.live() { return None; }
         let rec = os_model::Envelope {
-            enabled: self.on.live(),
+            enabled: true,
             delay: time_field(self.delay.live()),
             attack: time_field(self.att.live()),
             hold: time_field(self.hold.live()),
@@ -470,6 +479,8 @@ pub struct SamplerParams {
     pub env_mody: EnvParams,
     #[nested(id_prefix = "envpitch", group = "Pitch")]
     pub env_pitch: EnvParams,
+    #[id = "note_drive"]
+    pub note_drive: FloatParam,
     #[id = "f_cut"]
     pub f_cut: FloatParam,
     #[id = "f_res"]
@@ -563,6 +574,7 @@ impl Default for SamplerParams {
             env_modx: EnvParams::new("Mod X", 0),
             env_mody: EnvParams::new("Mod Y", 0),
             env_pitch: EnvParams::new("Pitch", 0),
+            note_drive: knob("Per-note drive",0.).with_poly_modulation_id(7).hide(),
             f_cut: knob("Filter frequency (modulation X)", 1.0).with_poly_modulation_id(MOD_X_POLY),
             f_res: knob("Filter bandwidth (modulation Y)", 0.0).with_poly_modulation_id(MOD_Y_POLY),
             f_type: choice("Filter type", 0, FILTERS),

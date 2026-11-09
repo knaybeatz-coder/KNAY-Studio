@@ -95,7 +95,12 @@ pub enum Hit {
     /// Column, row of a suggestion (column 0 = recent names).
     Suggest(usize, usize),
     Color,
-    Swatch(usize), // This code is a part of L e m o n S t u d i o.
+    Swatch(usize),
+    CustomSwatch(usize),
+    EditSwatch(usize),
+    SaveSwatch,
+    ClearSwatch,
+    CancelSwatch,
     ConfirmOk,
     ConfirmCancel,
     /// The confirmation's Remember my choice check.
@@ -121,6 +126,7 @@ pub struct NameBox {
     pub at: (f32, f32),
     pub suggestions: bool,
     pub palette: bool,
+    pub custom: Option<(usize, crate::dialog::Field)>,
     /// Opened for a new pattern (find empty, insert one): accepting it makes the pattern the playlist's clip
     /// source, listed in the picker even while empty, so it can be placed at once.
     pub created: bool,
@@ -301,7 +307,7 @@ pub fn open_name_box(s: &mut State, target: BoxTarget, at: (f32, f32)) {
         BoxTarget::Transpose(_) => String::new(),
         BoxTarget::Rack(b) => crate::rack::box_text(s, b),
     };
-    s.pat_ui.name_box = Some(NameBox { target, text, fresh: true, at, suggestions: false, palette: false, created: false });
+    s.pat_ui.name_box = Some(NameBox { target, text, fresh: true, at, suggestions: false, palette: false, custom: None, created: false });
 }
 
 /// Where a box opened from a menu / key goes: the mouse over its colour tab (§4).
@@ -537,24 +543,79 @@ pub fn suggest(s: &mut State, col: usize, row: usize) {
     }
 }
 
+pub const CUSTOM_SWATCHES: usize = 6;
+
+pub fn custom_swatch(i: usize) -> Option<u32> {
+    crate::prefs::text(&format!("clip_custom_swatch_{i}")).and_then(|v| hex_color(&v))
+}
+
+fn hex_color(text: &str) -> Option<u32> {
+    let text = text.strip_prefix('#').unwrap_or(text);
+    if text.len() == 6 && text.bytes().all(|b| b.is_ascii_hexdigit()) {
+        u32::from_str_radix(text, 16).ok()
+    } else {
+        None
+    }
+}
+
 pub fn set_color(s: &mut State, i: usize) {
+    if let Some(&color) = SWATCHES.get(i) {
+        apply_swatch(s, color);
+    }
+}
+
+fn apply_swatch(s: &mut State, c: u32) {
     let target = s.pat_ui.name_box.as_ref().map(|b| b.target);
-    if let Some(&c) = SWATCHES.get(i) {
-        let col = Some(Rgb::new((c >> 16) as u8, (c >> 8) as u8, c as u8));
+    let source = match target {
+        Some(BoxTarget::Name(n)) => os_model::ClipSource::Pattern(n),
+        Some(BoxTarget::Rack(crate::rack::RBox::Channel(r))) => {
+            let Some(ch) = s.project.channels.get(r) else { return };
+            os_model::ClipSource::Channel(ch.index)
+        }
+        _ => return,
+    };
+    let color = Some(Rgb::new((c >> 16) as u8, (c >> 8) as u8, c as u8));
+    let before = crate::history::Snap::source_color(s, source);
+    if crate::playlist::source_color(s, source) != color {
+        crate::history::record(s, "Change clip source color", before);
         match target {
-            Some(BoxTarget::Name(n)) => pat_mut(s, n).color = col,
+            Some(BoxTarget::Name(n)) => pat_mut(s, n).color = color,
             Some(BoxTarget::Rack(crate::rack::RBox::Channel(r))) => {
-                if let Some(ch) = s.project.channels.get_mut(r) {
-                    ch.color = col;
-                }
+                let ch = &mut s.project.channels[r];
+                ch.color = color;
+                if matches!(ch.kind, os_model::ChannelKind::AudioClip | os_model::ChannelKind::Automation) { ch.rack.stored_color = color; }
             }
-            _ => return,
+            _ => {}
         }
         s.piano.dirty = true;
     }
     if let Some(b) = s.pat_ui.name_box.as_mut() {
         b.palette = false;
+        b.custom = None;
     }
+}
+
+fn edit_swatch(s: &mut State, i: usize) {
+    if let Some(b) = &mut s.pat_ui.name_box {
+        let mut field = crate::dialog::Field::default();
+        field.set(&custom_swatch(i).map_or_else(|| "#".into(), |c| format!("#{c:06X}")));
+        field.select_all();
+        b.custom = Some((i, field));
+    }
+}
+
+fn save_swatch(s: &mut State, clear: bool) {
+    let Some(b) = &mut s.pat_ui.name_box else { return };
+    let Some((i, field)) = &b.custom else { return };
+    if clear {
+        crate::prefs::set_text(&format!("clip_custom_swatch_{i}"), "");
+    } else if let Some(color) = hex_color(&field.text) {
+        crate::prefs::set_text(&format!("clip_custom_swatch_{i}"), &format!("{color:06X}"));
+    } else {
+        s.message = Some("Enter six hex digits, for example FF8844".into());
+        return;
+    }
+    b.custom = None;
 }
 
 /// A click in the name box / its popups / the confirmation.
@@ -566,6 +627,7 @@ pub fn hit(s: &mut State, h: Hit) {
             if let Some(b) = s.pat_ui.name_box.as_mut() {
                 b.suggestions = !b.suggestions;
                 b.palette = false;
+                b.custom = None;
             }
         }
         Hit::Suggest(c, r) => suggest(s, c, r),
@@ -573,9 +635,20 @@ pub fn hit(s: &mut State, h: Hit) {
             if let Some(b) = s.pat_ui.name_box.as_mut() {
                 b.palette = !b.palette;
                 b.suggestions = false;
+                b.custom = None;
             }
         }
         Hit::Swatch(i) => set_color(s, i),
+        Hit::CustomSwatch(i) => match custom_swatch(i) {
+            Some(color) => apply_swatch(s, color),
+            None => edit_swatch(s, i),
+        },
+        Hit::EditSwatch(i) => edit_swatch(s, i),
+        Hit::SaveSwatch => save_swatch(s, false),
+        Hit::ClearSwatch => save_swatch(s, true),
+        Hit::CancelSwatch => {
+            if let Some(b) = &mut s.pat_ui.name_box { b.custom = None; }
+        }
         Hit::ConfirmOk => delete_current(s),
         Hit::ConfirmCancel => cancel_confirm(s),
         Hit::ConfirmRemember => s.pat_ui.remember = !s.pat_ui.remember,
@@ -595,6 +668,14 @@ pub fn key(s: &mut State, key: &winit::keyboard::Key, ctrl: bool) -> bool {
         return true;
     }
     let Some(b) = s.pat_ui.name_box.as_mut() else { return false };
+    if let Some((_, field)) = &mut b.custom {
+        match key {
+            Key::Named(NamedKey::Enter) => save_swatch(s, false),
+            Key::Named(NamedKey::Escape) => b.custom = None,
+            _ => { field.key(key, ctrl, false); }
+        }
+        return true;
+    }
     let typed = |b: &mut NameBox, t: &str| {
         if b.fresh {
             b.text.clear();

@@ -268,6 +268,7 @@ struct Voice {
     /// The note's own pan (−1..1) and its filter offsets in knob units, from the host per note (CLAP note expression
     /// PAN, per-note modulation of the filter knobs; spec: audio/voice-levels.md).
     note_pan: f64,
+    drive:f32,
     mod_x: f32,
     mod_y: f32,
     age: u64,
@@ -705,7 +706,7 @@ impl Engine {
             key_step,
             tune: 0.0,
             note_pan: 0.0,
-            mod_x: 0.0,
+            drive:0.,mod_x: 0.0,
             mod_y: 0.0,
             age: 0,
             off: None,
@@ -780,6 +781,9 @@ impl Engine {
     }
 
     /// The note's filter offsets in knob units (per-note modulation of MOD X / MOD Y), also while it sounds.
+    pub fn note_drive(&mut self,id:i32,amount:f32) {
+        for voice in self.voices.iter_mut().filter(|v|v.id==Some(id)){voice.drive=amount.clamp(0.,1.);}
+    }
     pub fn modulate(&mut self, id: i32, mod_x: Option<f32>, mod_y: Option<f32>) {
         for v in self.voices.iter_mut().filter(|v| v.id == Some(id)) {
             if let Some(x) = mod_x {
@@ -824,6 +828,12 @@ impl Engine {
 
     /// Adds the voices into `out_l` / `out_r`.
     pub fn render(&mut self, out_l: &mut [f32], out_r: &mut [f32], b: &Block) {
+        self.render_frames(out_l, out_r, b);
+    }
+
+    /// Number of frames a voice actually occupied, including intentional silence.
+    pub fn render_frames(&mut self, out_l: &mut [f32], out_r: &mut [f32], b: &Block) -> usize {
+        let mut rendered = 0;
         let len = out_l.len();
         let rate = f64::from(self.rate);
         for (i, t) in b.targets.iter().enumerate() {
@@ -834,13 +844,13 @@ impl Engine {
             (None, Some(s)) => Src::Ram(s.clone()),
             _ => {
                 self.end_all();
-                return;
+                return 0;
             }
         };
         let n = s.frames();
         if n == 0 {
             self.end_all();
-            return;
+            return 0;
         }
         // Resample plays the sample faster or slower; a realtime voice reads `speed` input frames per output frame
         // and its stretcher keeps the pitch.
@@ -866,7 +876,8 @@ impl Engine {
                 Src::Ram(_) => v.rt.and_then(|k| self.streams.get_mut(usize::from(k))),
                 Src::Disk(_) => None,
             };
-            let alive = render_voice(v, rt, &s, b, (rs, speed), lp, rate, (self.quality, self.wait), out_l, out_r);
+            let (alive, count) = render_voice(v, rt, &s, b, (rs, speed), lp, rate, (self.quality, self.wait), out_l, out_r);
+            rendered = rendered.max(count);
             if alive {
                 i += 1;
             } else {
@@ -874,12 +885,13 @@ impl Engine {
                 self.end(&v);
             }
         }
-        // The reader tops up the rings the block read from.
+        // Retry a starved reader once per block. Healthy streams wake it only when a chunk is free.
         if let Src::Disk(d) = &s {
-            if self.voices.iter().any(|v| v.feed.active()) {
+            if self.voices.iter().any(|v| v.gap > 0 && v.feed.active()) {
                 d.disk().wake();
             }
         }
+        rendered
     }
 }
 
@@ -937,7 +949,7 @@ fn render_voice(
     (quality, wait): (Quality, bool),
     out_l: &mut [f32],
     out_r: &mut [f32],
-) -> bool {
+) -> (bool, usize) {
     let len = out_l.len();
     let n = src.frames() as f64;
     let dc = declick(b.declick);
@@ -947,7 +959,7 @@ fn render_voice(
         let chunk = CTL.min(len - f);
         let t0 = v.age as f64 * frame_s;
         let off = v.off.map(|o| o as f64 * frame_s);
-        let Some(m0) = mods(v, b, t0, off) else { return false };
+        let Some(m0) = mods(v, b, t0, off) else { return (false,f) };
         let g1 = match mods(v, b, t0 + chunk as f64 * frame_s, off) {
             Some(m) => m.gain,
             None => 0.0,
@@ -984,7 +996,7 @@ fn render_voice(
                 }
             }
             if v.pos < 0.0 {
-                return false;
+                return (false,f+j);
             }
             // The end of the sample: the closing starts on the first sample at or past it and works on the held
             // last frame (spec: audio/declick.md "When the closing starts").
@@ -1019,6 +1031,7 @@ fn render_voice(
                     }
                 },
             };
+            if v.drive>0. {let gain=1.+15.*v.drive;l=(l*gain).clamp(-1.,1.);r=(r*gain).clamp(-1.,1.);}
             l = v.filt.run(0, j, l);
             r = v.filt.run(1, j, r);
             // The fades act on the signal before the gains (spec: audio/declick.md "Where the fades sit"). FL works on
@@ -1031,7 +1044,7 @@ fn render_voice(
                 }
                 match c.apply(l, r, rate) {
                     Some(x) => (l, r) = x,
-                    None => return false,
+                    None => return (false,f+j),
                 }
             }
             let u = j as f32 / chunk as f32;
@@ -1050,7 +1063,7 @@ fn render_voice(
         }
         f += chunk;
     }
-    true
+    (true,len)
 }
 
 // ---------------------------------------------------------------------------------------------------------------

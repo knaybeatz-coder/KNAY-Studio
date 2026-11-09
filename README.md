@@ -33,7 +33,7 @@ The documentation below describes the original project; upstream release policie
   <img alt="Rust 2024 edition" src="https://img.shields.io/badge/rust-2024_edition-e57324?style=flat-square&logo=rust&logoColor=white">
   <img alt="Platform: Windows | Linux | macOS" src="https://img.shields.io/badge/platform-Windows_%7C_Linux_%7C_macOS-0078d4?style=flat-square">
   <img alt="Status: pre-alpha" src="https://img.shields.io/badge/status-pre--alpha-ffe066?style=flat-square">
-  <a href="https://discord.gg/yC2uCuGs3M"><img alt="Discord" src="https://img.shields.io/badge/discord-join_the_server-5865f2?style=flat-square&logo=discord&logoColor=white"></a>
+  <a href="https://discord.gg/CDYs4rQEk"><img alt="Discord" src="https://img.shields.io/badge/discord-join_the_server-5865f2?style=flat-square&logo=discord&logoColor=white"></a>
 </p>
 
 <p>
@@ -131,7 +131,7 @@ ASIO is a registered trademark of Steinberg Media Technologies GmbH.
 </table>
 
 Per-area details are in [docs/status.md](docs/status.md). The full, item-by-item roadmap lives on the
-[Discord server](https://discord.gg/yC2uCuGs3M).
+[Discord server](https://discord.gg/CDYs4rQEk).
 
 ## Getting started
 
@@ -388,7 +388,7 @@ Lemon Studio is a Cargo workspace of focused crates:
 
 ## Roadmap
 
-The roadmap is kept on the [Lemon Studio Discord server](https://discord.gg/yC2uCuGs3M), where every item is
+The roadmap is kept on the [Lemon Studio Discord server](https://discord.gg/CDYs4rQEk), where every item is
 marked as complete, in progress or not started. The broad next steps are the engine rework (sampler voice,
 automation), opening projects from older FL Studio versions, audio recording into mixer tracks, more
 built-in instruments and effects, and the rest of the plugin window features on Linux.
@@ -414,7 +414,7 @@ lines at the top of the header, `Copyright (C) <year> <name>`, and keep the line
 
 ## Community
 
-Join the [Lemon Studio Discord server](https://discord.gg/yC2uCuGs3M) to follow development and talk
+Join the [Lemon Studio Discord server](https://discord.gg/CDYs4rQEk) to follow development and talk
 about the project. Please keep in mind that support is not offered at this stage.
 
 ## Third-party components

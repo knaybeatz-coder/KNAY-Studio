@@ -4,8 +4,8 @@
 
 //! Lemon Parametric EQ parameters and saved state.
 //!
-//! The 36 automatable parameters come in the original's order (7 levels, 7 frequencies, 7 widths, 7 types, 7 orders,
-//! main level). Everything else (options, the spare A/B bank, mute / solo) lives in a copy of the original's 354-byte
+//! The first 36 automatable parameters keep the original's order (7 levels, 7 frequencies, 7 widths, 7 types, 7 orders,
+//! main level). Thirty dynamic EQ/de-harsh parameters follow without changing old IDs. Everything else (options, the spare A/B bank, mute / solo) lives in a copy of the original's 354-byte
 //! saved state (`extra`), persisted with the parameters, so a project's state goes in and comes back out unchanged in
 //! meaning (spec: plugins/parametric-eq-2.md "Saved state").
 //!
@@ -38,6 +38,9 @@ pub fn type_id(k: usize) -> String {
 pub fn order_id(k: usize) -> String {
     format!("order{}", k + 1)
 }
+pub fn dynamic_id(i:usize)->String{format!("dynamic{i}")}
+pub const DYNAMIC_LABELS:[&str;6]=["Range","Threshold","Attack","Release","De-harsh","Sensitivity"];
+pub fn dynamic_limits(i:usize)->(f32,f32){match i{30..=46=>(0.,1.),28=>(0.,12.),29=>(-72.,0.),_=>match i%4{0=>(-18.,18.),1=>(-72.,0.),2=>(0.5,200.),_=>(10.,1500.)}}}
 pub const MAIN_ID: &str = "main";
 
 /// "63Hz", "6325Hz" (whole hertz, spec §5).
@@ -71,6 +74,7 @@ pub struct EqParams {
     pub kind: [IntParam; BANDS],
     pub order: [IntParam; BANDS],
     pub main: FloatParam,
+    pub dynamic:[FloatParam;47],
     /// The original's saved-state image holding the options, the spare bank and bytes Lemon Studio does not use (fields
     /// 1..36 in it are stale: the parameters above are the truth).
     pub extra: RwLock<Vec<u8>>,
@@ -112,6 +116,7 @@ impl Default for EqParams {
                     .with_value_to_string(Arc::new(|v| ORDER_NAMES[(v.clamp(-3, 3) + 3) as usize].to_string()))
                     .with_string_to_value(Arc::new(|t| ORDER_NAMES.iter().position(|n| n.eq_ignore_ascii_case(t.trim())).map(|i| i as i32 - 3)))
             }),
+            dynamic:std::array::from_fn(|i|{let (min,max)=dynamic_limits(i);let name=if i<28{format!("Band {} {}",i/4+1,DYNAMIC_LABELS[i%4])}else if i<30{DYNAMIC_LABELS[i-24].to_string()}else if i<37{format!("Band {} auto dynamics",i-29)}else{match i{37=>"Spectral density".into(),38=>"Spectral tilt".into(),39=>"De-harsh auto".into(),_=>format!("Band {} spectral",i-39)}};FloatParam::new(name,eq::dynamic::Config::default().value(i),FloatRange::Linear{min,max}).with_step_size(if i>=30 && i!=37{1.}else if i==37{0.01}else{0.1})}),
             main: level_param("Main level".into()),
             extra: RwLock::new(default_state()),
             extra_version: AtomicU64::new(0),
@@ -139,6 +144,7 @@ unsafe impl Params for EqParams {
             v.push((order_id(k), self.order[k].as_ptr(), String::new()));
         }
         v.push((MAIN_ID.into(), self.main.as_ptr(), String::new()));
+        for i in 0..47{v.push((dynamic_id(i),self.dynamic[i].as_ptr(),String::new()));}
         v
     }
 
@@ -207,6 +213,9 @@ pub fn default_state() -> Vec<u8> {
     for (i, v) in opts.into_iter().enumerate() {
         set_field(&mut b, 73 + i, v);
     }
+    // New instances use a calmer display and 2048-point resolution. Saved images keep their fields.
+    set_opt(&mut b, Opt::FreqPrecision, 5);
+    set_opt(&mut b, Opt::TimeSmoothing, 3);
     b
 }
 
@@ -370,6 +379,8 @@ pub fn plugin_state_from_fl(fl: &[u8]) -> Vec<u8> {
         params.push(format!("\"{}\":{}", order_id(k), i(band.order.clamp(-3, 3))));
     }
     params.push(format!("\"{MAIN_ID}\":{}", f(s.main_db.clamp(-18.0, 18.0))));
+    let dyns=eq::dynamic::Config::load(&b,false);
+    for j in 0..47{params.push(format!("\"{}\":{}",dynamic_id(j),f(f64::from(dyns.value(j)))));}
     let hex: String = b.iter().map(|x| format!("{x:02x}")).collect();
     // The persisted field is a JSON string holding JSON (a string).
     let state = format!("{{\"version\":\"{}\",\"params\":{{{}}},\"fields\":{{\"{STATE_FIELD}\":\"\\\"{hex}\\\"\"}}}}", env!("CARGO_PKG_VERSION"), params.join(","));
@@ -399,6 +410,8 @@ pub fn fl_from_plugin_state(blob: &[u8]) -> Option<Vec<u8>> {
         band.order = num(&order_id(k)).map_or(band.order, |x| x as i32);
     }
     s.main_db = num(MAIN_ID).unwrap_or(s.main_db);
+    let mut extra=extra;let mut dyns=eq::dynamic::Config::load(&extra,false);for j in 0..47{if let Some(v)=num(&dynamic_id(j)){dyns.set(j,v as f32);}}
+    if dyns!=eq::dynamic::Config::default() || extra.len()>eq::STATE_LEN+18{dyns.save(&mut extra,false);}
     Some(to_fl(&s, &extra))
 }
 

@@ -1,5 +1,5 @@
 //! Additional independent instruments driven by an existing channel's MIDI.
-use crate::{app::{App,State},playlist::{Cmd,PItem},plugin_menu::{PlugCmd,Target},history::{self,Snap,RackSide}};
+use crate::{app::{App,State},playlist::{Cmd,PItem},plugin_menu::PlugCmd,history::{self,Snap,RackSide}};
 use os_model::ChannelKind;
 fn eligible(s:&State,row:usize)->bool {
     s.project.channels.get(row).is_some_and(|c|matches!(c.kind,ChannelKind::Plugin|ChannelKind::Sampler))
@@ -7,15 +7,13 @@ fn eligible(s:&State,row:usize)->bool {
 }
 pub fn menu(s:&State,row:usize)->Vec<PItem>{
     if !eligible(s,row){return vec![];}
-    let mut items=vec![PItem::sub("Add Instrument / VST to Channel",crate::plugin_menu::items(s,Target::Stack(row),true))];
     let mut children=Vec::new();
     for child in os_model::instrument_stack(&s.project,row).into_iter().skip(1){
         let name=s.project.channels[child].name.clone().unwrap_or_else(||format!("Instrument {}",child+1));
         let action=|name,a|PItem::new(name,Cmd::Plugin(PlugCmd::StackEdit{row,child,action:a}));
         children.push(PItem::sub(name,vec![action("Open instrument",0),action("Move earlier",1),action("Move later",2),action("Detach to separate channel",3),PItem::new("Remove instrument...",Cmd::Rack(crate::rack::RCmd::Delete(child)))]));
     }
-    if !children.is_empty(){items.push(PItem::sub("Channel instruments",children));}
-    items
+    if children.is_empty() { Vec::new() } else { vec![PItem::sub("Channel instruments", children)] }
 }
 pub fn add(app:&mut App,row:usize,index:usize)->Option<String>{
     if !eligible(&app.state,row){return Some("Choose a main instrument channel; nested instrument groups are not supported".into());}

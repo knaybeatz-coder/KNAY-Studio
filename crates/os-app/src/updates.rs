@@ -4,7 +4,7 @@ use ed25519_dalek::{Signature, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-pub const VERSION: u64 = 2026110307;
+pub const VERSION: u64 = 2026110801;
 /// KNAY build: automatic updates from the Michael Lane feed are switched off, so a remote
 /// release can never replace this customized program.
 pub const ENABLED: bool = false;

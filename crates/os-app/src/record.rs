@@ -49,6 +49,9 @@ pub enum RecCmd {
     AskOff,
     /// 0: Recording precount off; 1 or 2: on, that many bars.
     Precount(u32),
+    LeadMode(bool),
+    LeadOff,
+    PrerollBars(u32),
     /// Dump the last n minutes; asks first when the pattern has notes.
     Dump(u32),
     /// Dump the last n minutes, replacing the pattern's notes (true) or merging with them.
@@ -112,7 +115,7 @@ pub fn set_precount_bars(bars: u32) {
 pub fn option_hint(o: Opt) -> &'static str {
     match o {
         Opt::Wait => "Start on input (Ctrl+I) - right-click for options",
-        Opt::Precount => "Recording precount (Ctrl+P) - right-click for the length",
+        Opt::Precount => "Recording lead-in (Ctrl+P) - right-click for count-in or pre-roll",
         Opt::Loop => "Loop record (off: playback runs on past the end while recording)",
         _ => "Blend recorded notes (Ctrl+B)",
     }
@@ -206,6 +209,8 @@ pub struct Rec {
     pub waiting: bool,
     /// The count-in of Recording precount, while it lasts (spec §3).
     pub count: Option<CountIn>,
+    /// Record punch-in position; playback before it is a one-shot pre-roll.
+    pub preroll: Option<u32>,
     /// The count-in's beats left as last drawn.
     shown: u32,
     /// The score logger (spec §6).
@@ -317,7 +322,11 @@ impl App {
                 set(Opt::Ask, false);
                 Some("Record arms at once now (right-click Record > Ask what to record to ask again)".into())
             }
+            RecCmd::LeadMode(mode)=>{crate::record_lead::set_mode(mode,true);Some(if mode{"Recording pre-roll enabled"}else{"Recording count-in enabled"}.into())},
+            RecCmd::LeadOff=>{crate::record_lead::set_mode(crate::record_lead::mode(),false);Some("Recording lead-in off".into())},
+            RecCmd::PrerollBars(bars)=>{crate::record_lead::set_bars(bars);crate::record_lead::set_mode(true,true);Some(format!("Recording pre-roll: {} bars",crate::record_lead::bars()))},
             RecCmd::Precount(bars) => {
+                crate::record_lead::set_mode(false,bars>0);
                 set(Opt::Precount, bars > 0);
                 if bars > 0 {
                     set_precount_bars(bars);
@@ -411,7 +420,7 @@ impl App {
 
     /// Play, with Recording precount's count-in when armed.
     pub(crate) fn play_counted_if_armed(&mut self) {
-        let bars = if self.state.rec.armed && Opt::Precount.on() { precount_bars() } else { 0 };
+        let bars = if self.state.rec.armed && Opt::Precount.on() && !crate::record_lead::mode() { precount_bars() } else { 0 };
         self.start_playback_counted(bars);
         if bars > 0 && self.transport.playing() {
             let p = &self.state.project;
@@ -427,6 +436,7 @@ impl App {
     pub(crate) fn record_stopped(&mut self) {
         self.state.rec.waiting = false;
         self.state.rec.count = None;
+        self.state.rec.preroll = None;
     }
 
     /// Start on input: the first input that counts starts playback from the start (spec §3). `what` is what the input
@@ -447,14 +457,7 @@ impl App {
                 PItem::new("Respect recording filter", Cmd::Record(Opt::WaitFilter)).mark(Mark::Check(Opt::WaitFilter.on())),
                 PItem::new("Only when recording", Cmd::Record(Opt::WaitArmed)).mark(Mark::Check(Opt::WaitArmed.on())),
             ],
-            Opt::Precount => {
-                let bars = precount_bars();
-                vec![
-                    PItem::head("Precount duration"),
-                    PItem::new("1 bar", Cmd::RecPrecountBars(1)).mark(Mark::Radio(bars == 1)),
-                    PItem::new("2 bars", Cmd::RecPrecountBars(2)).mark(Mark::Radio(bars == 2)),
-                ]
-            }
+            Opt::Precount => crate::record_lead::menu(),
             _ => return,
         };
         self.state.playlist.popup = Some(Popup { x, y, items, sub: None, scroll: [0; 2], cascade: Vec::new() });
@@ -468,6 +471,7 @@ impl App {
         }
         let name = match o {
             Opt::Wait => "Start on input",
+            Opt::Precount if crate::record_lead::mode()=>"Recording pre-roll",
             Opt::Precount => "Recording precount",
             Opt::Loop => "Loop record",
             _ => "Blend recorded notes",
@@ -499,7 +503,7 @@ impl App {
     /// Nothing is recorded during a count-in (spec §3).
     fn rec_live(&self, what: Opt) -> bool {
         let r = &self.state.rec;
-        r.armed && r.count.is_none() && what.on() && self.transport.playing() && !self.transport.paused()
+        r.armed && r.count.is_none() && !self.pre_roll_active() && what.on() && self.transport.playing() && !self.transport.paused()
     }
 
     /// A channel's volume or pan knob moved: its value goes into the current pattern as a control point at the playback
@@ -725,6 +729,9 @@ impl App {
     /// a stop disarms when "Disarm on stop" is on.
     pub(crate) fn record_tick(&mut self) {
         if let Err(e) = self.sync_input_monitor() { if self.state.message.as_ref() != Some(&e) { self.state.message = Some(e); self.invalidate(); } }
+        if self.state.rec.preroll.is_some() && (!self.state.rec.armed || !self.transport.playing() || !self.pre_roll_active()) {
+            self.state.rec.preroll=None;self.invalidate();
+        }
         self.one_click_tick();
         if self.audio_rec.is_none()&&std::mem::take(&mut self.state.rec.close_after_audio){self.close_requested();}
         self.smart_record_tick();
@@ -843,6 +850,10 @@ mod tests {
         app.state.pattern = 1;
         app.state.project.patterns.iter_mut().for_each(|p| p.notes.clear());
         app.state.global_snap.now = Snap::Step;
+        // These legacy tests exercise the explicit notes+automation workflow, not the newer startup defaults.
+        app.state.toggles.push("typing");
+        crate::settings_file::set_flag("rec_automation",true);
+        crate::settings_file::set_flag("rec_filter_explicit",true);
         app
     }
 
@@ -885,7 +896,9 @@ mod tests {
         app.mouse_move(b.cx(), b.cy());
         app.mouse_down();
         app.mouse_up();
-        assert!(!app.state.rec.armed, "it asks first");
+        assert!(app.state.rec.armed,"the current Record button arms directly");
+        app.toggle_record();
+        app.record_question(); // Legacy explicit choices still keep their behavior.
         let Some(Popup { items, x, .. }) = app.state.playlist.popup.clone() else { panic!("no question") };
         let labels: Vec<&str> = items.iter().map(|i| i.label.as_ref()).collect();
         assert_eq!(
@@ -925,10 +938,7 @@ mod tests {
                 "Notes",
                 "Automation",
                 "Audio",
-                "Automatic MIDI / automation clips",
                 "Options",
-                "Ask what to record",
-                "Recording starts playback",
                 "Disarm on stop",
                 "Quantize",
                 "Note start time",
@@ -1127,6 +1137,7 @@ mod tests {
         app.paint(&mut c, None);
         let k = hit_rect(&app, &Action::Knob(KnobId::ChanVol(1)));
         app.toggle_record();
+        crate::settings_file::set_flag("rec_smart",false); // This case explicitly tests pattern control points.
         app.transport.pretend_at(48.0, false);
         app.record_tick();
         app.mouse_move(k.cx(), k.cy());
@@ -1181,15 +1192,14 @@ mod tests {
         use winit::keyboard::{Key, SmolStr};
         let Ok(mut c) = Canvas::new(1920, 1080, 1.0) else { return };
         let mut app = app();
+        app.state.z=vec![crate::app::Win::Playlist];
         app.paint(&mut c, None);
-        for o in [Opt::Wait, Opt::Precount, Opt::Blend] {
+        for o in [Opt::Wait, Opt::Precount] {
             let hint = app.hits.iter().rev().find(|h| h.action == Action::RecOpt(o)).map(|h| h.hint.to_string());
             assert_eq!(hint.as_deref(), Some(option_hint(o)));
         }
-        let b = hit_rect(&app, &Action::RecOpt(Opt::Blend));
-        app.mouse_move(b.cx(), b.cy());
-        app.mouse_down();
-        app.mouse_up();
+        // Blend is now in Options rather than a dedicated toolbar button.
+        app.act(Action::RecOpt(Opt::Blend));
         assert!(Opt::Blend.on());
         let p = hit_rect(&app, &Action::RecOpt(Opt::Precount));
         app.mouse_move(p.cx(), p.cy());
@@ -1197,7 +1207,7 @@ mod tests {
         app.mouse_up();
         let Some(Popup { items, .. }) = app.state.playlist.popup.take() else { panic!("no menu") };
         let labels: Vec<&str> = items.iter().map(|i| i.label.as_ref()).collect();
-        assert_eq!(labels, ["Precount duration", "1 bar", "2 bars"]);
+        assert!(labels.contains(&"Precount duration")&&labels.contains(&"1 bar")&&labels.contains(&"2 bars")&&labels.contains(&"Pre-roll (play before recording)"));
         crate::playlist::run(&mut app, Cmd::RecPrecountBars(2));
         assert_eq!(precount_bars(), 2);
         let w = hit_rect(&app, &Action::RecOpt(Opt::Wait));

@@ -229,6 +229,7 @@ impl ChannelVoicing {
 /// -1..1 (`(pan byte - 64) / 64`), mod X / mod Y -1..0.992 (`(byte - 128) / 128`). Default: centred, no offsets.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct NoteLevels {
+    pub drive:f32,
     pub pan: f32,
     pub mod_x: f32,
     pub mod_y: f32,
@@ -237,7 +238,7 @@ pub struct NoteLevels {
 impl NoteLevels {
     /// The levels of a note's pan, mod X and mod Y bytes.
     pub fn of_bytes(pan: u8, mod_x: u8, mod_y: u8) -> NoteLevels {
-        NoteLevels { pan: (f32::from(pan) - 64.0) / 64.0, mod_x: (f32::from(mod_x) - 128.0) / 128.0, mod_y: (f32::from(mod_y) - 128.0) / 128.0 }
+        NoteLevels { drive:0., pan: (f32::from(pan) - 64.0) / 64.0, mod_x: (f32::from(mod_x) - 128.0) / 128.0, mod_y: (f32::from(mod_y) - 128.0) / 128.0 }
     }
 }
 

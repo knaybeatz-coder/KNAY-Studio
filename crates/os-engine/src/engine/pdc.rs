@@ -188,8 +188,8 @@ pub(super) struct Pdc {
     /// Frames of the stream rendered in this pass, and where the ticks still to be heard were in the song.
     stream: u64,
     marks: VecDeque<Mark>,
-    /// Automation values waiting for late audio: the tick they take effect on, the target, the value.
-    pub waiting: Vec<(u64, Target, i64)>,
+    /// Automation values waiting for late audio: the tick they take effect on, target, value, and whether the clip starts.
+    pub waiting: Vec<(u64, Target, i64, bool)>,
     /// Split mixer tracks: per track, frames of its output still to skip; frames handed out, and handed over with
     /// the tracks' output.
     pub cap_skip: Vec<u64>,

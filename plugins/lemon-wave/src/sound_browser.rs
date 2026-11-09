@@ -20,7 +20,6 @@ pub enum Choice {
     Category(usize),
     Group(String),
     Param(usize, i32),
-    Preset(usize),
 }
 #[derive(Default)]
 pub struct Browser {
@@ -42,7 +41,7 @@ pub const BASIC: [&str; 6] = [
     "Pulse 12.5%",
 ];
 pub fn button(o: usize) -> Rect {
-    Rect::new(151. + 410. * o as f32, 84., 136., 23.)
+    Rect::new(crate::instrument_view::osc_x(o)+60.,137.,crate::instrument_view::osc_w(o)-105.,35.)
 }
 pub fn type_button(o: usize) -> Rect {
     Rect::new(28. + 410. * o as f32, 112., 124., 25.)
@@ -291,8 +290,8 @@ impl Menu {
             .max(1);
         let h = 8. + 26. * (n + usize::from(self.items.len() > 14)) as f32;
         let w = self.anchor.w.max(240.).min(390.);
-        let x = self.anchor.x.min(1170. - w).max(10.);
-        let y = if self.anchor.bottom() + h < 810. {
+        let x = self.anchor.x.min(crate::controls::SPEC.size.0 as f32 - 10. - w).max(10.);
+        let y = if self.anchor.bottom() + h < crate::controls::SPEC.size.1 as f32 - 10. {
             self.anchor.bottom() + 3.
         } else {
             (self.anchor.y - h - 3.).max(8.)
@@ -338,7 +337,7 @@ pub fn basic(index: usize) -> crate::wavetable::Source {
     }
 }
 pub fn root_button(o: usize, i: usize) -> Rect {
-    Rect::new(28. + 410. * o as f32 + i as f32 * 94., 418., 90., 20.)
+    Rect::new(crate::instrument_view::osc_x(o)+20.+i as f32*94.,605.,90.,20.)
 }
 
 #[cfg(test)]
@@ -355,7 +354,7 @@ mod dropdown_tests {
                 .collect(),
         );
         let r = b.menu.as_ref().unwrap().rect();
-        assert!(r.right() <= 1170. && r.bottom() < 810. && r.y >= 8.);
+        assert!(r.right() <= crate::controls::SPEC.size.0 as f32 - 10. && r.bottom() < crate::controls::SPEC.size.1 as f32 - 10. && r.y >= 8.);
         assert!(matches!(
             b.click(r.x + 10., r.y + 16.),
             Some(Choice::Bank(0))

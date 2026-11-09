@@ -179,6 +179,7 @@ pub struct Picker {
     /// Which circle and which of its colours (`parts`).
     pub swatch: usize,
     pub part: usize,
+    pub custom: Option<(&'static str, Color)>,
     /// The colour being picked, kept as HSV so hue and saturation survive black and greys.
     pub hsv: [f32; 3],
     /// The applied theme when the picker opened (`State::fl_text`), for Revert and the old colour.
@@ -242,10 +243,11 @@ impl App {
         }
         let th = FlTheme::parse(&text);
         let palette = os_theme::design::palette(self.design(), Some(&th));
-        self.theme = os_theme::Theme::new(&self.theme.name.clone(), palette, self.theme.adjust);
+        let adjust = if self.state.settings.advanced_theme.is_some() { Default::default() } else { self.theme.adjust };
+        self.theme = os_theme::Theme::new(&self.theme.name.clone(), palette, adjust);
         os_theme::set_current(&self.theme.colors);
         self.state.fl_text = Some(text);
-        if self.state.settings.open {
+        if self.state.settings.open && self.state.settings.advanced_theme.is_none() {
             self.state.settings.skin_previews = os_theme::design::Design::ALL.iter().map(|d| os_theme::design::palette(*d, Some(&th))).collect();
         }
         self.check_readable();
@@ -254,6 +256,7 @@ impl App {
 
     /// Keeps the applied theme for the next start (`current.flstheme` in the user folder).
     pub(crate) fn theme_store(&self) {
+        if self.state.settings.advanced_theme.is_some() { return; }
         if let (Some(d), Some(text)) = (crate::app::theme_dir(), &self.state.fl_text) {
             let _ = std::fs::create_dir_all(&d);
             let _ = std::fs::write(d.join("current.flstheme"), text);
@@ -307,8 +310,22 @@ impl App {
             _ => self.state.fl_text.clone(),
         };
         let hint = format!("{}: pick a colour", SWATCHES[i]);
-        self.state.settings.picker = Some(Picker { swatch: i, part, hsv: hsv(parts[part].colour), before, at });
+        self.state.settings.picker = Some(Picker { swatch: i, part, custom: None, hsv: hsv(parts[part].colour), before, at });
         self.state.message = Some(hint);
+        self.invalidate();
+    }
+
+    pub(crate) fn open_editor_swatch(&mut self, token: &'static str) {
+        let Some(color) = self.theme.colors.get(token) else { return };
+        self.open_editor_swatch_color(token, color);
+    }
+
+    pub(crate) fn open_editor_swatch_color(&mut self, token: &'static str, color: Color) {
+        let at = (self.mouse.0, self.mouse.1, 12.0);
+        self.state.settings.picker = Some(Picker {
+            swatch: 0, part: 0, custom: Some((token, color)), hsv: hsv(color),
+            before: self.state.fl_text.clone(), at,
+        });
         self.invalidate();
     }
 
@@ -328,8 +345,20 @@ impl App {
     fn picker_apply(&mut self) {
         let Some(p) = self.state.settings.picker.clone() else { return };
         let text = self.theme_text();
-        let Some(part) = parts(&text, p.swatch).get(p.part).cloned() else { return };
         let c = from_hsv(p.hsv);
+        if let Some((token, _)) = p.custom {
+            let text = self.editor_source_text();
+            let next = if token == "LemonStudioStyle.cursor-color" {
+                fl::set_key(&text, token, &format!("#{:02X}{:02X}{:02X}", c.r, c.g, c.b))
+            } else if let Some(design) = self.state.settings.advanced_theme.as_ref().and_then(|s| s.mixer_designer.as_ref()) {
+                crate::mixer_skin::set_color(&text, design.scope, design.part, token, c)
+            } else {
+                crate::advanced_theme::set_color(&text, token, c)
+            };
+            self.theme_edit(next);
+            return;
+        }
+        let Some(part) = parts(&text, p.swatch).get(p.part).cloned() else { return };
         self.theme_edit(set_part(&text, p.swatch, &part.key, c));
         self.hint = std::borrow::Cow::Owned(format!("{}: #{:02x}{:02x}{:02x}", SWATCHES[p.swatch], c.r, c.g, c.b));
     }
@@ -356,6 +385,13 @@ impl App {
     pub(crate) fn picker_revert(&mut self) {
         let Some(p) = self.state.settings.picker.clone() else { return };
         self.theme_mark(crate::theme_library::Step::Other);
+        if let Some((_, color)) = p.custom {
+            let mut snap = self.snap_theme();
+            snap.text = p.before;
+            self.theme_restore(snap);
+            if let Some(picker) = self.state.settings.picker.as_mut() { picker.hsv = hsv(color); }
+            return;
+        }
         match p.before.clone() {
             Some(text) => self.theme_edit(text),
             None => {

@@ -98,7 +98,7 @@ const PREFS_FILE: &str = "plugins.json";
 const CACHE_FILE: &str = "plugin_cache.json";
 
 /// Reads a JSON file from the user folder (nothing under test: tests never see the user's files).
-fn read_json<T: for<'de> Deserialize<'de>>(name: &str) -> Option<T> {
+pub(crate) fn read_json<T: for<'de> Deserialize<'de>>(name: &str) -> Option<T> {
     if cfg!(test) {
         return None;
     }
@@ -107,7 +107,7 @@ fn read_json<T: for<'de> Deserialize<'de>>(name: &str) -> Option<T> {
 }
 
 /// Writes a JSON file into the user folder through a temporary file, so a failed write keeps the old one.
-fn write_json<T: Serialize>(name: &str, v: &T) {
+pub(crate) fn write_json<T: Serialize + ?Sized>(name: &str, v: &T) {
     if cfg!(test) {
         return;
     }
@@ -756,6 +756,7 @@ pub struct Entry {
     pub format: Format,
     pub category: &'static str,
     pub favorite: bool,
+    pub builtin: bool,
 }
 
 /// What the plugin menus list: shown plugins only, alphabetical by label.
@@ -786,7 +787,7 @@ fn entries(list: &[Available], prefs: &Prefs, missing: &HashSet<String>) -> Vec<
                 d.vendor.trim().to_string()
             };
             let uid = d.uid();
-            Entry { index: i, name: d.name.clone(), label, favorite: prefs.is_favorite(&uid), uid, vendor, format: d.format, category: category(d) }
+            Entry { builtin: crate::project_plugins::is_builtin(d), index: i, name: d.name.clone(), label, favorite: prefs.is_favorite(&uid), uid, vendor, format: d.format, category: category(d) }
         })
         .collect();
     v.sort_by_key(|e| e.label.to_lowercase());
@@ -966,6 +967,7 @@ pub struct Db {
     pub prefs: Prefs,
     pub cache: Cache,
     pub lists: Lists,
+    pub blacklisted:Lists,
     /// Every table row (`table`); `rows` = these sorted and filtered.
     pub all_rows: Vec<TableRow>,
     pub rows: Vec<TableRow>,
@@ -985,6 +987,7 @@ impl Default for Db {
             prefs: Prefs::default(),
             cache: Cache::default(),
             lists: Lists::default(),
+            blacklisted:Lists::default(),
             all_rows: Vec::new(),
             rows: Vec::new(),
             sort: (Col::Name, false),
@@ -1000,6 +1003,9 @@ impl Db {
     /// Rebuilds the lists and the table from the plugins the host knows.
     pub fn rebuild(&mut self, plugins: &crate::plugins::Plugins) {
         self.lists = lists(&plugins.available, &plugins.effects, &self.prefs, &plugins.missing);
+        let mut visible=self.prefs.clone();visible.hidden.clear();visible.combine=false;
+        self.blacklisted=lists(&plugins.available,&plugins.effects,&visible,&plugins.missing);
+        self.blacklisted.gens.retain(|e|self.prefs.is_hidden(&e.uid));self.blacklisted.fx.retain(|e|self.prefs.is_hidden(&e.uid));
         self.all_rows = table(&plugins.available, &plugins.effects, &self.cache, &self.prefs, &plugins.missing);
         self.refilter();
     }

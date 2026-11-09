@@ -2,13 +2,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // This file is part of Lemon Studio: https://github.com/ItsAlphaNeon/Lemon-Studio
 
-//! Toolbar and window-button icons, and the Lemon Studio logo. Placeholders taken from Tabler Icons (MIT, see `tabler.rs`);
-//! each only suggests its function (no artwork is copied from any other program). Where Tabler has nothing that fits,
-//! Lemon Studio draws its own on the same grid (`KICK`).
+//! Original themed artwork for Lemon Studio's controls.
 
 use os_ui::{Canvas, Color, Glyph, Rect};
 
-use os_ui::tabler::{self as tb, TablerIcon};
+#[path = "icons_art.rs"]
+mod art;
+#[path = "icons_default.rs"]
+mod original;
+pub(crate) use original::default_shape;
+pub(crate) use art::{Art, Gesture, artwork, gesture};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Icon {
@@ -16,7 +19,9 @@ pub enum Icon {
     Restore,
     Close,
     Play,
+    Pause,
     Stop,
+    Record,
     Metronome,
     WaitInput,
     Countdown,
@@ -31,6 +36,7 @@ pub enum Icon {
     Save,
     SaveRender,
     Download,
+    Exchange,
     Vote,
     Info,
     TypingKeyboard,
@@ -52,6 +58,7 @@ pub enum Icon {
     ArrowRight,
     ArrowLeft,
     ArrowUp,
+    ArrowDown,
     Back,
     Wave,
     Page,
@@ -63,6 +70,7 @@ pub enum Icon {
     Delete,
     Mute,
     Slip,
+    StretchBand,
     Slice,
     Select,
     Zoom,
@@ -77,91 +85,156 @@ pub enum Icon {
     FilePreset,
     FileZip,
     FileBlank,
+    Gear,
+    Wrench,
+    User,
+    Drive,
+    Envelope,
+    Repeat,
+    Tick,
+    Power,
 }
 
-/// A kick drum seen from the side on its two legs, its pedal's beater against the head (the Tempo tapper). Lemon
-/// Studio's own, in Tabler's style: 24-unit grid, outline, absolute M/L/C/Z only.
-const KICK: TablerIcon = TablerIcon { filled: false, d: "M 13.5 10.5 C 13.5 14.366 12.381 17.5 11 17.5 C 9.619 17.5 8.5 14.366 8.5 10.5 C 8.5 6.634 9.619 3.5 11 3.5 C 12.381 3.5 13.5 6.634 13.5 10.5 Z M 11 3.5 L 19 3.5 M 11 17.5 L 19 17.5 M 19 3.5 C 20.381 3.5 21.5 6.634 21.5 10.5 C 21.5 14.366 20.381 17.5 19 17.5 M 3 21 L 8 19.5 M 4.8 20.5 L 6.4 12.6 M 8.3 10.8 C 8.3 11.628 7.628 12.3 6.8 12.3 C 5.972 12.3 5.3 11.628 5.3 10.8 C 5.3 9.972 5.972 9.3 6.8 9.3 C 7.628 9.3 8.3 9.972 8.3 10.8 Z M 12 17.3 L 11 21 M 18 17.3 L 19 21" };
+pub const CHOICES: &[(Icon, &str, &str)] = &[
+    (Icon::Minimize, "Minimize", "LemonStudioStyle.icon-0-color"),
+    (Icon::Restore, "Restore", "LemonStudioStyle.icon-1-color"),
+    (Icon::Close, "Close", "LemonStudioStyle.icon-2-color"),
+    (Icon::Play, "Play", "LemonStudioStyle.icon-3-color"),
+    (Icon::Pause, "Pause", "LemonStudioStyle.icon-4-color"),
+    (Icon::Stop, "Stop", "LemonStudioStyle.icon-5-color"),
+    (Icon::Record, "Record", "LemonStudioStyle.icon-6-color"),
+    (Icon::Metronome, "Metronome", "LemonStudioStyle.icon-7-color"),
+    (Icon::WaitInput, "Start on input", "LemonStudioStyle.icon-8-color"),
+    (Icon::Countdown, "Recording lead-in", "LemonStudioStyle.icon-9-color"),
+    (Icon::Blend, "Blend", "LemonStudioStyle.icon-10-color"),
+    (Icon::LoopRecord, "Loop Record", "LemonStudioStyle.icon-11-color"),
+    (Icon::Undo, "Undo", "LemonStudioStyle.icon-12-color"),
+    (Icon::Redo, "Redo", "LemonStudioStyle.icon-13-color"),
+    (Icon::Cut, "Cut", "LemonStudioStyle.icon-14-color"),
+    (Icon::Mic, "Mic", "LemonStudioStyle.icon-15-color"),
+    (Icon::Help, "Help", "LemonStudioStyle.icon-16-color"),
+    (Icon::Save, "Save", "LemonStudioStyle.icon-17-color"),
+    (Icon::SaveRender, "Save Render", "LemonStudioStyle.icon-18-color"),
+    (Icon::Download, "Download", "LemonStudioStyle.icon-19-color"),
+    (Icon::Exchange, "Exchange", "LemonStudioStyle.icon-20-color"),
+    (Icon::Vote, "Vote", "LemonStudioStyle.icon-21-color"),
+    (Icon::Info, "Info", "LemonStudioStyle.icon-22-color"),
+    (Icon::TypingKeyboard, "Typing Keyboard", "LemonStudioStyle.icon-23-color"),
+    (Icon::AutoScroll, "Auto Scroll", "LemonStudioStyle.icon-24-color"),
+    (Icon::StepEdit, "Step Edit", "LemonStudioStyle.icon-25-color"),
+    (Icon::Slide, "Slide", "LemonStudioStyle.icon-26-color"),
+    (Icon::Link, "Link", "LemonStudioStyle.icon-27-color"),
+    (Icon::MidiControl, "Midi Control", "LemonStudioStyle.icon-28-color"),
+    (Icon::Magnet, "Snap", "LemonStudioStyle.icon-29-color"),
+    (Icon::Playlist, "Playlist", "LemonStudioStyle.icon-30-color"),
+    (Icon::PianoRoll, "Piano Roll", "LemonStudioStyle.icon-31-color"),
+    (Icon::ChannelRack, "Channel Rack", "LemonStudioStyle.icon-32-color"),
+    (Icon::Mixer, "Mixer", "LemonStudioStyle.icon-33-color"),
+    (Icon::Browser, "Browser", "LemonStudioStyle.icon-34-color"),
+    (Icon::Project, "Project", "LemonStudioStyle.icon-35-color"),
+    (Icon::Plug, "Plug", "LemonStudioStyle.icon-36-color"),
+    (Icon::Kick, "Kick", "LemonStudioStyle.icon-37-color"),
+    (Icon::Touch, "Touch", "LemonStudioStyle.icon-38-color"),
+    (Icon::ArrowRight, "Arrow Right", "LemonStudioStyle.icon-39-color"),
+    (Icon::ArrowLeft, "Arrow Left", "LemonStudioStyle.icon-40-color"),
+    (Icon::ArrowUp, "Arrow Up", "LemonStudioStyle.icon-41-color"),
+    (Icon::ArrowDown, "Arrow Down", "LemonStudioStyle.icon-42-color"),
+    (Icon::Back, "Back", "LemonStudioStyle.icon-43-color"),
+    (Icon::Wave, "Wave", "LemonStudioStyle.icon-44-color"),
+    (Icon::Page, "Page", "LemonStudioStyle.icon-45-color"),
+    (Icon::Star, "Star", "LemonStudioStyle.icon-46-color"),
+    (Icon::Folder, "Folder", "LemonStudioStyle.icon-47-color"),
+    (Icon::Search, "Search", "LemonStudioStyle.icon-48-color"),
+    (Icon::Pencil, "Pencil", "LemonStudioStyle.icon-49-color"),
+    (Icon::Brush, "Brush", "LemonStudioStyle.icon-50-color"),
+    (Icon::Delete, "Eraser / delete", "LemonStudioStyle.icon-51-color"),
+    (Icon::Mute, "Mute", "LemonStudioStyle.icon-52-color"),
+    (Icon::Slip, "Slip", "LemonStudioStyle.icon-53-color"),
+    (Icon::StretchBand, "Stretch", "LemonStudioStyle.icon-54-color"),
+    (Icon::Slice, "Slice", "LemonStudioStyle.icon-55-color"),
+    (Icon::Select, "Select", "LemonStudioStyle.icon-56-color"),
+    (Icon::Zoom, "Zoom", "LemonStudioStyle.icon-57-color"),
+    (Icon::Speaker, "Audition / playback", "LemonStudioStyle.icon-58-color"),
+    (Icon::Plus, "Plus", "LemonStudioStyle.icon-59-color"),
+    (Icon::Note, "Note", "LemonStudioStyle.icon-60-color"),
+    (Icon::FolderOpen, "Folder Open", "LemonStudioStyle.icon-61-color"),
+    (Icon::FolderPlus, "Folder Plus", "LemonStudioStyle.icon-62-color"),
+    (Icon::FileAudio, "File Audio", "LemonStudioStyle.icon-63-color"),
+    (Icon::FileProject, "File Project", "LemonStudioStyle.icon-64-color"),
+    (Icon::FileText, "File Text", "LemonStudioStyle.icon-65-color"),
+    (Icon::FilePreset, "File Preset", "LemonStudioStyle.icon-66-color"),
+    (Icon::FileZip, "File Zip", "LemonStudioStyle.icon-67-color"),
+    (Icon::FileBlank, "File Blank", "LemonStudioStyle.icon-68-color"),
+    (Icon::Gear, "Gear", "LemonStudioStyle.icon-69-color"),
+    (Icon::Wrench, "Wrench", "LemonStudioStyle.icon-70-color"),
+    (Icon::User, "User", "LemonStudioStyle.icon-71-color"),
+    (Icon::Drive, "Drive", "LemonStudioStyle.icon-72-color"),
+    (Icon::Envelope, "Envelope", "LemonStudioStyle.icon-73-color"),
+    (Icon::Repeat, "Repeat", "LemonStudioStyle.icon-74-color"),
+    (Icon::Tick, "Tick", "LemonStudioStyle.icon-75-color"),
+    (Icon::Power, "Power", "LemonStudioStyle.icon-76-color"),
+];
 
-/// Tabler's `arrow-back-up` mirrored left to right (an undone step, spec: ui/settings-choices.md "Undo history: the
-/// four checks (2026-10-16)").
-const REDO: TablerIcon = TablerIcon { filled: false, d: "M 15 14 L 19 10 L 15 6 M 19 10 L 8 10 C 5.791 10 4 11.791 4 14 C 4 16.209 5.791 18 8 18 L 9 18" };
-
-const VOTE: TablerIcon = TablerIcon {filled:false,d:"M 5 12 L 5 21 L 21 21 L 21 12 M 3 12 L 9 12 M 17 12 L 23 12 M 8 5 L 13 2 L 19 10 L 14 14 Z M 11 7 L 14 8 L 15 5"};
-const DOWNLOAD: TablerIcon = TablerIcon { filled: false, d: "M 12 3 L 12 15 M 7 10 L 12 15 L 17 10 M 4 16 L 4 21 L 20 21 L 20 16" };
-
-fn shape(icon: Icon) -> &'static TablerIcon {
-    match icon {
-        Icon::Vote => &VOTE,
-        Icon::Minimize => &tb::MINUS,
-        Icon::Restore => &tb::SQUARES,
-        Icon::Close => &tb::X,
-        Icon::Play => &tb::PLAYER_PLAY,
-        Icon::Stop => &tb::PLAYER_STOP,
-        Icon::Metronome => &tb::METRONOME,
-        Icon::WaitInput => &tb::HOURGLASS,
-        Icon::Countdown => &tb::STOPWATCH,
-        Icon::Blend => &tb::BLEND_MODE,
-        Icon::LoopRecord => &tb::REPEAT,
-        Icon::Undo => &tb::ARROW_BACK_UP,
-        Icon::Redo => &REDO,
-        Icon::Cut => &tb::CUT,
-        Icon::Mic => &tb::MICROPHONE,
-        Icon::Help => &tb::HELP,
-        Icon::Save => &tb::DEVICE_FLOPPY,
-        Icon::Download => &DOWNLOAD,
-        Icon::SaveRender => &tb::FILE_EXPORT,
-        Icon::Info => &tb::INFO_CIRCLE,
-        Icon::TypingKeyboard => &tb::KEYBOARD,
-        Icon::AutoScroll => &tb::ARROW_AUTOFIT_RIGHT,
-        Icon::StepEdit => &tb::GRID_DOTS,
-        Icon::Slide => &tb::TRENDING_UP,
-        Icon::Link => &tb::LINK,
-        Icon::MidiControl => &tb::ADJUSTMENTS_HORIZONTAL,
-        Icon::Magnet => &tb::MAGNET,
-        Icon::Playlist => &tb::PLAYLIST,
-        Icon::PianoRoll => &tb::PIANO,
-        Icon::ChannelRack => &tb::LAYOUT_ROWS,
-        Icon::Mixer => &tb::ADJUSTMENTS,
-        Icon::Browser => &tb::FOLDERS,
-        Icon::Project => &tb::FILE,
-        Icon::Page => &tb::FILE_TEXT,
-        Icon::Plug => &tb::PLUG,
-        Icon::Kick => &KICK,
-        Icon::Touch => &tb::HAND_FINGER,
-        Icon::ArrowRight => &tb::CARET_RIGHT,
-        Icon::ArrowLeft => &tb::CARET_LEFT,
-        Icon::ArrowUp => &tb::CARET_UP,
-        Icon::Back => &tb::ARROW_LEFT,
-        Icon::Wave => &tb::WAVE_SINE,
-        Icon::Star => &tb::STAR,
-        Icon::Folder => &tb::FOLDER,
-        Icon::Search => &tb::SEARCH,
-        Icon::Pencil => &tb::PENCIL,
-        Icon::Brush => &tb::BRUSH,
-        Icon::Delete => &tb::ERASER,
-        Icon::Mute => &tb::VOLUME_OFF,
-        Icon::Slip => &tb::ARROWS_HORIZONTAL,
-        Icon::Slice => &tb::SLICE,
-        Icon::Select => &tb::MARQUEE_2,
-        Icon::Zoom => &tb::ZOOM_IN,
-        Icon::Speaker => &tb::VOLUME,
-        Icon::Plus => &tb::PLUS,
-        Icon::Note => &tb::MUSIC,
-        Icon::FolderOpen => &tb::FOLDER_OPEN,
-        Icon::FolderPlus => &tb::FOLDER_PLUS,
-        Icon::FileAudio => &tb::FILE_MUSIC,
-        Icon::FileProject => &tb::FILE_STAR,
-        Icon::FileText => &tb::FILE_TYPOGRAPHY,
-        Icon::FilePreset => &tb::FILE_SETTINGS,
-        Icon::FileZip => &tb::FILE_ZIP,
-        Icon::FileBlank => &tb::FILE,
+pub fn playlist_tool(tool: crate::playlist::PlTool) -> Icon {
+    use crate::playlist::PlTool;
+    match tool {
+        PlTool::Draw => Icon::Pencil,
+        PlTool::Paint => Icon::Brush,
+        PlTool::Slice => Icon::Slice,
+        PlTool::Select => Icon::Select,
+        PlTool::Comp => Icon::Blend,
+        PlTool::Delete => Icon::Delete,
+        PlTool::Mute => Icon::Mute,
+        PlTool::Zoom => Icon::Zoom,
+        PlTool::Slip => Icon::Slip,
+        PlTool::Playback => Icon::Speaker,
     }
 }
 
-/// Draw `icon` centered in `r` with color `c`. The 24-unit Tabler grid is fitted to the shorter side.
+pub fn chrome(cv: &mut Canvas, icon: os_ui::ChromeIcon, r: Rect, color: Color) -> bool {
+    let key = match icon {
+        os_ui::ChromeIcon::Left => Icon::ArrowLeft,
+        os_ui::ChromeIcon::Right => Icon::ArrowRight,
+        os_ui::ChromeIcon::Up => Icon::ArrowUp,
+        os_ui::ChromeIcon::Down => Icon::ArrowDown,
+        os_ui::ChromeIcon::Check => Icon::Tick,
+        os_ui::ChromeIcon::Close => Icon::Close,
+    };
+    let (choice, ink) = cv.icon_override(key as usize);
+    if cv.icon_pack() == 0 && choice == 0 && ink.is_none() { return false; }
+    draw(cv, key, r, color);
+    true
+}
+
+/// Draw a family-specific icon at the normal control bounds.
 pub fn draw(cv: &mut Canvas, icon: Icon, r: Rect, c: Color) {
-    cv.icon(shape(icon), r, c);
+    draw_with_default(cv, icon, default_shape(icon), r, c);
+}
+
+/// Keep the original artwork at sites that used a separate symbol for the same action.
+pub fn draw_with_default(
+    cv: &mut Canvas, icon: Icon, original: &os_ui::tabler::TablerIcon, r: Rect, c: Color,
+) {
+    let (choice, color) = cv.icon_override(icon as usize);
+    if cv.icon_pack() == 0 && choice == 0 && color.is_none() {
+        cv.icon(original, r, c);
+    } else {
+        let family = cv.icon_pack();
+        let selected = choice.checked_sub(1).unwrap_or(family);
+        if selected==os_theme::appearance::VINTAGE_ICON_PACK && color.is_none() && cv.icon_color().is_none()
+            && crate::vintage_skin::icon(cv,icon,r) {return;}
+        cv.set_icon_pack(selected, false);
+        let ink = color.map(|ink| ink.with_alpha(c.a)).unwrap_or(c);
+        if selected == 0 {
+            cv.icon(original, r, ink);
+        } else {
+            let global = cv.icon_color();
+            if color.is_some() { cv.set_icon_color(color); }
+            cv.art_icon(&artwork(icon, selected).shape, r, ink);
+            cv.set_icon_color(global);
+        }
+        cv.set_icon_pack(family, false);
+    }
 }
 
 /// Lemon Studio logo (greyscale mark, `logo.rs`) in one tint, fitted into a circle of radius `r`.
@@ -198,4 +271,274 @@ fn lemon_logo(cv: &mut Canvas, cx: f32, cy: f32, r: f32, c: Color) {
         g.commands(d, ox, oy, k, None);
     }
     cv.glyph(c, &g);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::playlist::PlTool;
+
+    #[test]
+    fn default_icons_use_the_original_rendering() {
+        let rect = Rect::new(4.0, 4.0, 18.0, 18.0);
+        let ink = Color::rgb(0xece8dd);
+        let mut actual = Canvas::new(26, 26, 1.0).unwrap();
+        let mut expected = Canvas::new(26, 26, 1.0).unwrap();
+        actual.set_chrome_art(chrome);
+        assert!(!actual.chrome_icon(os_ui::ChromeIcon::Right, rect, ink));
+        assert!(crate::playlist_tools::window_cursor_source(crate::app::Cursor::Default, 1.0, 0).is_none());
+
+        for icon in [Icon::Metronome, Icon::ChannelRack, Icon::StretchBand, Icon::Delete, Icon::Vote] {
+            actual.clear(Color::rgb(0));
+            expected.clear(Color::rgb(0));
+            draw(&mut actual, icon, rect, ink);
+            expected.icon(default_shape(icon), rect, ink);
+            assert_eq!(actual.pixmap.data(), expected.pixmap.data(), "{icon:?}");
+        }
+    }
+
+    #[test]
+    fn individual_icons_mix_on_the_default_base() {
+        let mut a = os_theme::appearance::Appearance::default();
+        let role = Icon::Pencil as usize;
+        a.icon_variants[role / 16][role % 16] = 23;
+        let mut actual = Canvas::new(28, 28, 1.0).unwrap();
+        let mut expected = Canvas::new(28, 28, 1.0).unwrap();
+        let r = Rect::new(3.0, 3.0, 22.0, 22.0);
+        let ink = Color::rgb(0xffffff);
+        actual.set_icon_overrides(a);
+        assert_eq!(actual.icon_override(role), (0, None), "legacy Default themes keep original artwork");
+        a.icon_mixing = true;
+        actual.set_icon_overrides(a);
+        draw(&mut actual, Icon::Pencil, r, ink);
+        expected.set_icon_pack(22, false);
+        expected.art_icon(&artwork(Icon::Pencil, 22).shape, r, ink);
+        assert_eq!(actual.pixmap.data(), expected.pixmap.data());
+        assert_eq!(actual.icon_pack(), 0);
+        actual.set_chrome_art(chrome);
+        assert!(!actual.chrome_icon(os_ui::ChromeIcon::Close, r, ink));
+        let role = Icon::Close as usize;
+        a.icon_variants[role / 16][role % 16] = 24;
+        actual.set_icon_overrides(a);
+        assert!(actual.chrome_icon(os_ui::ChromeIcon::Close, r, ink));
+    }
+
+    #[test]
+    fn authored_icon_atlas_covers_all_families_and_tools() {
+        let all = [
+            Icon::Minimize,
+            Icon::Restore,
+            Icon::Close,
+            Icon::Play,
+            Icon::Pause,
+            Icon::Stop,
+            Icon::Record,
+            Icon::Metronome,
+            Icon::WaitInput,
+            Icon::Countdown,
+            Icon::Blend,
+            Icon::LoopRecord,
+            Icon::Undo,
+            Icon::Redo,
+            Icon::Cut,
+            Icon::Mic,
+            Icon::Help,
+            Icon::Save,
+            Icon::SaveRender,
+            Icon::Download,
+            Icon::Exchange,
+            Icon::Vote,
+            Icon::Info,
+            Icon::TypingKeyboard,
+            Icon::AutoScroll,
+            Icon::StepEdit,
+            Icon::Slide,
+            Icon::Link,
+            Icon::MidiControl,
+            Icon::Magnet,
+            Icon::Playlist,
+            Icon::PianoRoll,
+            Icon::ChannelRack,
+            Icon::Mixer,
+            Icon::Browser,
+            Icon::Project,
+            Icon::Plug,
+            Icon::Kick,
+            Icon::Touch,
+            Icon::ArrowRight,
+            Icon::ArrowLeft,
+            Icon::ArrowUp,
+            Icon::ArrowDown,
+            Icon::Back,
+            Icon::Wave,
+            Icon::Page,
+            Icon::Star,
+            Icon::Folder,
+            Icon::Search,
+            Icon::Pencil,
+            Icon::Brush,
+            Icon::Delete,
+            Icon::Mute,
+            Icon::Slip,
+            Icon::StretchBand,
+            Icon::Slice,
+            Icon::Select,
+            Icon::Zoom,
+            Icon::Speaker,
+            Icon::Plus,
+            Icon::Note,
+            Icon::FolderOpen,
+            Icon::FolderPlus,
+            Icon::FileAudio,
+            Icon::FileProject,
+            Icon::FileText,
+            Icon::FilePreset,
+            Icon::FileZip,
+            Icon::FileBlank,
+            Icon::Gear,
+            Icon::Wrench,
+            Icon::User,
+            Icon::Drive,
+            Icon::Envelope,
+            Icon::Repeat,
+            Icon::Tick,
+            Icon::Power,
+        ];
+        let mut c = Canvas::new(24, 24, 1.0).unwrap();
+        for icon in all {
+            for family in 1..os_ui::icon_packs::PACKS.len() as u8 {
+                let art = artwork(icon, family);
+                // Universal controls may share geometry: ornament is not a
+                // substitute for a readable action at toolbar size.
+                assert!(!art.shape.d.is_empty(), "{icon:?}, family {family}");
+                c.set_icon_pack(family, false);
+                c.begin_frame(None);
+                c.clear(Color::rgb(0));
+                draw(
+                    &mut c,
+                    icon,
+                    Rect::new(3.0, 3.0, 18.0, 18.0),
+                    Color::rgb(0xffffff),
+                );
+                assert!(
+                    c.pixmap.pixels().iter().filter(|p| p.red() > 25).count() >= 9,
+                    "{icon:?}, family {family}: readable mark at toolbar size"
+                );
+            }
+        }
+
+        let tools = [
+            PlTool::Draw,
+            PlTool::Paint,
+            PlTool::Slice,
+            PlTool::Delete,
+            PlTool::Select,
+            PlTool::Mute,
+            PlTool::Playback,
+            PlTool::Zoom,
+            PlTool::Slip,
+            PlTool::Comp,
+        ];
+        for family in 1..os_ui::icon_packs::PACKS.len() as u8 {
+            let eraser = crate::playlist_tools::packed_cursor_canvas(PlTool::Delete, 3, 1.0, family).unwrap();
+            assert!(
+                eraser.pixmap.pixels().chunks_exact(32).skip(18).take(10)
+                    .any(|row| row[18..29].iter().any(|pixel| pixel.alpha() > 128)),
+                "eraser badge must stay inside the cursor, family {family}"
+            );
+            for tool in tools {
+                for phase in [
+                    3,
+                    crate::playlist_tools::STRETCH,
+                    crate::playlist_tools::GAIN,
+                    crate::playlist_tools::GRAB,
+                    crate::playlist_tools::COPYING,
+                    crate::playlist_tools::RESIZE,
+                ] {
+                    assert!(
+                        crate::playlist_tools::packed_cursor_source(tool, phase, 1.5, family)
+                            .is_some()
+                    );
+                }
+            }
+            for cursor in [
+                crate::app::Cursor::Default,
+                crate::app::Cursor::EwResize,
+                crate::app::Cursor::NsResize,
+                crate::app::Cursor::NwseResize,
+                crate::app::Cursor::NeswResize,
+            ] {
+                assert!(crate::playlist_tools::window_cursor_source(cursor, 1.5, family).is_some());
+            }
+        }
+
+        if let Ok(path) = std::env::var("LEMON_ICON_ATLAS_PATH") {
+            let mut sheet = Canvas::new(916, 16 + 48 * os_ui::icon_packs::PACKS.len() as u32, 1.0).unwrap();
+            sheet.clear(Color::rgb(0x202326));
+            let icons = [
+                Icon::Metronome,
+                Icon::WaitInput,
+                Icon::Countdown,
+                Icon::LoopRecord,
+                Icon::PianoRoll,
+                Icon::ChannelRack,
+                Icon::Mixer,
+                Icon::Playlist,
+                Icon::Magnet,
+                Icon::Cut,
+                Icon::Pencil,
+                Icon::Brush,
+                Icon::Slice,
+                Icon::Delete,
+                Icon::StretchBand,
+                Icon::Select,
+                Icon::Mute,
+                Icon::Speaker,
+                Icon::Zoom,
+            ];
+            for family in 0..os_ui::icon_packs::PACKS.len() as u8 {
+                sheet.set_icon_pack(family, false);
+                let y = 11.0 + f32::from(family) * 48.0;
+                sheet.fill_rrect(Rect::new(8.0, y, 898.0, 42.0), 4.0, Color::rgb(0x2c3032));
+                sheet.text(
+                    os_ui::Font::new(14),
+                    17.0,
+                    y + 13.0,
+                    Color::rgb(0xdbe1df),
+                    os_ui::icon_packs::get(family).name,
+                );
+                for (i, icon) in icons.into_iter().enumerate() {
+                    draw(
+                        &mut sheet,
+                        icon,
+                        Rect::new(92.0 + i as f32 * 36.0, y + 12.0, 18.0, 18.0),
+                        Color::rgb(0xe9ebe7),
+                    );
+                }
+                for (i, tool) in [PlTool::Draw, PlTool::Delete, PlTool::Select]
+                    .into_iter()
+                    .enumerate()
+                {
+                    let cursor =
+                        crate::playlist_tools::packed_cursor_canvas(tool, 3, 1.0, family).unwrap();
+                    let px: Vec<u8> = cursor
+                        .pixmap
+                        .pixels()
+                        .iter()
+                        .flat_map(|p| {
+                            let p = p.demultiply();
+                            [p.red(), p.green(), p.blue(), p.alpha()]
+                        })
+                        .collect();
+                    sheet.image_rgba(
+                        Rect::new(785.0 + i as f32 * 38.0, y + 4.0, 32.0, 32.0),
+                        32,
+                        32,
+                        &px,
+                    );
+                }
+            }
+            sheet.pixmap.save_png(path).unwrap();
+        }
+    }
 }

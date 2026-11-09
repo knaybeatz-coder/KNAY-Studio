@@ -58,6 +58,12 @@ fn factory_presets() {
 }
 
 fn main() {
+    println!("cargo:rerun-if-changed=vendor/minibpm");
+    cc::Build::new().cpp(true).std("c++11")
+        .file("vendor/minibpm/MiniBpm.cpp")
+        .file("vendor/minibpm/lemon_bridge.cpp")
+        .warnings(false).compile("lemon_minibpm");
+
     println!("cargo:rerun-if-env-changed=LEMON_MASTER_BUNDLE");
     println!("cargo:rerun-if-env-changed=LEMON_RELEASE");
     let bundle = std::env::var_os("LEMON_MASTER_BUNDLE").map(PathBuf::from);

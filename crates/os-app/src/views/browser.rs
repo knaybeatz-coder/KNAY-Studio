@@ -59,6 +59,7 @@ pub const PROJECT_DATA: &str = "Project data";
 /// The Current project and Plugin database tabs (spec §1).
 pub const PROJECT_TAB: usize = 1;
 pub const PLUGIN_TAB: usize = 2;
+pub const EXCHANGE_BUTTON: usize = 8;
 pub const PARAMETERS_TAB: usize = 7;
 
 /// Tree key of the Current project tab's root.
@@ -86,10 +87,12 @@ pub enum Item {
     Channel(usize),
     /// Sample file path.
     Sample(String),
+    Samples(Vec<String>),
     /// A generator (index into `Plugins::available`).
     Generator(usize),
     /// An effect (index into `Plugins::effects`).
     Effect(usize),
+    Effects(Vec<usize>),
     /// A non-audio file in a dropped folder; MIDI files can be dragged to import.
     File(String),
     /// A parameter of a hosted plugin: hosted key, parameter index (spec: plugins/plugin-parameters.md §6).
@@ -159,7 +162,20 @@ pub fn saved_opts()->std::collections::HashSet<&'static str> {
     }).collect()
 }
 pub fn tabs(s:&State)->Vec<(usize,Icon,&'static str)> {
-    let mut tabs=vec![(0,Icon::Wave,"Samples"),(3,Icon::Star,"Favorites"),(5,Icon::Download,"Plugin Downloads"),(6,Icon::Vote,"Feature voting")];
+    let mut tabs = vec![
+        (0, Icon::Wave, "Samples"),
+        (3, Icon::Star, "Favorites"),
+        (EXCHANGE_BUTTON, Icon::Exchange, "Community Samples"),
+        (5, Icon::Download, "Plugin Downloads"),
+        (6, Icon::Vote, "Feature voting"),
+    ];
+    tabs.retain(|(id, _, _)| *id == s.browser_tab || match *id {
+        3 => crate::workspace_visibility::shown("visible_browser-favorites"),
+        5 => crate::workspace_visibility::shown("visible_browser-downloads"),
+        6 => crate::workspace_visibility::shown("visible_browser-voting"),
+        EXCHANGE_BUTTON => crate::workspace_visibility::shown("visible_browser-community"),
+        _ => true,
+    });
     for (key,id,icon,label) in [(OPT_PROJECT,1,Icon::Page,"Current project"),(OPT_PLUGINS,2,Icon::Plug,"Plugin database"),(OPT_PRESETS,4,Icon::FilePreset,"Plugin presets"),(OPT_PARAMETERS,PARAMETERS_TAB,Icon::Slide,"Parameters")] {
         if opt(s,key) || s.browser_tab==id {tabs.push((id,icon,label));}
     }
@@ -172,7 +188,15 @@ pub fn opt(s: &State, k: &str) -> bool {
 
 /// Whether `row` matches the search text `q` (lower case), spec §5.
 pub fn matches(s: &State, row: &Row, q: &str) -> bool {
-    !q.is_empty() && (opt(s, OPT_FOLDERS) || row.open.is_none()) && row.label.to_lowercase().contains(q)
+    if q.is_empty() || (!opt(s, OPT_FOLDERS) && row.open.is_some()) { return false; }
+    if row.label.to_lowercase().contains(q) { return true; }
+    let Item::Sample(path) = &row.item else { return false };
+    if s.browser_tags.is_empty() { return false; }
+    let tags = s.browser_tags.get(path).or_else(|| {
+        if std::path::Path::new(path).is_absolute() { return None; }
+        s.browser_tags.get(&crate::plugins::resolve_sample(path))
+    });
+    tags.is_some_and(|names| names.iter().any(|tag| tag.to_lowercase().contains(q)))
 }
 
 /// A node is open when the user opened it, or always while searching (search covers the whole tree).
@@ -199,6 +223,7 @@ pub fn search_changed(s: &State) -> bool {
 }
 
 pub fn rows(s: &State) -> Vec<Row> {
+    if s.browser_tab==EXCHANGE_BUTTON {return crate::community_samples::rows(s);}
     if s.browser_tab==6 {return Vec::new();}
     if s.browser_tab==5 {return crate::plugin_downloads::rows(s)}
     if matches!(s.browser_tab,0|3) && opt(s,OPT_SINGLE_FOLDER) {
@@ -651,6 +676,7 @@ pub fn list_h(s: &State) -> f32 {
 
 /// The selected disk entry, shown in the info panel (spec §6).
 fn info_path(rows: &[Row], s: &State) -> Option<PathBuf> {
+    if !crate::workspace_visibility::shown("visible_browser-info") { return None; }
     let k = s.browser_sel.as_deref()?;
     rows.iter().find(|r| r.key == k)?.path.clone()
 }
@@ -733,13 +759,14 @@ fn paint_info(ui: &mut Ui, s: &State, path: &Path, r: Rect) {
 /// Top of the rows: below the search box when "Search box on top" is on (spec §4).
 pub fn list_top(s: &State) -> f32 {
     let lift = super::work_y(s) - super::WORK_Y;
-    lift + LIST_Y + if opt(s,OPT_TOP) {SEARCH_ROW} else {0.}
+    let community = if s.browser_tab == EXCHANGE_BUTTON {crate::community_samples::height(s)} else {0.};
+    lift + if s.vintage_2005 {128.0}else{LIST_Y} + community + if opt(s,OPT_TOP) {SEARCH_ROW} else {0.}
 }
 
 /// Height of the search row above the list ("Search box on top").
 const SEARCH_ROW: f32 = 27.0;
 
-pub fn row_h(s:&State)->f32 {if s.browser_tab==6{return crate::feature_votes::ROW_H;}if s.browser_tab==5 {crate::plugin_downloads::ROW_H}else{ROW_H}}
+pub fn row_h(s:&State)->f32 {if s.browser_tab==EXCHANGE_BUTTON{return 60.;}if s.browser_tab==6{return crate::feature_votes::ROW_H;}if s.browser_tab==5 {crate::plugin_downloads::ROW_H}else if s.vintage_2005 {if s.params.generic_editor.is_some(){17.0}else{13.0}}else{ROW_H}}
 
 /// Largest useful scroll offset.
 /// Scroll geometry shared by painting and pointer handling.
@@ -788,7 +815,7 @@ pub fn marquee_offset(t: f32, over: f32) -> f32 {
 
 pub fn paint(ui: &mut Ui, s: &State, r: Rect) {
     let t = ui.t;
-    if s.browser_auto_hidden {
+    if s.browser_auto_hidden && s.native_view != Some(crate::app::Win::Browser) {
         ui.c.fill_rect(r,t.browser_title);
         ui.hit(r,Action::Swallow,"Move here to show the browser");
         ui.c.fill_rect(Rect::new(r.x+2.,r.y+8.,3.,28.),t.text_dim);
@@ -801,6 +828,7 @@ pub fn paint(ui: &mut Ui, s: &State, r: Rect) {
     ui.hit(r, Action::Swallow, "");
     // Title bar.
     ui.c.fill_rect(Rect::span(0.0, bw - 1.0, 83.0 + dy, 105.0 + dy), t.browser_title);
+    if s.vintage_2005 {crate::vintage_rack_art::header_middle(ui.c,Rect::new(0.,83.+dy,bw,23.));}
     let at = menu_at(s);
     let menu_open = s.playlist.popup.as_ref().is_some_and(|p| p.x == at.0 && p.y == at.1);
     let mhov = ui.hit(Rect::new(2.0, 85.0 + dy, 16.0, 18.0), Action::BrowserMenu, "Browser options");
@@ -819,28 +847,41 @@ pub fn paint(ui: &mut Ui, s: &State, r: Rect) {
         }
         icons::draw(ui.c, icon, Rect::new(r.x + 1.0, 87.0 + dy, 12.0, 14.0), if hov { t.glyph } else { t.text_dim });
     }
-    ui.c.text(os_ui::Font::new(14), 52.0, 85.0 + dy, t.text_dim, "Browser");
+    if crate::workspace_visibility::shown("visible_browser-community") {
+        let font = os_ui::Font::new(12);
+        let width = if s.vintage_2005 {23.}else{ui.c.text_width(font, "Community Samples") + 24.0};
+        let left = (bw - width - 4.0).max(51.0);
+        let button = Rect::new(left, 85.0 + dy, (bw - left - 3.0).max(1.0), 18.0);
+        if left > 105.0 {
+            ui.c.text(os_ui::Font::new(14), 52.0, 85.0 + dy, t.text_dim, "Browser");
+        }
+        let hover = ui.hit(button, Action::BrowserTab(EXCHANGE_BUTTON), "Open Community Samples");
+        ui.c.fill_rrect(button, 3.0, if hover { t.menu_drop_hi } else { t.browser_tabs });
+        icons::draw(ui.c, Icon::Exchange, Rect::new(left + 3.0, button.y + 2.0, 14.0, 14.0), t.glyph);
+        if !s.vintage_2005 {ui.c.text_clip(font, left + 20.0, button.y + 1.0, (button.w - 21.0).max(0.0), t.glyph, "Community Samples");}
+    }
     // Tabs (spec ui/browser.md §1): FL's five without Online content, sharing the strip.
-    ui.c.fill_rect(Rect::span(0.0, bw - 1.0, 106.0 + dy, 141.0 + dy), t.browser_tabs);
+    ui.c.fill_rect(Rect::span(0.0, bw - 1.0, 106.0 + dy, (if s.vintage_2005 {127.0}else{141.0}) + dy), t.browser_tabs);
     let tabs=tabs(s);
     let step=((bw-6.)/tabs.len() as f32).min(50.);
     for (slot,(i,icon,tip)) in tabs.into_iter().enumerate() {
         let cx = 3. + step*(slot as f32+0.5);
         let tab_w=(step-2.).min(36.);
-        let rr = Rect::new(cx - tab_w/2., 108.0 + dy, tab_w, 30.0);
+        let rr = Rect::new(cx - tab_w/2., 108.0 + dy, tab_w, if s.vintage_2005 {18.0}else{30.0});
         let hov = ui.hit(rr, Action::BrowserTab(i), tip);
         let active = s.browser_tab == i;
         if active { ui.c.stroke_rrect(rr, 4.0, 1.5, t.browser_tab_outline); }
         let c = if hov || active { t.glyph } else { t.glyph.shade(-0.1) };
-        icons::draw(ui.c, icon, Rect::new(cx - 9.0, 114.0 + dy, 18.0, 18.0), c);
+        icons::draw(ui.c, icon, if s.vintage_2005 {Rect::new(cx-6.,111.+dy,12.,12.)}else{Rect::new(cx - 9.0, 114.0 + dy, 18.0, 18.0)}, c);
     }
     // List.
     let top = list_top(s);
     let search_on_top = opt(s,OPT_TOP);
     if search_on_top {
-        ui.c.fill_rect(Rect::new(0.0, LIST_Y + dy, bw, SEARCH_ROW), t.browser_footer);
-        search_box(ui, s, Rect::new(13.0, LIST_Y + dy + 4.0, bw - 38.0, 20.0));
+        ui.c.fill_rect(Rect::new(0.0, (if s.vintage_2005 {128.0}else{LIST_Y}) + dy, bw, SEARCH_ROW), t.browser_footer);
+        search_box(ui, s, Rect::new(13.0, (if s.vintage_2005 {128.0}else{LIST_Y}) + dy + 4.0, bw - 38.0, 20.0));
     }
+    if s.browser_tab==EXCHANGE_BUTTON {crate::community_samples::paint(ui,s,bw,top-crate::community_samples::height(s));}
     if s.browser_tab==6 {crate::feature_votes::paint(ui,s,Rect::new(0.,top,bw,(r.bottom()-FOOTER_H-top).max(0.)));}
     else if s.browser_tab==5 {
         crate::plugin_downloads::paint(ui,s,Rect::new(0.,top,bw,(r.bottom()-FOOTER_H-top).max(0.)));
@@ -854,36 +895,53 @@ pub fn paint(ui: &mut Ui, s: &State, r: Rect) {
     ui.hit(Rect::new(0.0, top, bw, list.h), Action::BrowserList, "");
     ui.c.push_clip(Rect::new(0.0, top, bw, list.h));
     let cats: [Color; 2] = [t.cat_project, t.cat_plugin_db];
-    let scroll = s.browser_scroll.min((rows.len() as f32 * ROW_H - list.h).max(0.0)).max(0.0);
+    let rh=row_h(s);
+    let scroll = s.browser_scroll.min((rows.len() as f32 * rh - list.h).max(0.0)).max(0.0);
     let sel = s.browser_sel.as_deref();
     let mut marquee = None;
     for (i, row) in rows.iter().enumerate() {
-        let y = top + ROW_H * i as f32 - scroll;
-        if y + ROW_H < list.y || y > list.bottom() {
+        let y = top + rh * i as f32 - scroll;
+        if y + rh < list.y || y > list.bottom() {
             continue;
         }
         let x = 13.0 + INDENT * f32::from(row.depth);
-        let rect = Rect::new(13.0, y, bw - 13.0, ROW_H);
+        let rect = Rect::new(13.0, y, bw - 13.0, rh);
         // A parameter row's hint carries its value (spec: plugins/plugin-parameters.md §6); read for the hovered row only.
         let hint = match row.item {
             Item::Param(key, index) if ui.hovering(rect) => crate::params::row_hint(s, key, index),
             _ => row.label.clone(),
         };
+        if t.style.vintage_2005 {
+            ui.c.fill_rect(Rect::new(rect.x, rect.y, rect.w - 3.0, 1.0), Color::rgb(0x4b565c));
+            ui.c.fill_rect(Rect::new(rect.x, rect.bottom()-1., rect.w - 3.0, 1.0), Color::rgb(0x242e34));
+            ui.c.fill_rect(Rect::new(rect.right()-4.0, rect.y, 1.0, rect.h), Color::rgb(0x4b565c));
+        }
         let hov = ui.hit(rect, Action::BrowserRow(i), hint);
-        if sel == Some(row.key.as_str()) || hov {
+        if sel == Some(row.key.as_str()) || s.browser_samples.contains(&row.key) || hov {
             ui.c.fill_rect(rect, t.browser_row_hi);
+        }
+        if s.browser_tab==EXCHANGE_BUTTON {
+            crate::community_samples::paint_row(ui,s,&row.key,rect);
+            continue;
         }
         let base = match row.cat {
             FOLDER => t.browser_folder,
             FILE => t.text.shade(-0.08),
             c => cats[usize::from(c).min(1)],
         };
+        let base = if s.vintage_2005 && row.depth == 0 && row.open.is_some() {
+            match row.label.as_str() {
+                "Automation" | "Channel presets" | "Mixer presets" | "Packs" | "Scores" | "Plugin presets" => Color::rgb(0xaa879c),
+                "Current project" | "Projects" | "Projects bones" => Color::rgb(0xb38c77),
+                _ => Color::rgb(0x91aab3),
+            }
+        } else { base };
         let c = if row.bright { base.shade(0.12) } else if row.depth > 0 { base.shade(-0.06) } else { base };
         let c = if opt(s,OPT_CONTRAST) {t.text} else {c};
         let c = if matches!(row.item, Item::History(e) if s.history.undone(e)) { t.text_faint } else { c };
         // Expander: only an opened node shows its ▾ in the gutter (FL screenshots, spec §2).
         if row.open == Some(true) && s.browser_search.is_empty() {
-            let (ax, cy) = (x - 9.0, y + ROW_H / 2.0);
+            let (ax, cy) = (x - 9.0, y + rh / 2.0);
             for k in 0..4 {
                 let k = k as f32;
                 ui.c.fill_rect(Rect::new(ax + k, cy - 2.0 + k, 7.0 - 2.0 * k, 1.0), t.text_dim);
@@ -895,15 +953,38 @@ pub fn paint(ui: &mut Ui, s: &State, r: Rect) {
             Icon::PianoRoll if row.cat == FILE => t.cat_plugin_db,
             _ => c,
         };
-        icons::draw(ui.c, row.icon, Rect::new(x + 6.0, y + 3.0, 17.0, 17.0), ic);
-        let (f, w) = (os_ui::Font::new(17), bw - 13.0 - x - 27.0);
+        let label_x=x+if s.vintage_2005 {17.}else{25.};
+        let original_tree = s.vintage_2005 && row.open.is_some() &&
+            crate::vintage_skin::native(ui.c, "SBItem", usize::from(row.open == Some(true)), x, y);
+        if !original_tree {
+            icons::draw(ui.c,row.icon,if s.vintage_2005 {Rect::new(x+3.,y+1.,10.,10.)}else{Rect::new(x+6.,y+3.,17.,17.)},ic);
+        }
+        let (f,w)=(if s.vintage_2005 {os_ui::Font::vintage(11)}else{os_ui::Font::new(17)},bw-15.-label_x);
+        let w=if let Item::Param(key,index)=row.item {
+            if s.params.generic_editor==Some(key) {
+                let width=(w*0.42).clamp(25.,65.);
+                let value=Rect::new(rect.right()-width-12.,y+2.,width,rh-4.);
+                if let Some(list)=s.params.lists.get(&key) && let Some(entry)=list.params.get(index){
+                    let v=list.values.borrow().get(&entry.id).copied().unwrap_or(entry.default);
+                    ui.c.fill_rrect(value,3.,t.sunken);
+                    ui.c.text_center(os_ui::Font::new(11),value,t.text,&format!("{:.1}%",100.*v));
+                    if !entry.read_only{ui.hit(value,Action::GenericValue(key,index),"Edit parameter value");}
+                }
+                (w-width-12.).max(0.)
+            }else{w}
+        }else if s.params.generic_editor.is_some_and(|key|row.key==parameter_node_key(key) || crate::params::node_key(s,key).as_ref()==Some(&row.key)) {
+            let button=Rect::new(rect.right()-71.,y+2.,58.,rh-4.);
+            ui.c.fill_rrect(button,3.,t.button_hi);ui.c.text_center(os_ui::Font::new(11),button,t.text,"Presets");
+            ui.hit(button,Action::GenericPresets(s.params.generic_editor.unwrap()),"Plugin presets");
+            (w-72.).max(0.)
+        }else{w};
         let over = ui.c.text_width(f, &row.label) - w;
         // Hovered, a label that does not fit scrolls (§9) rather than being cut.
         if hov && over > 0.0 {
             let now = std::time::Instant::now();
             let since = s.browser_marquee.borrow().as_ref().filter(|m| m.key == row.key).map_or(now, |m| m.since);
             let off = marquee_offset(now.duration_since(since).as_secs_f32(), over);
-            let lr = Rect::new(x + 25.0, y, w, ROW_H);
+            let lr = Rect::new(label_x, y, w, rh);
             ui.c.push_clip(lr);
             ui.c.text(f, lr.x - off, y, c, &row.label);
             ui.c.pop_clip();
@@ -911,7 +992,7 @@ pub fn paint(ui: &mut Ui, s: &State, r: Rect) {
             continue;
         }
         let label = if row.path.is_some() { middle_cut(ui, f, &row.label, w) } else { row.label.clone() };
-        ui.c.text_clip(f, x + 25.0, y, w, c, &label);
+        ui.c.text_clip(f, label_x, y+if s.vintage_2005 {1.}else{0.}, w, c, &label);
     }
     *s.browser_marquee.borrow_mut() = marquee;
     let empty = if !s.browser_search.is_empty() { if search_busy(s) { "Searching samples..." } else { "No matches" } } else if s.browser_tab == PARAMETERS_TAB { "Load a plugin to browse parameters" } else if s.browser_tab == 3 { "No favorites yet" } else { "No samples yet" };
@@ -935,20 +1016,34 @@ pub fn paint(ui: &mut Ui, s: &State, r: Rect) {
     let fy = r.bottom() - 27.0;
     ui.c.fill_rect(Rect::new(0.0, fy, bw, 27.0), t.browser_footer);
     if s.browser_tab==6&&s.feature_votes.community_forum {ui.c.text_center(os_ui::Font::new(10),Rect::new(0.,fy,bw,27.),t.text_dim,"Lemon community · Be kind");}else{
-    let field = Rect::new(13.0, fy + 4.0, bw - 38.0, 20.0);
+    let community = s.browser_tab==EXCHANGE_BUTTON;
+    let field = Rect::new(13.0, fy + 4.0, bw - if community {78.} else {38.}, 20.0);
     if !search_on_top {
         search_box(ui, s, field);
     } else {
         ui.c.fill_rrect(field, 3.0, t.sunken);
     }
     icons::draw(ui.c, Icon::Folder, Rect::new(field.right() - 18.0, fy + 7.0, 14.0, 14.0), t.text_faint);
+    if community {
+        let terms=Rect::new(bw-61.,fy+3.,58.,21.);
+        ui.hit(terms,Action::Community(7),"Royalty-free upload terms");
+        ui.c.text_center(os_ui::Font::new(11),terms,t.glyph,"License");
+    } else {
     let glass = Rect::new(bw - 23.0, fy + 3.0, 21.0, 21.0);
     let hov = ui.hit(glass, Action::BrowserSearch, "Search the browser (Enter = find next, Esc = clear)");
     icons::draw(ui.c, Icon::Search, Rect::new(glass.x + 2.0, fy + 5.0, 17.0, 17.0), if hov { t.browser_search.shade(0.2) } else { t.browser_search });
     }
+    }
+    if t.style.vintage_2005 {
+        let frame = Rect::new(1., r.y+1., bw-2., r.h-2.);
+        ui.c.stroke_rrect(frame,0.,1.,t.window_border);
+        ui.c.stroke_rrect(frame.inset(1.),0.,1.,t.toolbar_edge);
+        ui.c.stroke_rrect(frame.inset(3.),0.,1.,t.window_border);
+    }
     // Splitter: drags the browser's width (§9).
     ui.c.fill_rect(Rect::new(bw, r.y, 6.0, r.h), t.splitter);
     ui.c.fill_rect(Rect::new(bw + 6.0, r.y, 2.0, r.h), t.splitter_dark);
+    if s.native_view == Some(crate::app::Win::Browser) { return; }
     ui.hit(Rect::new(bw, r.y, SPLITTER, r.h), Action::BrowserSplitter, "Browser: drag to resize, double-click for the default width");
 }
 
@@ -999,9 +1094,13 @@ fn search_box(ui: &mut Ui, s: &State, r: Rect) {
         ui.c.stroke_rrect(r, 3.0, 1.0, t.browser_search);
     }
     let f = os_ui::Font::new(14);
-    let text_w = r.w - 26.0;
+    let edit_tags=s.browser_tag_edit.is_some();
+    let label_w=if edit_tags { 34. } else { 0. };
+    if edit_tags { ui.c.text_clip(f,r.x+5.,r.y+1.,label_w,t.accent,"Tags:"); }
+    let text_w = (r.w - 26.0-label_w).max(1.);
     // Show the end of a long query.
-    let mut shown: &str = &s.browser_search;
+    let mut shown: &str = s.browser_tag_edit.as_ref().map_or(s.browser_search.as_str(),|(_,text)|text.as_str());
+    if s.browser_tag_edit.is_some(){ui.c.stroke_rrect(r,3.,1.,t.accent);}
     while ui.c.text_width(f, shown) > text_w && !shown.is_empty() {
         let cut = shown.char_indices().nth(1).map_or(shown.len(), |(i, _)| i);
         shown = &shown[cut..];
@@ -1009,10 +1108,10 @@ fn search_box(ui: &mut Ui, s: &State, r: Rect) {
     if shown.is_empty() && !s.browser_search_focus {
         ui.c.text_clip(f, r.x + 5.0, r.y + 1.0, text_w, t.text_faint, if s.browser_tab==6 {"Search suggestions..."}else if s.browser_tab==5 {"Search plugins..."}else if s.browser_tab==PARAMETERS_TAB {"Search parameters..."}else{"Search samples..."});
     } else {
-        ui.c.text_clip(f, r.x + 5.0, r.y + 1.0, text_w, t.glyph, shown);
+        ui.c.text_clip(f, r.x + 5.0+label_w, r.y + 1.0, text_w, t.glyph, shown);
     }
     if s.browser_search_focus {
-        let cx = r.x + 6.0 + ui.c.text_width(f, shown);
+        let cx = r.x + 6.0 + label_w+ui.c.text_width(f, shown);
         ui.c.fill_rect(Rect::new(cx, r.y + 4.0, 1.0, r.h - 8.0), t.glyph);
     }
 }

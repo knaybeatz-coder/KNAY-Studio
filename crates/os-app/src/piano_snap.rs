@@ -138,6 +138,15 @@ pub fn set(s: &mut State, p: EditorSnap) -> String {
     format!("Piano roll snap: {}", p.label())
 }
 
+pub fn wheel(s: &mut State, delta: f32) -> String {
+    let choices: Vec<_> = std::iter::once(EditorSnap::Main)
+        .chain(Snap::MENU.iter().copied().map(EditorSnap::Grid))
+        .chain([EditorSnap::Events, EditorSnap::Markers]).collect();
+    let current = choices.iter().position(|v| *v == s.piano.snap).unwrap_or(0) as i32;
+    let steps = (delta.abs().round().max(1.0) * delta.signum()) as i32;
+    set(s, choices[(current + steps).clamp(0, choices.len() as i32 - 1) as usize])
+}
+
 /// Pick a stock note length: the next notes drawn get it, the snap is unchanged (§7).
 pub fn set_length(s: &mut State, sn: Snap) -> String {
     s.piano.last_len = sn.ticks(ppq(s), 0.0);

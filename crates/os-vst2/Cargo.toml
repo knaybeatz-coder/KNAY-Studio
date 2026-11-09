@@ -12,3 +12,6 @@ os-host.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Registry"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+x11-dl = "2.21"

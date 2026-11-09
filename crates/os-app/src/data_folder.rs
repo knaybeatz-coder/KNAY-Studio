@@ -266,6 +266,11 @@ impl App {
                 Err(_) => failed += 1,
             }
         }
+        for vocal in &mut self.state.project.vocal_edits {
+            let current=vocal.render_key==crate::vocal::key(vocal);
+            for stored in [&mut vocal.source,&mut vocal.rendered]{if stored.is_empty(){continue;}let source=crate::plugins::resolve_sample(stored);match copy_sample(Path::new(&source),dir){Ok(p)=>*stored=p.to_string_lossy().into_owned(),Err(_)=>failed+=1}}
+            if current{vocal.render_key=crate::vocal::key(vocal);}
+        }
         for w in &mut self.state.project.audio_warps {
             let source=crate::plugins::resolve_sample(&w.source);
             match copy_sample(Path::new(&source),dir){Ok(p)=>w.source=p.to_string_lossy().into_owned(),Err(_)=>failed+=1}

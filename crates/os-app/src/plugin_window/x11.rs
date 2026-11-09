@@ -192,9 +192,12 @@ impl FrameWindow {
     /// frame is placed by the window manager, transient for `owner`. The scale is the X server's (`Xft.dpi`), not
     /// `_scale`: under Wayland the main window's scale does not apply to X11 windows.
     pub fn new(owner: isize, info: ChannelInfo, editor: (f32, f32), _scale: f32, pos: (i32, i32), detached: bool) -> Result<FrameWindow, String> {
+        Self::with_zoom(owner,info,editor,pos,detached,1.)
+    }
+    pub fn with_zoom(owner:isize,info:ChannelInfo,editor:(f32,f32),pos:(i32,i32),detached:bool,zoom:f32)->Result<FrameWindow,String>{
         let conn = conn()?;
         let fail = |e: &dyn std::fmt::Display| format!("could not create the plugin window: {e}");
-        let k = conn.scale;
+        let k = conn.scale*zoom;
         let owner = owner as xproto::Window;
         set_owner(&conn, owner);
         let docked = owner != 0 && !detached;
@@ -255,6 +258,18 @@ impl FrameWindow {
             // front of the app's windows, as clicks on the frame do.
             for b in [xproto::ButtonIndex::M1, xproto::ButtonIndex::M2, xproto::ButtonIndex::M3] {
                 c.grab_button(false, area, EventMask::BUTTON_PRESS, xproto::GrabMode::SYNC, xproto::GrabMode::ASYNC, x11rb::NONE, x11rb::NONE, b, xproto::ModMask::ANY)?;
+            }
+            // A passive grab on our frame covers plugin-owned descendants without taking unrelated typing.
+            let setup=c.setup();
+            let first=setup.min_keycode;
+            if let Ok(map)=c.get_keyboard_mapping(first,setup.max_keycode-first+1)?.reply(){
+                let stride=usize::from(map.keysyms_per_keycode).max(1);
+                if let Some(index)=map.keysyms.chunks(stride).position(|keys|keys.first()==Some(&u32::from(b'z'))){
+                    for extra in [0u16,1,8] {for locks in [0u16,2,16,18] {
+                        let mods=xproto::ModMask::from(4|extra|locks);
+                        let _=c.grab_key(false,win,mods,first+index as u8,xproto::GrabMode::ASYNC,xproto::GrabMode::ASYNC);
+                    }}
+                }
             }
             c.map_window(area)?;
             // The plugin parents its editor into `area` through its own connection: it must exist on the server first.
@@ -392,8 +407,14 @@ impl FrameWindow {
     }
 
     /// The plugin's smallest editor size when the frame's edges may resize it (`None`: a fixed size).
+    pub fn enable_wave_zoom(&self) {
+        self.f.state.borrow_mut().wave_zoom=true;
+        self.set_resizable(None);
+    }
+
     pub fn set_resizable(&self, min: Option<(f32, f32)>) {
         let mut st = self.f.state.borrow_mut();
+        let min=st.effective_resize_min(min);
         if st.resize_min != min {
             st.resize_min = min;
             if min.is_none() {
@@ -723,6 +744,9 @@ impl Frame {
         let screen = |x: f32, y: f32| self.to_screen(x, y);
         match e {
             Event::Expose(_) => self.dirty.set(true),
+            Event::KeyPress(e) if e.event==self.win=>{
+                self.state.borrow_mut().events.push(FrameEvent::Undo(u16::from(e.state)&9!=0));os_clap::wake();
+            }
             // A click in the plugin's editor (the grab on the area; `pump` lets the editor have it).
             Event::ButtonPress(e) if e.event == self.area => self.clicked(),
             Event::ButtonPress(e) => {
@@ -984,6 +1008,7 @@ pub fn pointer_in_docked() -> bool {
 fn window_of(e: &Event) -> Option<xproto::Window> {
     Some(match e {
         Event::Expose(e) => e.window,
+        Event::KeyPress(e)=>e.event,
         Event::ButtonPress(e) => e.event,
         Event::ButtonRelease(e) => e.event,
         Event::MotionNotify(e) => e.event,

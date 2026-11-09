@@ -16,11 +16,16 @@ use crate::playlist::{Cmd, Mark, PItem, Popup};
 /// A piano-roll command (keyboard shortcut or Tools menu entry). Note values are `1/n` notes.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum NCmd {
+    NoteColorMenu,NoteColor(u8),ApplyNoteColor,DrawSlide,DrawPorta,SelectedNoteType(u8),
+    SessionPart(usize,u16),
+    EndSession,
+    Layer(u16,u16,bool),
     MenuKey(&'static str,bool,bool,bool),
     Tool(piano::Tool),
     View(&'static str),
     KeyboardStyle(bool),
     Zoom(f32),
+    PlacePattern,
     Lane(usize),
     /// Move starts (and lengths unless `starts_only`) `strength` percent of the way to the snap grid.
     Quantize { strength: u8, starts_only: bool },
@@ -173,6 +178,7 @@ fn all_menu(s: &State, x: f32, y: f32) -> Popup {
         PItem::new("Key and scale...",Cmd::Harmony(crate::harmony::HCmd::Menu(10))),
         item("Quick quantize", Quantize { strength: 100, starts_only: false }).key("Ctrl+Q"),
         item("Quick quantize start times", Quantize { strength: 100, starts_only: true }).key("Shift+Q"),
+        item("Quick quantize start times (50%)", Quantize { strength: 50, starts_only: true }),
         item("Quantize...", Dialog(Tool::Quantize)).key("Alt+Q"),
         item("Glue", Glue).key("Ctrl+G"),
         item("Quick legato", Legato).key("Ctrl+L"),
@@ -196,7 +202,11 @@ fn all_menu(s: &State, x: f32, y: f32) -> Popup {
 
 /// Selected notes expose transfer directly in their context menu.
 pub fn selected_menu(s:&State,x:f32,y:f32)->Popup {
-    let mut menu=options_menu(s,x,y);
+    crate::menu_layout::Menu::PianoSelection.popup(default_selected_menu(s, x, y))
+}
+
+pub(crate) fn default_selected_menu(s:&State,x:f32,y:f32)->Popup {
+    let mut menu=default_options_menu(s,x,y);
     menu.items.insert(0,crate::mpe::menu(s));
     if let Some(item)=menu.items.iter().find(|i|i.label=="Edit").and_then(|i|i.children.iter().find(|c|c.label=="Send Selected Notes To...")).cloned(){menu.items.insert(0,item);menu.items.insert(1,PItem::sep());}
     menu
@@ -204,6 +214,10 @@ pub fn selected_menu(s:&State,x:f32,y:f32)->Popup {
 
 /// Organized options use the same commands as keyboard editing and the tool dialogs.
 pub fn options_menu(s:&State,x:f32,y:f32)->Popup {
+    crate::menu_layout::Menu::Piano.popup(default_options_menu(s, x, y))
+}
+
+pub(crate) fn default_options_menu(s:&State,x:f32,y:f32)->Popup {
     let all=all_menu(s,x,y).items;
     let group=|name:&str| {let a=all.iter().position(|i|i.label==name).unwrap()+1;let b=all[a..].iter().position(|i|i.head).map_or(all.len(),|i|a+i);all[a..b].to_vec()};
     let k=|label,key,ctrl,shift,alt,shortcut|item(label,NCmd::MenuKey(key,ctrl,shift,alt)).key(shortcut);
@@ -214,6 +228,7 @@ pub fn options_menu(s:&State,x:f32,y:f32)->Popup {
     edit.push(PItem::sub("Send Selected Notes To...",vec![PItem::sub("Move to channel",destinations(false)),PItem::sub("Copy to channel",destinations(true))]));
     edit.extend([PItem::sep(),k("Shift left","Left",false,true,false,"Shift+Left"),k("Shift right","Right",false,true,false,"Shift+Right"),k("Transpose up","Up",false,true,false,"Shift+Up"),k("Transpose down","Down",false,true,false,"Shift+Down"),k("Octave up","Up",true,false,false,"Ctrl+Up"),k("Octave down","Down",true,false,false,"Ctrl+Down"),item("Mute",NCmd::Mute(true)).key("Alt+M"),item("Unmute",NCmd::Mute(false)).key("Alt+Shift+M")]);
     let check=|label,key,default|item(label,NCmd::View(key)).mark(Mark::Check(view_on(key,default)));
+    edit.push(check("D duplicates notes (typing keyboard off)","piano_d_duplicate",true));
     let mut helpers=group("View");helpers.retain(|i|!matches!(i.cmd,Cmd::Piano(NCmd::AddMarker)));
     helpers.extend([PItem::new("Key, scale and highlighting...",Cmd::Harmony(crate::harmony::HCmd::Menu(10))),check("Note grid highlights","piano_grid_highlights",true)]);
     let items=vec![
@@ -223,10 +238,37 @@ pub fn options_menu(s:&State,x:f32,y:f32)->Popup {
         PItem::sub("Select",vec![k("Select all","a",true,false,false,"Ctrl+A"),k("Deselect","d",true,false,false,"Ctrl+D"),k("Invert selection","i",false,true,false,"Shift+I"),k("Select by color","c",false,true,false,"Shift+C"),k("Select random","r",false,true,false,"Shift+R")]),
         PItem::sub("Snap",crate::piano_snap::snap_menu(s,x,y).items),
         PItem::sub("Note length",crate::piano_snap::lengths_menu(x,y).items),
-        PItem::sub("Draw mode",[(piano::Tool::Draw,"Pencil","P"),(piano::Tool::Paint,"Brush","B"),(piano::Tool::Slice,"Slice","C"),(piano::Tool::Select,"Select","E"),(piano::Tool::Delete,"Delete","D"),(piano::Tool::Mute,"Mute","T"),(piano::Tool::Zoom,"Zoom","Z"),(piano::Tool::Playback,"Playback","Y")].into_iter().map(|(tool,label,key)|item(label,NCmd::Tool(tool)).key(key).mark(Mark::Radio(s.piano.tool==tool))).collect()),
-        PItem::sub("View",vec![PItem::sub("Keyboard style",vec![item("FL 11 style",NCmd::KeyboardStyle(true)).mark(Mark::Radio(classic_keyboard())),item("Piano-shaped",NCmd::KeyboardStyle(false)).mark(Mark::Radio(!classic_keyboard()))]),item("Zoom in",NCmd::Zoom(1.)).key("PgUp"),item("Zoom out",NCmd::Zoom(-1.)).key("PgDn"),check("Mini piano roll preview","piano_mini_preview",true),PItem::sub("Control lane",piano::Lane::ALL.iter().enumerate().map(|(i,l)|item(l.menu_name(),NCmd::Lane(i)).mark(Mark::Radio(s.piano.lane==*l))).collect())]),
+        item("Note color...",NCmd::NoteColorMenu),
+        item("Slide / glide notes",NCmd::DrawSlide).mark(Mark::Check(s.piano.draw_slide)),
+        item("Portamento notes",NCmd::DrawPorta).mark(Mark::Check(s.piano.draw_porta)),
+        PItem::sub("Draw mode",[(piano::Tool::Draw,"Pencil","P"),(piano::Tool::Paint,"Brush","B"),(piano::Tool::Slice,"Slice","C"),(piano::Tool::Select,"Select","E"),(piano::Tool::Stretch,"Stretch",""),(piano::Tool::Delete,"Delete",if view_on("piano_d_duplicate",true){""}else{"D"}),(piano::Tool::Mute,"Mute","T"),(piano::Tool::Zoom,"Zoom","Z"),(piano::Tool::Playback,"Playback","Y")].into_iter().map(|(tool,label,key)|item(label,NCmd::Tool(tool)).key(key).mark(if tool==piano::Tool::Stretch {Mark::Check(s.piano.stretch)}else{Mark::Radio(s.piano.tool==tool)})).collect()),
+        PItem::sub("View",vec![PItem::sub("Keyboard style",vec![item("FL 11 style",NCmd::KeyboardStyle(true)).mark(Mark::Radio(classic_keyboard())),item("Piano-shaped",NCmd::KeyboardStyle(false)).mark(Mark::Radio(!classic_keyboard()))]),item("Zoom in",NCmd::Zoom(1.)).key(zoom_shortcut(true)),item("Zoom out",NCmd::Zoom(-1.)).key(zoom_shortcut(false)),check("Mini piano roll preview","piano_mini_preview",true),PItem::sub("Control lane",piano::Lane::ALL.iter().enumerate().map(|(i,l)|item(l.menu_name(),NCmd::Lane(i)).mark(Mark::Radio(s.piano.lane==*l))).collect())]),
         PItem::sub("Helpers",helpers),
         PItem::sub("Time markers",vec![item("Add time marker",NCmd::AddMarker).key("Alt+T")]),
+        PItem::sub("MIDI parts",if let Some(session)=s.piano.clip_session.as_ref().filter(|_|piano::active_clip(s).is_some()){
+            let mut rows=Vec::new();
+            for i in 0..session.parts.len(){
+                let Some(c)=session.clip(s,i) else{continue;};
+                let os_model::ClipSource::Pattern(n)=c.source else{continue;};
+                let Some(pattern)=s.project.pattern(n) else{continue;};
+                for ch in pattern.notes.iter().map(|note|note.channel).collect::<std::collections::BTreeSet<_>>() {
+                    if let Some(row)=s.project.channels.iter().position(|v|v.index==ch){
+                        let label=format!("{} • Track {} • Tick {} • {}",crate::patterns::name_of(s,n),c.track+1,c.position,channel_name(s,row));
+                        rows.push(PItem::new(label,Cmd::Piano(NCmd::SessionPart(i,ch))).mark(Mark::Radio(session.active==i && s.selected_channel==row)));
+                    }
+                }
+            }
+            rows.push(item("Return to pattern editing",NCmd::EndSession));rows
+        }else{s.project.patterns.iter().flat_map(|p|{
+            let channels:std::collections::BTreeSet<_>=p.notes.iter().map(|n|n.channel).collect();
+            channels.into_iter().filter_map(move |ch|{
+                let row=s.project.channels.iter().position(|c|c.index==ch)?;
+                Some(PItem::sub(format!("{} / {}",crate::patterns::name_of(s,p.number),channel_name(s,row)),vec![
+                    item("Show notes",NCmd::Layer(p.number,ch,false)).mark(Mark::Check(s.piano.layers.contains(&(p.number,ch)))),
+                    item("Edit this part",NCmd::Layer(p.number,ch,true)).mark(Mark::Radio(s.pattern==p.number && row==s.selected_channel))
+                ]))
+            })
+        }).collect()}),
         PItem::sub("Target channel",target_menu(s,x,y).items),
     ];
     Popup{x,y,items,sub:None,scroll:[0;2],cascade:Vec::new()}
@@ -234,7 +276,11 @@ pub fn options_menu(s:&State,x:f32,y:f32)->Popup {
 pub fn classic_keyboard()->bool {crate::prefs::text("piano_keyboard_style").as_deref()!=Some("piano")}
 pub fn view_on(key:&str,default:bool)->bool {crate::prefs::text(key).map_or(default,|v|v=="1")}
 pub fn tools_menu(s:&State,x:f32,y:f32)->Popup {
-    let mut p=options_menu(s,x,y);
+    crate::menu_layout::Menu::PianoTools.popup(default_tools_menu(s, x, y))
+}
+
+pub(crate) fn default_tools_menu(s:&State,x:f32,y:f32)->Popup {
+    let mut p=default_options_menu(s,x,y);
     p.items=p.items.into_iter().find(|i|i.label=="Tools").unwrap().children;
     p
 }
@@ -258,6 +304,21 @@ pub fn key(app: &mut App, key: &winit::keyboard::Key, ctrl: bool, alt: bool) -> 
     use winit::keyboard::{Key, NamedKey};
     if event_key(app, key, ctrl, alt) { return true; }
     let shift = app.shift;
+    if ctrl && shift && !alt && matches!(key, Key::Named(NamedKey::Enter)) {
+        app.state.message = run(app, NCmd::PlacePattern);
+        return true;
+    }
+    if let Key::Named(NamedKey::PageUp | NamedKey::PageDown) = key {
+        let modifiers = match crate::prefs::index(&crate::prefs::PIANO_ZOOM_KEYS) {
+            1 => (true, false, false),
+            2 => (false, true, false),
+            3 => (false, false, true),
+            _ => (false, false, false),
+        };
+        if (ctrl, alt, shift) == modifiers {
+            return zoom_key(app, if matches!(key, Key::Named(NamedKey::PageUp)) { 1. } else { -1. });
+        }
+    }
     let is = |c: &str, l: &str| c.eq_ignore_ascii_case(l);
     if alt&&!ctrl&&matches!(key,Key::Character(c) if is(c,"p")){crate::harmony::run(app,crate::harmony::HCmd::Open);return true;}
     let cmd = match key {
@@ -267,6 +328,7 @@ pub fn key(app: &mut App, key: &winit::keyboard::Key, ctrl: bool, alt: bool) -> 
         Key::Character(c) if ctrl && !alt && is(c, "u") => NCmd::QuickChop,
         Key::Character(c) if ctrl && !alt && is(c, "g") => NCmd::Glue,
         Key::Character(c) if ctrl && !alt && is(c, "b") => NCmd::Duplicate,
+        Key::Character(c) if !ctrl && !alt && !shift && is(c,"d") && !app.typing_on() && view_on("piano_d_duplicate",true) => NCmd::Duplicate,
         Key::Character(c) if shift && !ctrl && !alt && is(c, "d") => NCmd::DiscardLengths,
         Key::Character(c) if alt && !ctrl && is(c, "m") => NCmd::Mute(!shift),
         Key::Character(c) if alt && !ctrl && is(c, "q") => NCmd::Dialog(crate::piano_dlg::Tool::Quantize),
@@ -322,8 +384,6 @@ pub fn key(app: &mut App, key: &winit::keyboard::Key, ctrl: bool, alt: bool) -> 
             let dir = if l == "g" || l == "h" { -1 } else { 1 };
             return cycle_channel(app, dir, l == "h" || l == "j");
         }
-        Key::Named(NamedKey::PageUp) if !ctrl && !alt => return zoom_key(app, 1.0),
-        Key::Named(NamedKey::PageDown) if !ctrl && !alt => return zoom_key(app, -1.0),
         // The global snap on / off (spec: ui/global-snap.md §1).
         Key::Named(NamedKey::Backspace) if !ctrl && !alt => {
             app.state.message = Some(crate::snap::toggle(&mut app.state));
@@ -391,6 +451,14 @@ fn event_key(app: &mut App, key: &winit::keyboard::Key, ctrl: bool, alt: bool) -
     }
     app.invalidate();
     true
+}
+
+pub(crate) fn zoom_shortcut(inward: bool) -> &'static str {
+    const KEYS: [[&str; 2]; 4] = [
+        ["Page Up", "Page Down"], ["Ctrl+Page Up", "Ctrl+Page Down"],
+        ["Alt+Page Up", "Alt+Page Down"], ["Shift+Page Up", "Shift+Page Down"],
+    ];
+    KEYS[crate::prefs::index(&crate::prefs::PIANO_ZOOM_KEYS)][usize::from(!inward)]
 }
 
 /// PgUp / PgDn: zoom time around the mouse when it is over the grid, else around the grid's left edge (§3a).
@@ -528,13 +596,39 @@ pub fn run(app: &mut App, cmd: NCmd) -> Option<String> {
     let done = |changed: bool, what: &str| if changed { format!("Piano roll: {what}") } else { format!("Piano roll: {what}: nothing to change") };
     let msg = match cmd {
         NCmd::MenuKey(..)=>unreachable!(),
+        NCmd::NoteColorMenu=>{s.playlist.popup=Some(crate::piano_note_mode::menu(s,app.mouse.0,app.mouse.1));app.invalidate();return None;},
+        NCmd::NoteColor(n)=>{crate::piano_note_mode::choose_color(s,n);app.invalidate();return None;},
+        NCmd::ApplyNoteColor=>{crate::piano_note_mode::apply_selection(s,None);app.invalidate();return None;},
+        NCmd::SelectedNoteType(n)=>{crate::piano_note_mode::apply_selection(s,Some(n));app.invalidate();return None;},
+        NCmd::DrawSlide=>{s.piano.draw_slide=!s.piano.draw_slide;app.invalidate();return None;},
+        NCmd::DrawPorta=>{s.piano.draw_porta=!s.piano.draw_porta;app.invalidate();return None;},
+        NCmd::EndSession=>{s.piano.clip_session=None;s.piano.scroll_x=0.;s.piano.clear_selection();app.invalidate();return None;}
+        NCmd::SessionPart(i,ch)=>{
+            let clip=s.piano.clip_session.as_ref()?.clip(s,i)?;
+            let os_model::ClipSource::Pattern(n)=clip.source else{return None;};
+            let row=s.project.channels.iter().position(|c|c.index==ch)?;
+            s.piano.clip_session.as_mut()?.active=i;
+            crate::patterns::select(s,n);s.selected_channel=row;s.rack.select_only(row);s.piano.clear_selection();s.piano.dirty=true;
+            app.invalidate();return None;
+        }
+        NCmd::Layer(p,ch,edit)=>{
+            s.piano.clip_session=None;
+            if edit {
+                if let Some(row)=s.project.channels.iter().position(|c|c.index==ch){
+                    if let Some(prev)=piano::channel(s){s.piano.layers.insert((s.pattern,prev));}
+                    crate::patterns::select(s,p);s.selected_channel=row;s.rack.select_only(row);s.piano.select(p,ch,Vec::new());s.piano.layers.insert((p,ch));s.piano.dirty=true;
+                }
+            }else if !s.piano.layers.remove(&(p,ch)){s.piano.layers.insert((p,ch));}
+            app.invalidate();return None;
+        }
         NCmd::ChannelMute=>{let row=s.selected_channel;crate::rack::toggle_mute(s,row);return None;},
         NCmd::ChannelSolo=>{let row=s.selected_channel;crate::rack::solo(s,row);return None;},
         NCmd::Transfer(row,copy)=>return Some(transfer(s,row,copy)),
-        NCmd::Tool(tool)=>{s.piano.tool=tool;s.piano.overlay=None;return None;},
+        NCmd::Tool(tool)=>{s.piano.choose_tool(tool);return None;},
         NCmd::KeyboardStyle(classic)=>{crate::prefs::set_text("piano_keyboard_style",if classic{"classic"}else{"piano"});app.invalidate();return None;},
         NCmd::View(key)=>{crate::prefs::set_text(key,if view_on(key,true){"0"}else{"1"});return None;},
         NCmd::Zoom(n)=>{zoom_key(app,n);return None;},
+        NCmd::PlacePattern => return Some(crate::playlist::place_current_pattern(app)),
         NCmd::Lane(i)=>{s.piano.lane=piano::Lane::ALL[i.min(piano::Lane::ALL.len()-1)];s.piano.event_focus=true;return None;},
         NCmd::Quantize { strength, starts_only } => {
             let k = f32::from(strength.min(100)) / 100.0;

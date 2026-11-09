@@ -11,6 +11,7 @@
 pub mod crossfade;
 pub mod mpe;
 pub mod curve;
+pub mod vocal;
 
 /// An RGB color.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -36,6 +37,7 @@ pub struct Project {
     /// Audio sources privately owned by individual clip effects chains.
     pub clip_fx_channels: Vec<u16>,
     pub audio_warps:Vec<AudioWarp>,
+    pub vocal_edits:Vec<vocal::Edit>,
     pub peak_links: Vec<PeakLink>,
     /// Native piano harmony key, scale entry and editor/input flags.
     pub harmony: Option<(u8,u8,u8)>,
@@ -1219,6 +1221,8 @@ impl ControlPoint {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Note {
+    /// Independent Lemon Sampler voice drive, 0 (bypass) to 127.
+    pub drive:u8,
     /// Immutable per-note expression record; zero means no expression.
     pub expression:u32,
     pub position: u32,
@@ -1314,7 +1318,7 @@ impl Note {
     /// A step-sequencer step with default parameters.
     pub fn step(channel: u16, position: u32) -> Self {
         Note {
-            expression:0,
+            drive:0,expression:0,
             position,
             length: 0,
             channel,
@@ -1348,6 +1352,8 @@ pub struct MixerTrack {
     pub runtime_id: u64,
     pub clip_fx:bool,
     pub rack_strip: Option<RackStrip>,
+    /// Protects the channel from manual configuration edits.
+    pub edit_locked: bool,
     /// 0 = Master.
     pub index: u16,
     pub name: Option<String>,
@@ -1415,6 +1421,7 @@ impl PartialEq for MixerTrack {
             runtime_id: _,
             clip_fx,
             rack_strip,
+            edit_locked,
             index,
             name,
             color,
@@ -1468,6 +1475,7 @@ impl PartialEq for MixerTrack {
             && *channel_layout == o.channel_layout
             && *strip_bypassed == o.strip_bypassed
             && *rack_strip == o.rack_strip
+            && *edit_locked == o.edit_locked
             && *parametric_pre == o.parametric_pre
             && *eq == o.eq
             && *latency_out == o.latency_out
@@ -1497,6 +1505,7 @@ impl MixerTrack {
             runtime_id: NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             clip_fx: false,
             rack_strip: None,
+            edit_locked: false,
             index,
             name: None,
             color: None,
@@ -1818,6 +1827,9 @@ impl TimeMarker {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PlaylistTrack {
+    /// Optional individual lane height in logical pixels.
+    pub height:Option<f32>,
+    pub folder:bool,
     /// Original clips retained for reversible instrument freezing. Mixer processing stays live.
     pub frozen: Option<Vec<Clip>>,
     /// Comp group leader: associated mixer insert. Children are muted source take lanes.
@@ -1839,7 +1851,7 @@ pub struct PlaylistTrack {
 impl PlaylistTrack {
     /// Track `number` as a new project has it: unnamed, default colour, on, not grouped.
     pub fn new(number: u32) -> Self {
-        PlaylistTrack { frozen: None, comp: None, number, name: None, color: None, enabled: true, grouped: false, collapsed: false, locked: false }
+        PlaylistTrack { height:None,folder:false, frozen: None, comp: None, number, name: None, color: None, enabled: true, grouped: false, collapsed: false, locked: false }
     }
 }
 

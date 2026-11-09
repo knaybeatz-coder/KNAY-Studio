@@ -78,3 +78,38 @@ $('owner-picture-remove').onclick=()=>{pictureVersion++;ownerAvatar='';$('owner-
 $('owner-profile-save').onclick=()=>run(async()=>{await request({action:'owner_forum_profile',name:$('owner-name').value.trim(),avatar:ownerAvatar});await reviewForum(forumThread,forumOffset);notice('Administrator profile saved. Your forum messages now show this name and picture.');});
 $('owner-thread-post').onclick=()=>run(async()=>{const p=await request({action:'owner_forum_create',title:$('owner-thread-title').value.trim(),body:$('owner-thread-body').value.trim()});$('owner-thread-title').value='';$('owner-thread-body').value='';$('owner-new-thread').open=false;await reviewForum(Number(p.topic.id),Number(p.offset));notice('Your thread is live.');});
 function ownerReply(thread,parent=null){const box=el('details',undefined,'public-comments');box.append(el('summary',parent?`Reply to message #${parent}`:'Reply to this thread'));const input=el('textarea');input.rows=3;input.maxLength=800;input.placeholder='Write your reply…';input.setAttribute('aria-label',parent?`Reply to message ${parent}`:'Thread reply');box.append(input,button('Post reply as administrator',async()=>{const p=await request({action:'owner_forum_reply',thread,parent,body:input.value.trim()});await reviewForum(thread,Number(p.offset));notice('Your reply is live.');},'primary'));return box;}
+
+const deskSections = Array.from(document.querySelectorAll('#workspace > .desk-panel'));
+const layoutKey = 'lemon.moderation.sections.v1';
+const layoutButton = $('desk-toggle');
+
+function updateLayoutButton() {
+  layoutButton.textContent = deskSections.some(section => section.open) ? 'Collapse all' : 'Expand all';
+}
+
+function saveLayout() {
+  updateLayoutButton();
+  try {
+    const layout = Object.fromEntries(deskSections.map(section => [section.id, section.open]));
+    localStorage.setItem(layoutKey, JSON.stringify(layout));
+  } catch {
+    // Section controls still work when browser storage is unavailable.
+  }
+}
+
+let savedLayout;
+try {
+  savedLayout = JSON.parse(localStorage.getItem(layoutKey));
+} catch {
+  // Use the default layout on first use or if storage is unavailable.
+}
+for (const section of deskSections) {
+  if (typeof savedLayout?.[section.id] === 'boolean') section.open = savedLayout[section.id];
+  section.addEventListener('toggle', saveLayout);
+}
+layoutButton.onclick = () => {
+  const open = !deskSections.some(section => section.open);
+  for (const section of deskSections) section.open = open;
+  saveLayout();
+};
+updateLayoutButton();

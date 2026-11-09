@@ -8,10 +8,12 @@
 
 use std::ops::Range;
 
-use os_ui::{Font, Rect};
+use crate::workspace_visibility::{shown, WINDOW_BUTTONS};
+
+use os_ui::{Color,Font, Rect};
 
 use super::{menus, sunken, tool_button, FrameInfo};
-use crate::app::{Action, Live, State, Ui, Util, Win};
+use crate::app::{Action, Live, State, Ui, Win};
 use crate::icons::{self, Icon};
 use crate::toolbar::{place, At, BarHit, Moving, Panel, Placed, Target, Tile, PANELS, ROW_H};
 
@@ -84,6 +86,7 @@ pub enum Switch {
     Separators,
     Flat,
     HintBar,
+    Tesla,
     CpuMemory,
     Hide,
 }
@@ -91,7 +94,7 @@ pub enum Switch {
 /// The toolbar's rows, the bottom edge excepted, in a band `width` px wide: one band, repainted whole while the
 /// separators are off (their contents are moved by a pixel after painting, `paint`).
 pub fn band(s: &State, width: f32) -> Rect {
-    Rect::new(0.0, 0.0, width, s.bar.layout.height())
+    Rect::new(0.0, 0.0, width, display_layout(s).height())
 }
 
 fn btn(x: f32, y: f32) -> Rect {
@@ -108,19 +111,114 @@ struct Ctx<'a> {
     preview: bool,
 }
 
-pub(super) fn visible_layout(s:&State)->crate::toolbar::Layout {
-    let mut layout=s.bar.layout.clone();
+pub(crate) fn visible_layout(s:&State)->crate::toolbar::Layout {
+    let mut layout = if s.vintage_2005 {
+        use Panel::*;
+        crate::toolbar::Layout { rows: vec![
+            vec![Caption, Hint, Recording, Volume, Pitch, Snap, Windows],
+            vec![Menu, Transport, Time, Pattern, Utilities],
+        ], logo: false }
+    } else { s.bar.layout.clone() };
     if !s.bar.editing {
-        for row in &mut layout.rows {row.retain(|p|!matches!(p,Panel::Caption|Panel::Hint|Panel::Cpu));
-            if row.contains(&Panel::Utilities)&&row.contains(&Panel::Windows){row.retain(|p|*p!=Panel::Utilities);let at=row.iter().position(|p|*p==Panel::Windows).unwrap();row.insert(at,Panel::Utilities);}
-        }
-        if s.toolbar.hint_bar {
-            let row=layout.rows.iter_mut().find(|row|row.contains(&Panel::Utilities));
-            if let Some(row)=row {let at=row.iter().position(|p|*p==Panel::Utilities).unwrap()+1;row.insert(at,Panel::Hint);}
-            else if let Some(row)=layout.rows.first_mut(){row.push(Panel::Hint);}
+        layout.logo &= shown("visible_logo");
+        for row in &mut layout.rows {
+            row.retain(|panel| match panel {
+                Panel::Caption => s.vintage_2005,
+                Panel::Hint => s.vintage_2005,
+                Panel::Cpu => false,
+                Panel::Menu | Panel::Transport | Panel::Space | Panel::Flex => true,
+                Panel::Windows => WINDOW_BUTTONS[..5].iter().any(|key| shown(key)),
+                Panel::Tools => WINDOW_BUTTONS[5..].iter().any(|key| shown(key)),
+                panel => shown(&format!("visible_{}", panel.key())),
+            });
+            if row.contains(&Panel::Utilities) && row.contains(&Panel::Windows) {
+                row.retain(|p| *p != Panel::Utilities);
+                let at = row.iter().position(|p| *p == Panel::Windows).unwrap();
+                row.insert(at, Panel::Utilities);
+            }
         }
     }
     layout
+}
+
+pub(super) fn display_layout(s: &State) -> &crate::toolbar::Layout {
+    s.toolbar_display_layout.as_ref().unwrap_or(&s.bar.layout)
+}
+
+/// Wrap whole panels after reaching the scale floor. Only the first row shares
+/// space with the fixed actions and window controls.
+pub(crate) fn wrap(mut layout: crate::toolbar::Layout, width: f32, actions: f32) -> crate::toolbar::Layout {
+    let mut rows = Vec::new();
+    for original in layout.rows {
+        let mut row = Vec::new();
+        let mut used = 0.0;
+        for panel in original {
+            let available = if rows.is_empty() { width - actions } else { width };
+            if used + panel.width() > available && (!row.is_empty() || rows.is_empty()) {
+                rows.push(std::mem::take(&mut row));
+                used = 0.0;
+            }
+            used += panel.width();
+            row.push(panel);
+        }
+        rows.push(row);
+    }
+    layout.rows = rows;
+    layout
+}
+
+pub(super) fn placements(s: &State, width: f32) -> Vec<Placed> {
+    let mut panels = place(display_layout(s), (width - s.toolbar_actions.width(s.vintage_2005)).max(0.0), s.bar.editing);
+    if s.toolbar_actions.hint > 0.0 {
+        let right_inset = if s.vintage_2005 { 20.0 } else { 124.0 };
+        panels.push(Placed { panel: Panel::Hint, row: 0, idx: 0,
+            x: width - right_inset - Panel::Hint.width(), w: Panel::Hint.width() });
+    }
+    panels
+}
+
+/// Measured once so the fit calculation and the painted buttons reserve identical space.
+#[derive(Clone, Copy, Default)]
+pub struct ActionSizes {
+    ai: f32,
+    update: f32,
+    tesla: f32,
+    donate: f32,
+    feedback: f32,
+    cpu: f32,
+    scope: f32,
+    hint: f32,
+}
+
+impl ActionSizes {
+    pub fn measure(canvas: &mut os_ui::Canvas, hint: bool, ai_active: bool, vintage: bool) -> Self {
+        let font = Font::new(12);
+        let button = |canvas: &mut os_ui::Canvas, key, font, label| {
+            if shown(key) { canvas.text_width(font, label).ceil() + 18.0 } else { 0.0 }
+        };
+        Self {
+            ai: if ai_active || shown("visible_ai") { 43.0 } else { 0.0 },
+            // KNAY build: no Update / Donate / Report buttons (the updater and Michael Lane's services are off).
+            update: if crate::updates::ENABLED { button(canvas, "visible_update", font, "Update") } else { 0.0 },
+            tesla: if shown("visible_tesla") && crate::settings_file::flag("toolbar_tesla", false) { 30.0 } else { 0.0 },
+            donate: if crate::updates::ENABLED { button(canvas, "visible_donate", font, "Donate") } else { 0.0 },
+            feedback: if crate::updates::ENABLED { button(canvas, "visible_feedback", Font::new(11), "Report a bug") } else { 0.0 },
+            hint: if hint && shown("visible_hint") { Panel::Hint.width() + 6.0 } else { 0.0 },
+            scope: if vintage && shown("visible_vintage_scope") { 145.0 } else { 0.0 },
+            cpu: if vintage {
+                if shown("visible_vintage_cpu") { 107.0 } else { 0.0 }
+            } else if !shown("visible_cpu") || !crate::settings_file::flag("toolbar_cpu_visible", true) { 0.0 }
+                 else if crate::settings_file::flag("toolbar_cpu_combined",true) { 245. }
+                 else if crate::settings_file::flag("toolbar_cpu_classic",false) { crate::app::CPU_RECT.w+6.0 }
+                 else { 54.0 },
+        }
+    }
+
+    pub fn meters_width(self) -> f32 { self.cpu + self.scope }
+    pub fn combined(self)->bool{self.cpu==245.}
+    pub fn width(self, vintage: bool) -> f32 {
+        self.ai + self.tesla + self.cpu + self.scope + self.hint + self.update + self.donate + self.feedback + 38.0 + if vintage { 0.0 } else { 104.0 }
+    }
 }
 
 /// The band in its own px, `width` of them wide (`views::paint` scales it by Toolbars scaling). In each row the panels
@@ -129,26 +227,27 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo, width: f32) {
     let t = ui.t;
     let lemon = super::lemon(ui);
     let editing = s.bar.editing;
-    let visible_layout = visible_layout(s);
-    let l = &visible_layout;
-    let action_font = Font::new(12);
-    let update_w = ui.c.text_width(action_font, "Update").ceil() + 12.0;
-    let donate_w = ui.c.text_width(action_font, "Donate").ceil() + 12.0;
-    let feedback_w=ui.c.text_width(action_font,"Report a bug").ceil()+20.;
-    let ai_w=48.;
+    let l = display_layout(s);
+    let action_font = if s.vintage_2005 {Font::vintage(11)}else{Font::new(12)};
+    let sizes = s.toolbar_actions;
     let window_w = 104.0;
-    let show_cpu=crate::settings_file::flag("toolbar_cpu_visible",true);
-    let mini_cpu_w = if show_cpu {54.}else{0.};
-    // KNAY build: no Update / Donate / Report buttons (the updater and Michael Lane's services are off).
-    let actions_w = mini_cpu_w + ai_w + if crate::updates::ENABLED { update_w + donate_w + feedback_w + 24.0 } else { 6.0 } + 32.0 + window_w;
+    let mini_cpu_w = sizes.cpu;
+    let show_cpu = mini_cpu_w > 0.0;
+    let native_vintage = super::vintage_toolbar::active(s, width);
+    let actions_w = sizes.width(s.vintage_2005) - if native_vintage { sizes.meters_width() } else { 0.0 };
     let content_width = (width - actions_w).max(100.0);
     s.toolbar_content_width.set(content_width);
-    let fit = room(content_width, crate::toolbar::natural_width(l, editing));
+    let fit = if editing { room(content_width, crate::toolbar::natural_width(l, true)) } else { f32::INFINITY };
     let (rows, h) = (l.rows.len(), l.height());
     // Separator lines: off from the Toolbars menu (spec: ui/toolbar-menu.md §2).
     let seps = s.toolbar.separators;
     // Bands.
-    if lemon {
+    if native_vintage {
+        ui.c.fill_rect(Rect::new(0.0, 0.0, width, h), t.toolbar);
+        for y in [0.0, 40.0] {
+            crate::vintage_skin::draw(ui.c, "RecordRail", 0, Rect::new(0.0, y, width, 40.0));
+        }
+    } else if lemon {
         // Lemon (spec: ui/lemon-design.md §4): flat bands, short rounded separators.
         ui.c.fill_rect(Rect::new(0.0, 0.0, width, h), t.toolbar);
         for r in (1..rows).filter(|_| seps) {
@@ -159,6 +258,10 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo, width: f32) {
             let (top, bottom) = l.row_span(r);
             let (a, b) = if r == 0 { (0.025, -0.015) } else { (0.02, -0.02) };
             ui.c.fill_rect_gradient(Rect::new(0.0, top, width, bottom - top), t.toolbar.shade(a), t.toolbar.shade(b), 0.0);
+            if t.style.vintage_2005 {
+                ui.c.fill_rect(Rect::new(0.0, top, width, 1.0), t.toolbar_edge);
+                ui.c.fill_rect(Rect::new(0.0, bottom - 1.0, width, 1.0), t.toolbar_line);
+            }
             if r > 0 {
                 let line = if seps { t.toolbar_line } else { t.toolbar.shade(-0.015) };
                 ui.c.fill_rect(Rect::new(0.0, ROW_H * r as f32, width, 1.0), line);
@@ -169,7 +272,10 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo, width: f32) {
     // Empty toolbar areas drag the window (registered first, so controls win).
     ui.hit(Rect::new(0.0, 0.0, width, h), Action::DragWindow, "");
 
-    let placed = place(l, content_width, editing);
+    let placed = placements(s, width);
+    if native_vintage {
+        super::vintage_toolbar::paint(ui,s,f);
+    } else {
     for row in 0..rows {
         for p in placed.iter().filter(|p| p.row == row) {
             let a = p.at();
@@ -179,8 +285,12 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo, width: f32) {
             }
             // Group separators (2 px gaps measured in row 1 and row 2), each at the left edge of the panel it comes
             // with, shown with that panel; none at a row's start.
-            if seps && p.panel.separator() && p.idx > 0 {
+            if (seps || t.style.vintage_2005) && p.panel.separator() && p.idx > 0 {
                 separator(ui, p.x, p.row, lemon);
+            }
+            if s.vintage_2005 && !matches!(p.panel,Panel::Space|Panel::Flex) {
+                let (top,bottom)=l.row_span(row);
+                crate::vintage::metal(ui.c,Rect::new(p.x+1.,top+2.,p.w-2.,bottom-top-4.),t.toolbar);
             }
             let mark = ui.mark();
             let all = panel(ui, &Ctx { s, f, a, fit, preview: false }, p.panel);
@@ -193,9 +303,10 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo, width: f32) {
             }
         }
     }
+    }
     // Without separators row 1's contents move 1 px down and row 2's 1 px up, over the row line (§2). The pixels are
     // moved after painting; the band is always repainted whole then (`App::take_damage`).
-    if !seps && rows == 2 {
+    if !seps && rows == 2 && !s.vintage_2005 {
         let d = ui.c.scale.round().max(1.0) as i32;
         ui.c.shift(Rect::new(0.0, 0.0, width, 42.0), 0, d, &[]);
         ui.c.shift(Rect::new(0.0, 41.0, width, 40.0), 0, -d, &[]);
@@ -206,7 +317,22 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo, width: f32) {
 
     {
         let cr=Rect::new(width-actions_w+2.,8.,48.,24.);
-        if show_cpu {ui.c.fill_rrect(cr,3.,t.sunken);
+        if native_vintage {
+            // The original upper shelf already owns the vintage meters.
+        } else if s.vintage_2005 {
+            let mut x = cr.x;
+            if show_cpu {
+                super::vintage_toolbar::cpu(ui, s, x, 0.0);
+                x += mini_cpu_w;
+            }
+            if sizes.scope > 0.0 {
+                super::vintage_toolbar::scope(ui, s, x, 0.0);
+            }
+        } else if sizes.combined() {live_monitor(ui,s,Rect::new(cr.x,3.,mini_cpu_w-6.,34.));}
+        else if mini_cpu_w > 54.0 {
+            let a=At{dx:cr.x-crate::app::CPU_RECT.x,dy:0.};
+            classic_cpu(ui,s,a);
+        } else if show_cpu {ui.c.fill_rrect(cr,3.,t.sunken);
         ui.hit(cr,Action::CpuPanel,s.cpu.hint());
         let load=s.cpu.now.load;
         let ink=if load>=100{t.meter_clip}else if load>=75{t.meter_high}else{t.text_dim};
@@ -214,40 +340,66 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo, width: f32) {
         ui.c.fill_rect(Rect::new(cr.x+4.,cr.bottom()-5.,40.,2.),t.toolbar_line);
         ui.c.fill_rect(Rect::new(cr.x+4.,cr.bottom()-5.,40.*(load as f32/100.).min(1.),2.),ink);
         }
-        let ai=Rect::new(width-actions_w+2.+mini_cpu_w,8.,ai_w,24.);
-        let hover=ui.hit(ai,Action::Ai,if !s.ai.enabled {"AI control is off — connect an assistant"}else if s.ai.client.is_empty(){"AI control enabled — waiting for an approved assistant"}else{"AI assistant connected — manage or disconnect"});
-        ui.c.fill_rrect(ai,3.,if hover{t.button_hi}else{t.sunken});
-        let chip=Rect::new(ai.x+6.,ai.y+7.,10.,10.);let ink=if s.ai.enabled{t.accent}else{t.text_dim};
-        ui.c.stroke_rrect(chip,2.,1.,ink);for d in [2.,5.,8.] {ui.c.line(chip.x-2.,chip.y+d,chip.x,chip.y+d,1.,ink);ui.c.line(chip.right(),chip.y+d,chip.right()+2.,chip.y+d,1.,ink);}
-        ui.c.text_clip(action_font,ai.x+22.,ai.y+5.,20.,t.text,"AI");
-        if !s.ai.client.is_empty(){ui.c.fill_circle(ai.right()-3.,ai.y+3.,2.,t.accent);}
-        // KNAY build: no Update / Donate buttons (the updater is off).
-        if crate::updates::ENABLED {
-        let r = Rect::new(ai.right()+6., 8.0, update_w, 24.0);
-        let (label, hint) = crate::updates::display();
-        ui.hit(r, Action::Updates, if hint.is_empty() { "Automatic updates: check now".to_string() } else { hint });
-        ui.c.fill_rrect(r, 3.0, t.sunken);
-        ui.c.text_clip(action_font, r.x + 6.0, r.y + 5.0, r.w - 12.0, t.text, label);
-        let donate = Rect::new(r.right() + 6.0, r.y, donate_w, r.h);
-        ui.hit(donate, Action::Donate, "Donate through Michael Lane's PayPal.me page");
-        ui.c.fill_rrect(donate, 3.0, t.sunken);
-        ui.c.text_clip(action_font, donate.x + 6.0, donate.y + 5.0, donate.w - 12.0, t.text, "Donate");
-        let report=Rect::new(donate.right()+6.,r.y,feedback_w,r.h);
-        ui.hit(report,Action::FeatureVote(0,30),"Report a bug or send feedback: review technical details before submitting");
-        ui.c.fill_rrect(report,3.,t.accent);ui.c.text_center(action_font,report,t.sunken,"Report a bug");
+        let mut x = cr.x + if native_vintage { 0.0 } else { sizes.meters_width() };
+        if sizes.ai > 0.0 {
+            let ai = Rect::new(x, 8.0, sizes.ai - 6.0, 24.0);
+            let hover = ui.hit(ai, Action::Ai, if !s.ai.enabled {"AI control is off — connect an assistant"} else if s.ai.client.is_empty() {"AI control enabled — waiting for an approved assistant"} else {"AI assistant connected — manage or disconnect"});
+            ui.c.fill_rrect(ai, 3.0, if hover { t.button_hi } else { t.sunken });
+            let chip = Rect::new(ai.x + 6.0, ai.y + 7.0, 10.0, 10.0);
+            let ink = if s.ai.enabled { t.accent } else { t.text_dim };
+            ui.c.stroke_rrect(chip, 2.0, 1.0, ink);
+            for d in [2.0, 5.0, 8.0] {
+                ui.c.line(chip.x - 2.0, chip.y + d, chip.x, chip.y + d, 1.0, ink);
+                ui.c.line(chip.right(), chip.y + d, chip.right() + 2.0, chip.y + d, 1.0, ink);
+            }
+            ui.c.text_clip(action_font, ai.x + 22.0, ai.y + 5.0, 20.0, t.text, "AI");
+            if !s.ai.client.is_empty() {
+                ui.c.fill_circle(ai.right() - 3.0, ai.y + 3.0, 2.0, t.accent);
+            }
+            x += sizes.ai;
+        }
+        if sizes.tesla > 0.0 {
+            let b = Rect::new(x, 8.0, sizes.tesla - 6.0, 24.0);
+            ui.hit(b, Action::Util(crate::app::Util::AudioEditor), "Open Tesla audio editor");
+            ui.c.fill_rrect(b, 3.0, t.sunken);
+            icons::draw(ui.c, Icon::Wave, b.inset(4.0), t.accent);
+            x += sizes.tesla;
+        }
+        if sizes.update > 0.0 {
+            let r = Rect::new(x, 8.0, sizes.update - 6.0, 24.0);
+            let (label, hint) = crate::updates::display();
+            ui.hit(r, Action::Updates, if hint.is_empty() { "Automatic updates: check now".to_string() } else { hint });
+            ui.c.fill_rrect(r, 3.0, t.sunken);
+            ui.c.text_clip(action_font, r.x + 6.0, r.y + 5.0, r.w - 12.0, t.text, label);
+            x += sizes.update;
+        }
+        if sizes.donate > 0.0 {
+            let r = Rect::new(x, 8.0, sizes.donate - 6.0, 24.0);
+            ui.hit(r, Action::Donate, "Donate through Michael Lane's PayPal.me page");
+            ui.c.fill_rrect(r, 3.0, t.sunken);
+            ui.c.text_clip(action_font, r.x + 6.0, r.y + 5.0, r.w - 12.0, t.text, "Donate");
+            x += sizes.donate;
+        }
+        if sizes.feedback > 0.0 {
+            let r = Rect::new(x, 8.0, sizes.feedback - 6.0, 24.0);
+            ui.hit(r, Action::FeatureVote(0, 30), "Report a bug or send feedback: review technical details before submitting");
+            ui.c.fill_rrect(r, 3.0, t.accent);
+            ui.c.text_center(Font::new(11), r, t.sunken, "Report a bug");
         }
     }
-    // Window controls remain at the far right, outside the customizable panels.
-    ui.c.fill_rect(Rect::new(width-window_w-17.,11.,1.,18.),t.toolbar_line);
-    for (offset, icon, action, hint) in [
-        (0., Icon::Minimize, Action::Minimize, "Minimize"),
-        (32., Icon::Restore, Action::Maximize, "Restore / maximize"),
-        (64., Icon::Close, Action::Close, "Exit KNAY Studio"),
-    ] {
-        let r=Rect::new(width-window_w+offset,8.,30.,24.);
-        let hover=ui.hit(r,action,hint);
-        super::button_face(ui,r,if hover {super::Look::Hover}else{super::Look::Off});
-        icons::draw(ui.c,icon,r.inset(6.),t.glyph);
+    if !s.vintage_2005 {
+        // Window controls remain at the far right, outside the customizable panels.
+        ui.c.fill_rect(Rect::new(width-window_w-17.,11.,1.,18.),t.toolbar_line);
+        for (offset, icon, action, hint) in [
+            (0., Icon::Minimize, Action::Minimize, "Minimize"),
+            (32., Icon::Restore, Action::Maximize, "Restore / maximize"),
+            (64., Icon::Close, Action::Close, "Exit KNAY Studio"),
+        ] {
+            let r=Rect::new(width-window_w+offset,8.,30.,24.);
+            let hover=ui.hit(r,action,hint);
+            super::button_face(ui,r,if hover {super::Look::Hover}else{super::Look::Off});
+            icons::draw(ui.c,icon,r.inset(6.),t.glyph);
+        }
     }
     // Panels left out (spec: ui/ui-scaling.md §1 "Toolbars scaling"): the ▶ arrow at the band's right end, in the logo's
     // place. Open View so hidden window buttons remain accessible.
@@ -292,13 +444,13 @@ fn separator(ui: &mut Ui, x: f32, row: usize, lemon: bool) {
 /// Paints panel `p`; false when one of its buttons did not fit (its row ends there).
 fn panel(ui: &mut Ui, c: &Ctx, p: Panel) -> bool {
     match p {
-        Panel::Caption => { if c.preview { caption(ui, c); } },
+        Panel::Caption => { if c.preview || c.s.vintage_2005 { caption(ui, c); } },
         Panel::Hint => hint_panel(ui, c),
         Panel::Transport => transport(ui, c),
         Panel::Recording => return recording(ui, c),
         Panel::Time => time(ui, c),
         Panel::Monitor => monitor(ui, c),
-        Panel::Cpu => cpu(ui, c),
+        Panel::Cpu => classic_cpu(ui,c.s,c.a),
         Panel::Utilities => return utilities(ui, c),
         Panel::Menu => menu_bar(ui, c),
         Panel::Volume => volume(ui, c),
@@ -324,6 +476,12 @@ fn caption(ui: &mut Ui, c: &Ctx) {
     ] {
         let r = a.r(Rect::new(x, 11.0, 19.0, 19.0));
         let hov = ui.hit(r, action, hint);
+        if c.s.vintage_2005 {
+            let frame = match icon { Icon::Minimize => 0, Icon::Restore => 2, _ => 4 };
+            if crate::vintage_skin::native(ui.c, "MinClose", frame + usize::from(hov), (r.cx()-7.0).round(), (r.cy()-7.5).round()) {
+                continue;
+            }
+        }
         super::button_face(ui, r, if hov { super::Look::Hover } else { super::Look::Off });
         icons::draw(ui.c, icon, r.inset(3.5), if hov { ui.t.tx(0xffffff) } else { t.glyph });
     }
@@ -334,11 +492,20 @@ fn hint_panel(ui: &mut Ui, c: &Ctx) {
     let (t, a, s, f) = (ui.t, c.a, c.s, c.f);
     let mut hp = a.span(72.0, 72.0+Panel::Hint.width()-7., 4.0, 36.0);
     hp.w=hp.w.min((c.fit-hp.x-2.).max(0.));
-    sunken(ui, hp, t.sunken);
     ui.hit(hp, Action::DragWindow, "Hint bar");
-    let hint: &str = if !f.hint.is_empty() { &f.hint } else { s.message.as_deref().unwrap_or("") };
-    let mut font=Font::new(13);
-    for size in (9..=13).rev() {
+    if s.vintage_2005 && hp.x < 150.0 {
+        let lamps = shown("visible_vintage_activity") && hp.w >= 100.0;
+        let info = Rect::new(hp.x, hp.y, hp.w - if lamps { 29.0 } else { 0.0 }, hp.h);
+        super::vintage_toolbar::compact_info(ui, s, f, info);
+        if lamps {
+            super::vintage_toolbar::activity(ui, s, f, hp.right() - 10.0, hp.y + 7.0, false);
+        }
+        return;
+    }
+    sunken(ui, hp, t.sunken);
+    let hint: &str = if !f.hint.is_empty() { &f.hint } else { s.message.as_deref().unwrap_or(if t.style.vintage_2005 { "LEMON STUDIO  /  2005" } else { "" }) };
+    let mut font=Font::new(11);
+    for size in (9..=11).rev() {
         font=Font::new(size);
         if ui.c.line_height(font)*2.<=hp.h-4. {break;}
     }
@@ -352,12 +519,18 @@ fn hint_panel(ui: &mut Ui, c: &Ctx) {
     ui.c.pop_clip();
 }
 
-/// Transport group: PAT / SONG, play, stop, record and the tempo (to the tempo box's right edge, x 570).
+/// Transport group: PAT / SONG, play, stop, record and the tempo (to the tempo box's right edge, x 572).
 fn transport(ui: &mut Ui, c: &Ctx) {
+    if c.s.vintage_2005 && !c.preview && !c.s.bar.editing && super::vintage_toolbar::transport_available() {
+        super::vintage_toolbar::transport(ui, c.s, c.f, c.a.x(379.0), c.a.y(0.0));
+        return;
+    }
     let (t, a, s, f) = (ui.t, c.a, c.s, c.f);
     let lemon = super::lemon(ui);
     let capsule = a.span(383.0, 483.0, 4.0, 36.0);
-    if lemon {
+    if t.style.vintage_2005 {
+        os_ui::kit::sunken(ui.c, t, capsule, t.sunken_dark);
+    } else if lemon {
         // Lemon: one rounded-square tray, each section a rounded square inside it.
         os_ui::kit::lemon::outlined(ui.c, capsule, 7.0, t.toolbar_line.shade(-0.15), t.sunken);
     } else {
@@ -372,14 +545,18 @@ fn transport(ui: &mut Ui, c: &Ctx) {
     ui.hit(pat, Action::PatSong(false), "Pattern mode: play the current pattern");
     ui.hit(song, Action::PatSong(true), "Song mode: play the playlist");
     for (r, label, active) in [(pat, "PAT", !s.song_mode), (song, "SONG", s.song_mode)] {
-        if active && lemon {
+        if t.style.vintage_2005 {
+            os_ui::kit::styled_surface(ui.c, t, r.inset(1.0), 0.0, t.window_border,
+                if active { t.on_top } else { t.button }, t.button,
+                os_theme::appearance::Finish::Beveled);
+        } else if active && lemon {
             os_ui::kit::lemon::lit_in(ui.c, ui.t, Rect::new(r.x + 2.0, r.y + 1.0, r.w - 3.0, r.h - 1.5), 4.0, false);
         } else if active {
             ui.c.push_clip(r);
             ui.c.fill_rrect(capsule.inset(1.0), 14.0, t.pill);
             ui.c.pop_clip();
         }
-        ui.c.text_center(Font::condensed(10, 5), Rect::new(r.x + 1.0, r.y, r.w, r.h), if active { t.pill_text } else { t.glyph_dim }, label);
+        ui.c.text_center(if s.vintage_2005 {Font::vintage(9)}else{Font::condensed(10, 5)}, Rect::new(r.x + 1.0, r.y, r.w, r.h), if active { t.pill_text } else { t.glyph_dim }, label);
     }
     // Lit while playing, with a pause glyph (Play pauses); unlit with the play glyph when paused.
     let play_on = f.playing && !f.paused;
@@ -390,7 +567,11 @@ fn transport(ui: &mut Ui, c: &Ctx) {
         let hov = ui.hit(r, action.clone(), hint);
         let on = on || ui.down(r, &action);
         // Lit / hovered sections fill their whole slot of the capsule (clipped to its round end).
-        if (on || hov) && lemon {
+        if t.style.vintage_2005 {
+            let face = if on { t.on_top } else if hov { t.button_hi } else { t.button };
+            os_ui::kit::styled_surface(ui.c, t, r.inset(1.0), 0.0, t.window_border, face, face,
+                os_theme::appearance::Finish::Beveled);
+        } else if (on || hov) && lemon {
             let seg = Rect::new(r.x + 1.0, r.y + 1.0, r.w - 2.0, r.h - 2.0);
             if on {
                 os_ui::kit::lemon::lit_in(ui.c, ui.t, seg, 5.0, hov);
@@ -414,11 +595,14 @@ fn transport(ui: &mut Ui, c: &Ctx) {
                 ui.c.fill_circle(g.cx() + k * g.w * 0.32, g.cy(), (g.w * 0.1).max(1.5), c);
             }
         } else if icon == Icon::Play && on {
-            // Pause: two bars.
-            let (w, h) = (g.w * 0.22, g.h * 0.7);
-            let y = g.cy() - h / 2.0;
-            ui.c.fill_rrect(Rect::new(g.cx() - w * 1.6, y, w, h), 1.0, c);
-            ui.c.fill_rrect(Rect::new(g.cx() + w * 0.6, y, w, h), 1.0, c);
+            if ui.c.icon_pack() == 0 {
+                let (w, h) = (g.w * 0.22, g.h * 0.7);
+                let y = g.cy() - h / 2.0;
+                ui.c.fill_rrect(Rect::new(g.cx() - w * 1.6, y, w, h), 1.0, c);
+                ui.c.fill_rrect(Rect::new(g.cx() + w * 0.6, y, w, h), 1.0, c);
+            } else {
+                icons::draw(ui.c, Icon::Pause, g, c);
+            }
         } else {
             icons::draw(ui.c, icon, g, c);
         }
@@ -432,7 +616,9 @@ fn transport(ui: &mut Ui, c: &Ctx) {
     let down = ui.down(rec, &Action::Record);
     let dot = crate::high_visibility::record_dot(t, crate::high_visibility::on());
     let face = Rect::new(rec.cx() - 14.0, rec.cy() - 14.0, 28.0, 28.0);
-    if lemon {
+    if t.style.vintage_2005 {
+        crate::vintage::metal(ui.c,face,if hov {t.button_hi}else{t.button});
+    } else if lemon {
         os_ui::kit::button(ui.c, t, face, os_ui::kit::State::new(hov, down, false));
     } else {
         ui.c.fill_circle(rec.cx(), rec.cy(), 14.0, t.toolbar_line.shade(-0.25));
@@ -443,50 +629,71 @@ fn transport(ui: &mut Ui, c: &Ctx) {
         let fill = if hov || down { dot.shade(0.12) } else { dot };
         ui.c.fill_circle(rec.cx(), rec.cy(), 12.0, fill);
         ui.c.stroke_circle(rec.cx(), rec.cy(), 11.4, 1.6, dot.shade(0.45));
-        ui.c.fill_circle(rec.cx(), rec.cy(), 4.6, dot.shade(-0.6));
+        if ui.c.icon_pack() == 0 {
+            ui.c.fill_circle(rec.cx(), rec.cy(), 4.6, dot.shade(-0.6));
+        } else {
+            icons::draw(ui.c, Icon::Record, face.inset(5.0), dot.shade(-0.6));
+        }
     } else {
         let bg = if lemon { t.toolbar } else { t.button.shade(-0.12) };
-        ui.c.fill_circle(rec.cx(), rec.cy(), 5.6, if hov { dot } else { dot.mix(bg, 0.35) });
+        if ui.c.icon_pack() == 0 {
+            ui.c.fill_circle(rec.cx(), rec.cy(), 5.6, if hov { dot } else { dot.mix(bg, 0.35) });
+        } else {
+            icons::draw(ui.c, Icon::Record, face.inset(4.0), if hov { dot } else { dot.mix(bg, 0.35) });
+        }
     }
     // Tempo.
-    let tb = a.span(517.0, 570.0, 6.0, 34.0);
+    let tb = a.span(514.0, 572.0, 5.0, 35.0);
     ui.hit(tb, Action::Tempo, "Tempo (drag up/down: the whole number, or the decimal place the drag starts on)");
-    if lemon {
+    if t.style.vintage_2005 {
+        crate::vintage::recess(ui.c,tb,Color::rgb(0x779394));
+    } else if lemon {
         os_ui::kit::lemon::well(ui.c, t, tb, t.time_panel);
     } else {
         ui.c.fill_rrect(tb, 5.0, ui.t.s(0x5b5f61));
         ui.c.fill_rrect(tb.inset(1.0), 4.0, ui.t.s(0x5f6466));
     }
     // Lemon displays show their digits in the brand colour.
-    let digits = if lemon { t.pill } else { t.glyph };
-    // While playing, the tempo playback is at: tempo automation moves it (spec: audio/timing.md "Tempo that changes").
-    let whole = format!("{}", f.tempo.trunc() as i64);
-    let frac = format!(".{:03}", ((f.tempo.fract()) * 1000.0).round() as i64 % 1000);
-    let ww = ui.c.text_width(Font::condensed(19, 6), &whole);
-    let fw = ui.c.text_width(Font::condensed(13, 5), &frac);
-    let x0 = (tb.right() - 11.0 - ww - fw).max(tb.x + 2.0);
-    // Where each decimal digit starts (band px), for the drag's step (the point counts as the whole number).
-    if !c.preview {
-        let mut small = |n: usize| x0 + ww + ui.c.text_width(Font::condensed(13, 5), &frac[..n]);
-        s.tempo_digits.set([small(1), small(2), small(3)]);
+    let digits = if t.style.vintage_2005 {Color::rgb(0x23383d)}else if lemon { t.pill } else { t.glyph };
+    tempo_readout(ui, s, tb, f.tempo, digits, c.preview);
+}
+
+/// Center the full BPM value on one baseline. Drag boundaries follow the rendered decimal digits.
+pub(super) fn tempo_readout(ui: &mut Ui, s: &State, rect: Rect, tempo: f64, ink: Color, preview: bool) {
+    let tempo = if tempo.is_finite() { tempo } else { 120.0 };
+    let label = format!("{tempo:.3}");
+    let (size, min) = if s.vintage_2005 { (11, 8) } else { (19, 11) };
+    let font_at = |size| if s.vintage_2005 { Font::vintage(size).bold() } else { Font::condensed(size, 6) };
+    let mut font = font_at(size);
+    for size in (min..size).rev() {
+        if ui.c.text_width(font, &label) <= rect.w - 10.0 { break; }
+        font = font_at(size);
     }
-    ui.c.push_clip(tb.inset(1.0));
-    ui.c.text(Font::condensed(19, 6), x0, a.y(9.0), digits, &whole);
-    ui.c.text(Font::condensed(13, 5), x0 + ww, a.y(16.0), t.glyph_dim.shade(0.3), &frac);
+    let width = ui.c.text_width(font, &label);
+    let x = (rect.cx() - width / 2.0).round();
+    let y = (rect.cy() - ui.c.line_height(font) / 2.0).round();
+    ui.c.push_clip(rect.inset(2.0));
+    ui.c.text(font, x, y, ink, &label);
     ui.c.pop_clip();
-    let (r, y) = (tb.right(), |v: f32| a.y(v));
-    ui.c.fill_polygon(&[(r - 9.0, y(17.0)), (r - 6.0, y(13.0)), (r - 3.0, y(17.0))], t.glyph_dim);
-    ui.c.fill_polygon(&[(r - 9.0, y(22.0)), (r - 6.0, y(26.0)), (r - 3.0, y(22.0))], t.glyph_dim);
+    if !preview {
+        let decimal = label.find('.').expect("formatted tempo has a decimal point");
+        s.tempo_digits.set([1, 2, 3].map(|i| x + ui.c.text_width(font, &label[..decimal + i])));
+    }
 }
 
 /// Recording options. The metronome works (spec: ui/metronome.md); the others wait for recording.
 fn recording(ui: &mut Ui, c: &Ctx) -> bool {
     let a = c.a;
+    if c.s.vintage_2005 && a.x(743.0) <= c.fit
+        && super::vintage_toolbar::compact_recording(ui, c.s, a.x(575.0), a.y(0.0)) {
+        return true;
+    }
+    let button = if c.s.vintage_2005 { super::vintage_toolbar::record_button } else { tool_button };
     let m = a.r(btn(580.0, 4.0));
     if m.right() > c.fit {
         return false;
     }
-    tool_button(ui, m, Icon::Metronome, crate::metronome::on(), Action::Metronome, "Metronome (Ctrl+M) - right-click for the sound and volume");
+    button(ui, m, Icon::Metronome, crate::metronome::on(), Action::Metronome, "Metronome (Ctrl+M) - right-click for the sound and volume");
     // Start on input, Recording precount, Blend, Loop record (spec: ui/recording.md §3-4).
     use crate::record::Opt;
     let opts = [(Icon::WaitInput, Opt::Wait), (Icon::Countdown, Opt::Precount), (Icon::LoopRecord, Opt::Loop)];
@@ -495,11 +702,11 @@ fn recording(ui: &mut Ui, c: &Ctx) -> bool {
         if r.right() > c.fit {
             return false;
         }
-        tool_button(ui, r, icon, opt.on(), Action::RecOpt(opt), crate::record::option_hint(opt));
+        button(ui, r, icon, opt.on(), Action::RecOpt(opt), crate::record::option_hint(opt));
     }
     let r = a.r(btn(712.0, 4.0));
     if r.right() > c.fit { return false; }
-    tool_button(ui, r, Icon::Slide, c.s.params.capture_armed, Action::AutomationCapture,
+    button(ui, r, Icon::Slide, c.s.params.capture_armed, Action::AutomationCapture,
         "Create automation: click, then move a control; click again to cancel");
     true
 }
@@ -509,7 +716,10 @@ fn time(ui: &mut Ui, c: &Ctx) {
     let (t, a, s, f) = (ui.t, c.a, c.s, c.f);
     let lemon = super::lemon(ui);
     let tp = a.span(745.0, 873.0, 4.0, 36.0);
-    if lemon {
+    if t.style.vintage_2005 {
+        os_ui::kit::styled_surface(ui.c, t, tp, 1.0, t.window_border, t.time_panel, t.time_panel,
+            os_theme::appearance::Finish::Recessed);
+    } else if lemon {
         os_ui::kit::lemon::well(ui.c, t, tp, t.time_panel);
     } else {
         ui.c.fill_rect(tp, ui.t.s(0x212829));
@@ -523,23 +733,28 @@ fn time(ui: &mut Ui, c: &Ctx) {
     let sig = s.project.signature().unwrap_or((s.project.bar().0, 4));
     let secs = f.tick / ppq * 60.0 / s.project.tick_tempo(s.tempo.max(1.0));
     let (bar, step, tick) = s.clock.reading(secs, f.tick * 96.0 / ppq, sig);
-    // Light digits drawn piece by piece (measured: big 36 px condensed to 14, small 24 to 9),
-    // right-aligned so long bar numbers grow to the left and never leave the panel.
-    let (big, small) = (Font::light(32, 13), Font::light(22, 8));
-    let bar_s = bar.to_string();
-    let step_s = format!("{step:02}");
-    let tick_s = format!("{tick:02}");
-    let (bw, sw, kw) = (ui.c.text_width(big, &bar_s), ui.c.text_width(big, &step_s), ui.c.text_width(small, &tick_s));
-    let right = a.x(863.0);
-    let tick_x = right - kw;
-    let step_x = tick_x - 8.0 - sw;
-    let bar_x = (step_x - 8.0 - bw).max(tp.x + 2.0);
     ui.c.push_clip(tp.inset(1.0));
     let g = if lemon { t.pill } else { t.glyph };
-    if let Some(c) = s.rec.count.filter(|c| c.left() > 0) {
+    if let Some(target)=s.rec.preroll.filter(|target|f.playing && !f.paused && f.tick<f64::from(*target)) {
+        let beats=((f64::from(target)-f.tick)/f64::from(s.project.beat_ticks().max(1))).ceil().max(1.) as u32;
+        ui.c.text_center(Font::light(18,8),Rect::new(tp.x,tp.y+2.,tp.w,tp.h-2.),g,&format!("PRE-ROLL {beats}"));
+    } else if let Some(c) = s.rec.count.filter(|c| c.left() > 0) {
         // A recording count-in (spec: ui/recording.md §3): the beats left.
         ui.c.text_center(Font::light(22, 8), Rect::new(tp.x, tp.y + 2.0, tp.w, tp.h - 2.0), g, &format!("REC IN {}", c.left()));
+    } else if t.style.vintage_2005 {
+        crate::vintage::clock(ui.c, tp, bar, step, tick);
     } else {
+        // Light digits drawn piece by piece (measured: big 36 px condensed to 14, small 24 to 9),
+        // right-aligned so long bar numbers grow to the left and never leave the panel.
+        let (big, small) = (Font::light(32, 13), Font::light(22, 8));
+        let bar_s = bar.to_string();
+        let step_s = format!("{step:02}");
+        let tick_s = format!("{tick:02}");
+        let (bw, sw, kw) = (ui.c.text_width(big, &bar_s), ui.c.text_width(big, &step_s), ui.c.text_width(small, &tick_s));
+        let right = a.x(863.0);
+        let tick_x = right - kw;
+        let step_x = tick_x - 8.0 - sw;
+        let bar_x = (step_x - 8.0 - bw).max(tp.x + 2.0);
         ui.c.text(big, bar_x, a.y(-3.0), g, &bar_s);
         ui.c.fill_rect(Rect::new(step_x - 5.5, a.y(20.0), 2.0, 2.5), g);
         ui.c.fill_rect(Rect::new(step_x - 5.5, a.y(30.0), 2.0, 2.5), g);
@@ -549,8 +764,10 @@ fn time(ui: &mut Ui, c: &Ctx) {
         ui.c.text(small, tick_x, a.y(9.0), g, &tick_s);
     }
     ui.c.pop_clip();
-    let label = s.clock.label();
-    ui.c.text_right(Font::condensed(7, 3).bold(), a.x(871.0), a.y(5.0), if lemon { t.text_dim } else { t.glyph.shade(-0.1) }, label);
+    if !t.style.vintage_2005 {
+        let label = s.clock.label();
+        ui.c.text_right(Font::condensed(7, 3).bold(), a.x(871.0), a.y(5.0), if lemon { t.text_dim } else { t.glyph.shade(-0.1) }, label);
+    }
 }
 
 /// The output monitor (spec ui/monitor.md): a scope / analyzer panel at x 882..968 and two peak bars at x 970..1047.
@@ -643,11 +860,88 @@ fn monitor(ui: &mut Ui, c: &Ctx) {
 
 /// CPU panel (spec: ui/main-window.md §13): audio load (bar, percent, recent history or the Misc counts), memory,
 /// voices (or frames per second), dropouts. The hint is the reading in words (`App::tick`).
-fn cpu(ui: &mut Ui, c: &Ctx) {
-    let (t, a, s) = (ui.t, c.a, c.s);
+fn live_monitor(ui: &mut Ui, s: &State, r: Rect) {
+    let t = ui.t;
+    ui.hit(r, Action::CpuPanel, s.cpu.hint());
+    ui.c.fill_rrect(r, 4., t.sunken);
+    ui.c.stroke_rrect(r, 4., 1., t.toolbar_line);
+    let font = Font::new(11);
+    let reading = &s.cpu.now;
+    ui.c.text(font, r.x + 5., r.y + 2., t.text_dim, "Audio load");
+    ui.c.text(font, r.x + 5., r.y + 17., t.text_dim, "Memory");
+    ui.c.text_right(
+        font,
+        r.x + 99.,
+        r.y + 2.,
+        t.text,
+        &format!("{}%", reading.load),
+    );
+    let memory = reading
+        .mem_mb
+        .map_or_else(|| "— MB".to_string(), |m| format!("{m} MB"));
+    ui.c.text_right(font, r.x + 99., r.y + 17., t.text, &memory);
+    if reading.dropouts > 0 {
+        ui.c.text(
+            Font::new(9),
+            r.x + 102.,
+            r.y + 4.,
+            t.meter_clip,
+            &format!("!{}", reading.dropouts.min(9999)),
+        );
+    }
+    let plot = Rect::span(r.x + 128., r.right() - 21., r.y + 3., r.bottom() - 3.);
+    let grid = t.toolbar_line.with_alpha(120);
+    for i in 0..7 {
+        let x = plot.x + plot.w * i as f32 / 6.;
+        ui.c.line(x, plot.y, x, plot.bottom(), 1., grid);
+    }
+    ui.c.line(plot.x, plot.cy(), plot.right(), plot.cy(), 1., grid);
+    let mut last = None;
+    for (i, &(lo, hi)) in s.monitor.wave.iter().enumerate() {
+        let x = plot.x + i as f32 * plot.w / (crate::monitor::COLS - 1) as f32;
+        let y = plot.cy() - (lo + hi).clamp(-2., 2.) * plot.h * 0.25;
+        if let Some((px, py)) = last {
+            ui.c.line(px, py, x, y, 1., os_ui::Color::rgb(0xffdf44));
+        }
+        last = Some((x, y));
+    }
+    for ch in 0..2 {
+        let level = s.monitor.meter_pos(s.monitor.meter_db[ch]);
+        let peak = s.monitor.meter_pos(s.monitor.hold[ch].0);
+        for i in 0..10 {
+            let mark = (i + 1) as f32 / 10.;
+            let active = level >= mark || (peak >= mark && peak < mark + 0.1);
+            let ink = if !active {
+                grid
+            } else if i >= 8 {
+                t.meter_high
+            } else {
+                os_ui::Color::rgb(0x98d752)
+            };
+            ui.c.fill_rect(
+                Rect::new(
+                    r.right() - 17. + 7. * ch as f32,
+                    r.bottom() - 10. - 2.2 * i as f32,
+                    5.,
+                    2.,
+                ),
+                ink,
+            );
+        }
+        ui.c.text_center(
+            Font::new(7),
+            Rect::new(r.right() - 18. + 7. * ch as f32, r.bottom() - 8., 7., 8.),
+            t.text_dim,
+            if ch == 0 { "L" } else { "R" },
+        );
+    }
+}
+
+fn classic_cpu(ui:&mut Ui,s:&State,a:At) {
+    let t=ui.t;
     let cpu = a.r(crate::app::CPU_RECT);
     sunken(ui, cpu, t.sunken_dark);
-    ui.hit(cpu, Action::CpuPanel, "");
+    ui.hit(cpu, Action::CpuPanel, s.cpu.hint());
     let r = &s.cpu.now;
     let level = |load: u32| match load {
         0..75 => t.glyph,
@@ -691,35 +985,13 @@ fn cpu(ui: &mut Ui, c: &Ctx) {
 /// Utility buttons: "left / right" hints, right clicks in `App::toolbar_right` (spec: ui/toolbar-buttons.md §2).
 /// FL's last one, the content library's download, is left out (spec: ui/main-window.md §2).
 fn utilities(ui: &mut Ui, c: &Ctx) -> bool {
-    let (a, s) = (c.a, c.s);
-    let utils = [
-        (Icon::Undo, "Undo / Undo history (Ctrl+Z)"),
-        (Icon::Cut, "Open audio editor / New audio editor"),
-        (Icon::Mic, "One-click audio recording"),
-        (Icon::Help, "Help index / About..."),
-        (Icon::Save, "Save as... / Save new version (Shift+Ctrl+S)"),
-        (Icon::SaveRender, "Export audio... (Ctrl+R)"),
-        (Icon::Info, "Project info (F11)"),
-    ];
-    for (i, (icon, hint)) in utils.into_iter().filter(|(icon, _)| *icon == Icon::SaveRender || *icon == Icon::Info).enumerate() {
-        let r = a.r(btn(1209.0 + 33.0 * i as f32, 4.0));
-        if r.right() > c.fit {
-            return false;
-        }
-        let action = match icon {
-            Icon::Undo => Action::Util(Util::Undo),
-            Icon::Help => Action::Util(Util::Help),
-            Icon::Save => Action::Util(Util::Save),
-            // spec: plugins/tesla/requests.md #5: Tesla on the master track.
-            Icon::Cut => Action::Util(Util::AudioEditor),
-            Icon::SaveRender => Action::MenuItem(0, menus::FILE_EXPORT),
-            Icon::Info => Action::MenuItem(menus::OPTIONS_MENU, menus::OPT_INFO),
-            // spec: ui/one-click-recording.md §2: lit while it records; a click then stops.
-            Icon::Mic => Action::OneClick,
-            _ => Action::Placeholder(hint),
-        };
-        let lit = icon == Icon::Mic && s.rec.audio;
-        tool_button(ui, r, icon, lit, action, hint);
+    let button = c.a.r(btn(1209.0, 4.0));
+    if button.right() > c.fit { return false; }
+    tool_button(ui, button, Icon::SaveRender, false, Action::MenuItem(0, menus::FILE_EXPORT), "Export audio... (Ctrl+R)");
+    if !c.s.bar.layout.rows.iter().flatten().any(|panel| *panel == Panel::Modes) {
+        let keyboard = c.a.r(btn(1242.0, 4.0));
+        if keyboard.right() > c.fit { return false; }
+        tool_button(ui, keyboard, Icon::TypingKeyboard, c.s.toggles.contains(&"typing"), Action::Typing, TYPING_HINT);
     }
     true
 }
@@ -729,15 +1001,17 @@ fn menu_bar(ui: &mut Ui, c: &Ctx) {
     let (t, a, s) = (ui.t, c.a, c.s);
     let mb = a.span(4.0, 296.0, 45.0, 77.0);
     let lemon = super::lemon(ui);
-    if lemon {
+    if t.style.vintage_2005 {
+        crate::vintage::recess(ui.c,mb,t.menu_panel);
+    } else if lemon {
         os_ui::kit::lemon::panel(ui.c, mb, 6.0, t.menu_panel);
     } else {
         ui.c.fill_rect_gradient(mb, t.menu_panel.shade(-0.04), t.menu_panel.shade(0.02), 2.5);
         ui.c.stroke_rrect(mb, 2.5, 1.0, t.toolbar_line.shade(-0.1));
     }
-    let layout = menus::bar_layout(ui.c);
+    let layout = menus::bar_layout(ui.c,s.vintage_2005);
     for (i, (m, (x0, x1, width))) in menus::MENUS.iter().zip(layout).enumerate() {
-        let title = m.title;
+        let title = if s.vintage_2005 {menus::VINTAGE_TITLES[i]}else if i==menus::HELP_MENU && ui.c.size().0 < 1300. {"…"} else {m.title};
         let r = a.r(Rect::new(x0 - 3.0, 47.0, x1 - x0 + 6.0, 29.0));
         let hov = ui.hit(r, Action::Menu(i), title);
         let open = s.menu_open == Some(i) && !c.preview;
@@ -746,8 +1020,27 @@ fn menu_bar(ui: &mut Ui, c: &Ctx) {
         } else if hov || open {
             ui.c.fill_rrect(if lemon { r.inset(1.0) } else { r }, if lemon { 4.0 } else { 2.0 }, t.menu_drop_hi);
         }
-        ui.c.text(Font::condensed(menus::BAR_FONT.size, width as u16), a.x(x0), a.y(51.0), if lemon && open { t.pill_text } else { t.menu_text }, title);
+        if s.vintage_2005 && crate::vintage_skin::available() {
+            crate::vintage_skin::lettering(ui.c,title,a.x(x0).round(),a.y(49.));
+        } else {
+        ui.c.text(if s.vintage_2005 {Font::vintage(width as u16)}else{Font::condensed(menus::BAR_FONT.size, width as u16)}, if s.vintage_2005 {a.x(x0).round()}else{a.x(x0)}, a.y(if s.vintage_2005 {53.0}else{51.0}), if lemon && open { t.pill_text } else { t.menu_text }, title);
+        }
     }
+}
+
+fn vintage_slider(ui: &mut Ui, x: f32, y: f32, value: f32, mark_unity: bool) {
+    let t = ui.t;
+    ui.c.fill_rect(Rect::new(x - 2.0, y - 14.0, 4.0, 28.0), t.sunken_dark);
+    for offset in [-12.0, -6.0, 0.0, 6.0, 12.0] {
+        ui.c.fill_rect(Rect::new(x + 5.0, y + offset, 4.0, 1.0), t.text_dim);
+    }
+    if mark_unity {
+        crate::vintage::fader_unity(ui.c, x, y + 11.0 - 0.8 * 22.0, 7.0);
+    }
+    let cap = Rect::new(x - 6.0, y + 11.0 - value.clamp(0.0, 1.0) * 22.0 - 3.0, 12.0, 6.0);
+    os_ui::kit::styled_surface(ui.c, t, cap, 0.0, t.window_border, t.fader_handle, t.fader_handle,
+        os_theme::appearance::Finish::Beveled);
+    ui.c.fill_rect(Rect::new(cap.x + 2.0, cap.cy(), cap.w - 4.0, 1.0), t.record);
 }
 
 /// Main volume (project value; spec: audio/mixer.md "Main volume").
@@ -755,15 +1048,24 @@ fn volume(ui: &mut Ui, c: &Ctx) {
     use crate::knobs::KnobId;
     let (t, a, s) = (ui.t, c.a, c.s);
     ui.hit(a.span(303.0, 337.0, 45.0, 77.0), Action::Knob(KnobId::MasterVol), s.knob_text(KnobId::MasterVol));
-    super::knob(ui, a.x(319.0), a.y(61.0), 14.0, s.knob(KnobId::MasterVol), false, t.glyph, t.button_hi);
+    if t.style.vintage_2005 {
+        vintage_slider(ui, a.x(319.0), a.y(61.0), s.knob(KnobId::MasterVol), true);
+    } else {
+        super::knob(ui, a.x(319.0), a.y(61.0), 14.0, s.knob(KnobId::MasterVol), false, t.glyph, t.button_hi);
+    }
 }
 
 /// Main pitch (project value; spec: audio/voice-levels.md).
 fn pitch(ui: &mut Ui, c: &Ctx) {
     use crate::knobs::KnobId;
     let (t, a, s) = (ui.t, c.a, c.s);
-    ui.hit(a.span(340.0, 376.0, 45.0, 77.0), Action::Knob(KnobId::Varispeed), s.knob_text(KnobId::Varispeed));
-    let (cx, cy) = (a.x(358.0), a.y(61.0));
+    let id = if t.style.vintage_2005 { KnobId::MasterPitch } else { KnobId::Varispeed };
+    ui.hit(a.span(340.0, 376.0, 45.0, 77.0), Action::Knob(id), s.knob_text(id));
+    let (cx, cy) = (a.x(357.0), a.y(61.0));
+    if t.style.vintage_2005 {
+        vintage_slider(ui, cx, cy, s.knob(id), false);
+        return;
+    }
     super::knob(ui, cx, cy, 14.0, s.knob(KnobId::Varispeed), true, t.glyph, t.button_hi);
     for k in 0..20 {
         let ang = 0.75 * std::f32::consts::PI + 1.5 * std::f32::consts::PI * k as f32 / 19.0;
@@ -824,10 +1126,12 @@ fn song_pos(ui: &mut Ui, c: &Ctx) {
 /// Mode buttons (spec: ui/main-window.md §3). Typing keyboard, auto scrolling (spec: ui/auto-scrolling.md), step edit
 /// (spec: ui/step-edit.md), enable groups (spec: ui/enable-groups.md) and multilink (spec: ui/remote-control.md §4)
 /// work.
+const TYPING_HINT: &str = "Typing keyboard to piano (Ctrl+T) - right-click for key and scale";
+
 fn modes(ui: &mut Ui, c: &Ctx) -> bool {
     let (a, s) = (c.a, c.s);
     for (i, (icon, hint)) in [
-        (Icon::TypingKeyboard, "Typing keyboard to piano keyboard (Ctrl+T)"),
+        (Icon::TypingKeyboard, TYPING_HINT),
         (Icon::AutoScroll, "Auto scrolling - right-click for continuous scrolling"),
         (Icon::StepEdit, "Step editing (Ctrl+E)"),
         (Icon::Link, "Enable groups (Shift+Alt+G)"),
@@ -855,6 +1159,10 @@ fn modes(ui: &mut Ui, c: &Ctx) -> bool {
 /// Snap panel (spec: ui/global-snap.md §1): the magnet turns snapping on / off, the combo holds the global snap.
 fn snap(ui: &mut Ui, c: &Ctx) {
     let (t, a, s) = (ui.t, c.a, c.s);
+    if s.vintage_2005 {
+        super::vintage_toolbar::compact_snap(ui, s, a.x(743.0), a.y(41.0));
+        return;
+    }
     let lemon = super::lemon(ui);
     let global = s.global_snap.now;
     let on = global != crate::playlist::Snap::None;
@@ -875,8 +1183,8 @@ fn snap(ui: &mut Ui, c: &Ctx) {
     // The longest labels ("1/6 step") are narrowed to fit before the arrow.
     let label = global.label();
     let room = snap.w - 5.0 - 14.0;
-    let font = if ui.c.text_width(Font::new(16), label) <= room { Font::new(16) } else { Font::condensed(16, 6) };
-    ui.c.text(font, snap.x + 5.0, a.y(51.0), t.glyph, label);
+    let font = if s.vintage_2005 {Font::vintage(11)}else if ui.c.text_width(Font::new(16), label) <= room { Font::new(16) } else { Font::condensed(16, 6) };
+    ui.c.text(font, snap.x + 5.0, a.y(if s.vintage_2005 {55.0}else{51.0}), t.glyph, label);
     // The arrow points down while the mouse is over the combo (§1).
     let dir = if hov { os_ui::kit::Dir::Down } else { os_ui::kit::Dir::Right };
     os_ui::kit::triangle(ui.c, snap.right() - 8.0, a.y(61.0), 3.5, dir, t.glyph_dim);
@@ -885,6 +1193,13 @@ fn snap(ui: &mut Ui, c: &Ctx) {
 /// Pattern selector (to the "+", x 962).
 fn pattern(ui: &mut Ui, c: &Ctx) {
     let (t, a, s) = (ui.t, c.a, c.s);
+    if s.vintage_2005 && super::vintage_toolbar::pattern_panel(ui, s, a.x(834.0), a.y(41.0)) {
+        let add = a.r(Rect::new(949.0, 46.0, 17.0, 28.0));
+        let hot = ui.hit(add, Action::PatternAdd, "New pattern (find first / next empty)");
+        crate::vintage::metal(ui.c, add, if hot { t.button_hi } else { t.button });
+        icons::draw(ui.c, Icon::Plus, add.inset(3.0), t.glyph);
+        return;
+    }
     let lemon = super::lemon(ui);
     let prev = a.span(838.0, 851.0, 47.0, 76.0);
     ui.hit(prev, Action::PatternPrev, "Pattern options"); // spec: ui/pattern-menu.md §1
@@ -892,7 +1207,9 @@ fn pattern(ui: &mut Ui, c: &Ctx) {
     icons::draw(ui.c, Icon::ArrowRight, prev.inset(2.0), t.glyph);
     let pb = a.span(855.0, 948.0, 47.0, 76.0);
     let hov = ui.hit(pb, Action::PatternNext, crate::patterns::name_of(s, s.pattern.max(1)));
-    if lemon {
+    if t.style.vintage_2005 {
+        crate::vintage::recess(ui.c,pb,Color::rgb(0x344c4f));
+    } else if lemon {
         os_ui::kit::lemon::well(ui.c, t, pb, if hov { t.sunken.mix(t.button_hi, 0.5) } else { t.sunken });
     } else {
         ui.c.fill_rrect(pb, 2.0, t.tempo_box.shade(if hov { 0.16 } else { 0.08 }));
@@ -906,7 +1223,7 @@ fn pattern(ui: &mut Ui, c: &Ctx) {
         .unwrap_or_else(|| format!("Pattern {}", s.pattern));
     // Right-aligned before the spin arrow; a name too long for that keeps its start and is cut at the arrow, as FL
     // cuts long labels (long names were not measured here: Lemon Studio's choice).
-    let pf = Font::condensed(21, 7);
+    let pf = if t.style.vintage_2005 {Font::vintage(12).bold()}else{Font::condensed(21, 7)};
     let end = pb.right() - 11.0;
     if ui.c.text_width(pf, &name) <= end - (pb.x + 2.0) {
         ui.c.push_clip(pb.inset(2.0));
@@ -924,6 +1241,10 @@ fn pattern(ui: &mut Ui, c: &Ctx) {
 /// the window buttons are the first five, the pickers and tools the rest.
 fn window_buttons(ui: &mut Ui, c: &Ctx, which: Range<usize>) -> bool {
     let a = c.a;
+    if c.s.vintage_2005 && which.start == 0 && a.x(1136.0) <= c.fit
+        && super::vintage_toolbar::compact_shortcuts(ui, c.s, a.x(967.0), a.y(41.0)) {
+        return true;
+    }
     let wins = [
         (Icon::Playlist, Action::ToggleWin(Win::Playlist), "Playlist / Maximize Play list (F5)"),
         (Icon::PianoRoll, Action::ToggleWin(Win::PianoRoll), "Piano roll / Maximize Piano roll (F7)"),
@@ -937,14 +1258,32 @@ fn window_buttons(ui: &mut Ui, c: &Ctx, which: Range<usize>) -> bool {
         // FL's store button is hidden: its stand-in, a repository of free and open-source plugins (spec:
         // ui/main-window.md §3), had the plugin picker's icon. It is to come back with a shop icon.
     ];
-    for (i, (icon, action, hint)) in wins.into_iter().enumerate().filter(|(i, _)| which.contains(i) && (!crate::settings_file::flag("declutter_toolbar", false) || ![5, 6, 8].contains(i))) {
-        let r = a.r(btn(973.0 + 33.0 * (if crate::settings_file::flag("declutter_toolbar", false) && i == 7 { 5 } else { i }) as f32, 45.0));
+    let legacy = crate::settings_file::flag("declutter_toolbar", false);
+    let buttons = which.clone().filter(|&i| {
+        (!legacy || ![5, 6, 8].contains(&i))
+            && (c.preview || c.s.bar.editing || shown(WINDOW_BUTTONS[i]))
+    });
+    for (slot, i) in buttons.enumerate() {
+        let (icon, ref action, hint) = wins[i];
+        let r = a.r(btn(973.0 + 33.0 * (which.start + slot) as f32, 45.0));
         if r.right() > c.fit {
             return false;
         }
-        let hov = ui.hit(r, action.clone(), hint) || ui.down(r, &action);
+        let hov = ui.hit(r, action.clone(), hint) || ui.down(r, action);
+        if c.s.vintage_2005 && i < 5 {
+            // FL4 orders Playlist, Rack, Piano Roll, Browser and Mixer.
+            let frame = [0, 4, 2, 8, 6][i] + usize::from(hov);
+            if crate::vintage_skin::native(ui.c, "SCBtns", frame, (r.cx()-14.5).round(), (r.cy()-12.5).round()) {
+                continue;
+            }
+        }
         let ink = super::tool_face(ui, r, if hov { super::Look::Hot } else { super::Look::Off });
-        icons::draw(ui.c, icon, Rect::new(r.x + 5.0, r.y + 6.5, 20.0, 20.0), ink);
+        if c.s.vintage_2005 {
+            ui.c.fill_rrect(r.inset(1.),12.,Color::rgb(0x23353b));
+            ui.c.fill_rect_gradient(r.inset(2.),Color::rgb(0x87999e),Color::rgb(0x344d55),11.);
+            ui.c.stroke_rrect(r.inset(4.),9.,1.,Color::rgb(0x293f46));
+            icons::draw(ui.c,icon,Rect::new(r.x+7.,r.y+8.,16.,16.),if hov {ui.t.accent}else{Color::rgb(0xc3d7d0)});
+        } else {icons::draw(ui.c, icon, Rect::new(r.x + 5.0, r.y + 6.5, 20.0, 20.0), ink);}
     }
     // FL's news panel (x 1304..1470, with its separator) is left out: it suggested an online service Lemon Studio
     // does not have. A tips panel may take its place (spec: ui/main-window.md §3).
@@ -1188,7 +1527,6 @@ mod tests {
         assert_eq!(bst(0.125, 120.0, 96), (1, 2, 0));
     }
 
-    use super::MORE_HINT;
     use crate::app::{Action, App, Win};
     use crate::prefs::{choice, set_choice, TOOLBARS_SCALING};
     use os_ui::{Canvas, Rect};
@@ -1217,7 +1555,7 @@ mod tests {
     /// their places below the band.
     #[test]
     fn toolbars_scaling_scales_the_top_band() {
-        let Ok(mut c) = Canvas::new(1920, 1080, 1.0) else { return };
+        let Ok(mut c) = Canvas::new(4600, 1080, 1.0) else { return };
         let mut app = App::new(None);
         app.state.show_browser = true;
         app.paint(&mut c, None);
@@ -1248,7 +1586,7 @@ mod tests {
         assert_eq!((crate::views::band_h(&app.state), app.state.work_rect().y), (166.0, 166.0));
         assert_eq!(hit(&app, &Action::Clock), twice(clock));
         let drag = app.hits.iter().find(|h| h.action == Action::DragWindow).map(|h| h.rect);
-        assert_eq!(drag, Some(Rect::new(0.0, 0.0, 1920.0, 162.0)));
+        assert_eq!(drag, Some(Rect::new(0.0, 0.0, 4600.0, 162.0)));
         assert_eq!(hit(&app, &Action::BrowserTab(1)), Rect { y: tab.y + 83.0, ..tab });
         assert_eq!(app.state.win_rect(Win::Playlist).y, 166.0, "docked under the band");
         // A floating window keeps its distance to the band when the band shrinks back.
@@ -1266,7 +1604,7 @@ mod tests {
     /// Pop-ups scaling, rows 19 px at Main on a 100 % window) and the tempo's digits; repaints cover the scaled panels.
     #[test]
     fn band_controls_are_hit_where_drawn() {
-        let Ok(mut c) = Canvas::new(1920, 1080, 1.0) else { return };
+        let Ok(mut c) = Canvas::new(4600, 1080, 1.0) else { return };
         let mut app = App::new(None);
         set_choice(&TOOLBARS_SCALING, 5);
         app.paint(&mut c, None);
@@ -1313,21 +1651,37 @@ mod tests {
         set_choice(&TOOLBARS_SCALING, 0);
     }
 
-    /// Narrow toolbars keep the hidden window commands reachable through View.
     #[test]
-    fn panels_that_do_not_fit_leave_an_arrow() {
-        for width in [900, 1100, 1300] {
-            let mut c = Canvas::new(width, 800, 1.0).unwrap();
-            let mut app = App::new(None);
-            app.paint(&mut c, None);
-            let h = app.hits.iter().rev().find(|h| h.hint == MORE_HINT).expect("overflow arrow");
-            let r = h.rect;
-            assert_eq!(h.action, Action::Menu(super::menus::VIEW));
-            assert!(r.x >= 0. && r.right() <= width as f32);
-            app.mouse_move(r.cx(), r.cy());
-            app.mouse_down();
-            app.mouse_up();
-            assert_eq!(app.state.menu_open, Some(super::menus::VIEW));
+    fn window_buttons_stay_clickable_after_resizing() {
+        let mut app = App::new(None);
+        let windows = [Win::Playlist, Win::PianoRoll, Win::ChannelRack, Win::Mixer, Win::Browser];
+        app.state.toolbar.hint_bar = true;
+        for (width, scale) in [(2400, 1.0), (2400, 2.0), (1440, 2.0), (800, 1.0), (2400, 1.0)] {
+            let mut canvas = Canvas::new(width, 1000, scale).unwrap();
+            app.paint(&mut canvas, None);
+            let ratio = crate::views::band_k(&app.state);
+            let preferred = crate::views::toolbar_scale(scale) / scale;
+            assert!(ratio >= preferred * 0.8 && ratio <= preferred);
+            if width == 800 {
+                assert!((ratio - preferred * 0.8).abs() < 0.001);
+                assert!(super::display_layout(&app.state).rows.len() > 1);
+            }
+            let hint = app.hits.iter().find(|h| h.hint == "Hint bar").unwrap().rect;
+            let report = hit(&app, &Action::FeatureVote(0,30));
+            assert!(hint.x >= report.right() && hint.right() <= hit(&app, &Action::Minimize).x);
+            assert!(!has(&app, &Action::MenuItem(super::menus::OPTIONS_MENU, super::menus::OPT_INFO)));
+            let mut last_right = 0.0;
+            for win in windows {
+                let button = hit(&app, &Action::ToggleWin(win));
+                assert!(button.x >= last_right && button.right() <= app.state.screen.0);
+                assert!(button.w > 0.0 && button.bottom() <= crate::views::band_h(&app.state));
+                last_right = button.right();
+            }
+            let browser = hit(&app, &Action::ToggleWin(Win::Browser));
+            let was_open = app.state.show_browser;
+            click(&mut app, &mut canvas, browser.cx(), browser.cy());
+            assert_ne!(app.state.show_browser, was_open);
         }
     }
+
 }

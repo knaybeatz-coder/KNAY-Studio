@@ -113,6 +113,19 @@ fn an_inactive_instance_asks_for_its_rate_and_stays_quiet() {
 }
 
 #[test]
+fn sidechain_reaches_vst2_auxiliary_inputs() {
+    let (_m,mut p)=gain();
+    unsafe { (*p.inst.effect).num_inputs=4; }
+    p.activate(48000);
+    let n=MAX_FRAMES as usize+19;
+    let l:Vec<_>=(0..n).map(|i|i as f32/n as f32).collect();
+    let r:Vec<_>=l.iter().map(|x|1.-x).collect();
+    let (mut a,mut b)=(vec![0.;n],vec![0.;n]);
+    p.process_fx_keyed(48000,&mut a,&mut b,(&l,&r));
+    assert_eq!((a,b),(l,r));
+}
+
+#[test]
 fn effects_process_their_input_and_host_edits_are_not_reported_as_the_plugins() {
     let (_m, mut p) = gain();
     p.activate(48000);
@@ -346,7 +359,14 @@ fn the_editor_opens_in_its_parent_reports_edits_and_follows_resizes() {
     let (_m, mut p) = gain();
     assert!(p.has_editor());
     clear();
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("DISPLAY").is_none() {
+        assert!(p.open_editor(0x1234 as *mut c_void, 1.0).is_err());
+        assert!(logged("editor open").is_empty());
+        return;
+    }
     let size = p.open_editor(0x1234 as *mut c_void, 1.0).expect("editor");
+    assert_eq!(logged("host display"), [format!("host display {}", cfg!(target_os = "linux"))]);
     assert_eq!(size, (300, 200));
     assert_eq!(logged("editor open"), ["editor open 4660"]);
     // Outside macOS the scale is told even at 1: a plugin keeps the last one it was told.

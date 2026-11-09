@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //! Dedicated Lemon Wave instrument view. Uses the same hit targets and host gestures
 //! as the shared editor; graphs are parameter-derived, never decorative fake meters.
+mod cyberpunk;
+pub(crate) mod keyboard;
 use crate::{assets::WaveParams, controls::*, reference_oscillator::Warp};
 use lemon_small_fx::view::{Hit, Model, Target, ViewState};
 use os_ui::{Canvas, Color, Font, Rect};
@@ -15,55 +17,76 @@ fn theme_dim() -> Color { crate::design::color(0x8d9baa) }
 fn theme_a() -> Color { crate::design::color(0xe3df8b) }
 fn theme_b() -> Color { crate::design::color(0x73dacc) }
 fn theme_mod() -> Color { crate::design::color(0xbda4fb) }
-pub const PRESET_PREV: Rect = Rect::new(414., 18., 30., 32.);
-pub const PRESET_NEXT: Rect = Rect::new(724., 18., 30., 32.);
-pub const PRESET_INIT: Rect = Rect::new(768., 18., 70., 32.);
-pub const PRESET_NAMES: [&str; 14] = [
-    "Init",
-    "Bend Bass",
-    "Mirror Keys",
-    "Quantize Motion",
-    "Wide Lead",
-    "Dual Sweep",
-    "Wide Sky",
-    "Moving Edge",
-    "Velvet Pluck",
-    "Held Bloom",
-    "Resonant Band",
-    "Glass Tide",
-    "Clockwork",
-    "Four Corners",
-];
-pub fn edit_table_button(o: usize) -> Rect {
-    Rect::new(295. + 410. * o as f32, 84., 105., 23.)
+pub const PRESET_FIELD: Rect = Rect::new(810.,14.,340.,34.);
+pub const PRESET_PREV: Rect = Rect::new(770., 14., 32., 34.);
+pub const PRESET_NEXT: Rect = Rect::new(1162., 14., 32., 34.);
+pub const PRESET_INIT: Rect = Rect::new(1260., 14., 70., 34.);
+
+pub fn osc_x(o:usize)->f32 {if o==0{8.}else{472.}}
+pub fn osc_w(o:usize)->f32 {if o==0{452.}else{430.}}
+pub fn edit_table_button(o:usize)->Rect {Rect::new(osc_x(o)+osc_w(o)-134.,98.,48.,22.)}
+pub fn table_buttons(o:usize)->[Rect;3] {let x=osc_x(o)+20.;[Rect::new(x,605.,112.,20.),Rect::new(x+118.,605.,130.,20.),Rect::new(x+254.,605.,112.,20.)]}
+pub fn detail_button(i:usize)->Rect {match i {
+ 0|1=>Rect::new(osc_x(i)+osc_w(i)-78.,98.,24.,22.),
+ 2=>Rect::new(1077.,98.,26.,22.),3=>Rect::new(1077.,465.,26.,22.),
+ 4=>Rect::new(1536.,141.,30.,30.),5=>Rect::new(388.,650.,26.,24.),
+ _=>Rect::new(830.,650.,26.,24.)}}
+pub fn detail_open(params:&WaveParams,i:usize)->bool {params.details.load(std::sync::atomic::Ordering::Relaxed)&(1<<i)!=0}
+pub fn quick_choices(params:&WaveParams)->Vec<(usize,Rect,i32,&'static str)>{let patch=crate::fxrack::effective(std::array::from_fn(|k|params.base.v(k) as f32));quick_choices_for(params,&patch)}
+fn quick_choices_for(params:&WaveParams,patch:&crate::dsp::Patch)->Vec<(usize,Rect,i32,&'static str)>{
+ let l=params.lfo_tab.load(std::sync::atomic::Ordering::Relaxed).min(3);let mut result=Vec::new();
+ for(i,(value,label))in[(0,"Off"),(5,"1/4"),(6,"1/8"),(7,"1/16")].into_iter().enumerate(){result.push((LFO_CONTROLS[l][1],Rect::new(626.+i as f32*38.,852.,38.,33.),value,label));}
+ let scroll=params.fx_scroll.load(std::sync::atomic::Ordering::Relaxed).min(fx_max_scroll(crate::fxrack::order(&patch).len()));
+ for(position,slot)in crate::fxrack::order(&patch).into_iter().enumerate(){let b=crate::fxrack::base(slot);if patch[b] as usize!=4||detail_open(params,8+slot){continue;}let r=fx_card(position,scroll);
+  for(i,label)in["Stereo","Ping pong"].into_iter().enumerate(){result.push((b+5,Rect::new(r.x+15.+i as f32*82.5,r.y+48.,82.5,29.).intersect(&FX_AREA),i as i32,label));}
+  for(i,label)in["1/4","1/8","1/16"].into_iter().enumerate(){result.push((b+10,Rect::new(r.x+195.+i as f32*54.6,r.y+48.,54.6,29.).intersect(&FX_AREA),1+i as i32,label));}
+ }result.retain(|(_,r,_,_)|r.w>0.&&r.h>0.);result
 }
-pub fn table_buttons(o: usize) -> [Rect; 3] {
-    let x = 28. + o as f32 * 410.;
-    [
-        Rect::new(x, 418., 105., 20.),
-        Rect::new(x + 111., 418., 140., 20.),
-        Rect::new(x + 257., 418., 117., 20.),
-    ]
+pub fn fx_more(card:Rect)->Rect {Rect::new(card.right()-30.,card.y+10.,22.,22.)}
+// Broad, low-opacity light fields supply bloom without hard concentric outlines.
+fn soft_glow(c:&mut Canvas,r:Rect,color:Color,strength:f32){
+ for i in (1..=12).rev(){let spread=i as f32*1.3;let a=((13-i) as f32*strength*1.7).min(24.) as u8;c.fill_rrect(r.inset(-spread),(r.h/2.+spread).min(24.),color.with_alpha(a));}
 }
-pub fn raised(c: &mut Canvas, r: Rect, radius: f32, base: Color) {
-    let radius = radius * crate::design::radius();
-    let bevel = crate::design::bevel().min(0.035);
-    c.fill_rrect(
-        Rect::new(r.x + 1., r.y + crate::design::shadow().min(1.5), r.w, r.h),
-        radius,
-        crate::design::color(0x080c10).with_alpha(100),
-    );
-    c.fill_rect_gradient(r, base.shade(bevel), base.shade(-bevel), radius);
-    c.stroke_rrect(r.inset(0.5), radius, 1., base.shade(0.10));
-    c.polyline(
-        &[(r.x + radius, r.y + 1.5), (r.right() - radius, r.y + 1.5)],
-        1.,
-        crate::design::color(0xc4d4dd).with_alpha(15),
-    );
+type GlassKey=[u32;10];
+struct GlassCache {key:GlassKey,width:usize,height:usize,pixels:Vec<u32>}
+thread_local!{static GLASS:std::cell::RefCell<std::collections::VecDeque<GlassCache>>=const {std::cell::RefCell::new(std::collections::VecDeque::new())};}
+pub fn raised(c:&mut Canvas,r:Rect,radius:f32,base:Color){
+ let key=[r.x.to_bits(),r.y.to_bits(),r.w.to_bits(),r.h.to_bits(),c.scale.to_bits(),radius.to_bits(),base.r as u32,((base.g as u32)<<8)|base.b as u32,c.pixmap.width(),c.pixmap.height()];
+ if r.h>80.&&GLASS.with(|cache|{let mut cache=cache.borrow_mut();if let Some(i)=cache.iter().position(|entry|entry.key==key){let entry=cache.remove(i).unwrap();c.fill_rrect(Rect::new(r.x,r.y+2.,r.w,r.h),radius.min(12.),Color::rgb(0x010306).with_alpha(130));c.image(r,entry.width,entry.height,&entry.pixels);cache.push_back(entry);true}else{false}}){return;}
+ let radius=radius.min(12.);c.fill_rrect(Rect::new(r.x,r.y+2.,r.w,r.h),radius,Color::rgb(0x010306).with_alpha(130));
+ let large=r.h>80.;c.fill_rect_gradient(r,if large{Color::rgb(0x0b1218)}else{base},if large{Color::rgb(0x04090d)}else{base.shade(-0.025)},radius);
+ c.stroke_rrect(r.inset(0.5),radius,0.9,Color::rgb(0x48606c).with_alpha(if large{110}else{145}));
+ if large {
+  c.push_clip(r.inset(2.));
+  for j in 0..12 {let w=35.+j as f32*6.;let a=((12-j)*2/3) as u8;let x=r.right()-r.w*0.12;
+   c.fill_polygon(&[(x-w,r.y+4.),(x+w,r.y+4.),(r.x-r.w*0.25+w,r.bottom()+70.),(r.x-r.w*0.25-w,r.bottom()+70.)],Color::rgb(0x1d4555).with_alpha(a));}
+  c.pop_clip();c.polyline(&[(r.x+radius,r.y+1.),(r.right()-radius,r.y+1.)],0.9,Color::rgb(0x88b2c2).with_alpha(45));
+  let sx=(r.x*c.scale).round() as i32;let sy=(r.y*c.scale).round() as i32;let width=(r.w*c.scale).round() as usize;let height=(r.h*c.scale).round() as usize;let cw=c.pixmap.width() as usize;let ch=c.pixmap.height() as usize;
+  if sx>=0&&sy>=0&&sx as usize+width<=cw&&sy as usize+height<=ch{let raw=c.pixmap.pixels();let mut pixels=Vec::with_capacity(width*height);for y in sy as usize..sy as usize+height{for x in sx as usize..sx as usize+width{let p=raw[y*cw+x];pixels.push(((p.red() as u32)<<16)|((p.green() as u32)<<8)|p.blue() as u32);}}
+   GLASS.with(|cache|{let mut cache=cache.borrow_mut();if cache.len()>=24{cache.pop_front();}cache.push_back(GlassCache{key,width,height,pixels});});}
+ }
+}
+fn luminous(c:&mut Canvas,points:&[(f32,f32)],width:f32,color:Color){
+ for (extra,alpha) in [(28.,3),(20.,4),(12.,7),(6.,12),(2.,28)]{c.polyline(points,width+extra,color.with_alpha(alpha));}
+ c.polyline(points,width,color);c.polyline(points,(width*0.38).max(0.45),color.shade(0.28));
+}
+fn glowing_area(c:&mut Canvas,pts:&[(f32,f32)],bottom:f32,color:Color){
+ if pts.len()<2{return;}
+ // Fade vertically from the real curve down to its baseline.
+ for band in 0..24{let lo=band as f32/24.;let hi=(band+1) as f32/24.;let mut area:Vec<_>=pts.iter().map(|&(x,y)|(x,y+(bottom-y)*lo)).collect();area.extend(pts.iter().rev().map(|&(x,y)|(x,y+(bottom-y)*hi)));c.fill_polygon(&area,color.with_alpha((43.*(1.-lo).powi(2)) as u8));}
+ luminous(c,pts,1.7,color);
+}
+fn power(c:&mut Canvas,r:Rect,on:bool) {
+    let r=r.inset(2.);
+    if on {soft_glow(c,r,theme_a(),0.23);}
+    c.fill_rrect(r,r.h/2.,if on{theme_a()}else{Color::rgb(0x18242c)});
+    let ink=if on{Color::rgb(0x121808)}else{theme_dim()};
+    c.arc(r.cx(),r.cy()+0.5,5.,-0.9,std::f32::consts::TAU-1.35,1.4,ink);
+    c.polyline(&[(r.cx(),r.cy()-5.),(r.cx(),r.cy())],1.5,ink);
 }
 pub fn dropdown(c: &mut Canvas, r: Rect, label: &str, color: Color, hot: bool) {
     raised(c, r, 4., crate::design::color(if hot { 0x354450 } else { 0x24313b }));
-    c.text_clip(font(10), r.x + 9., r.y + 7., r.w - 29., color, label);
+    c.text_clip(font(if r.h>=29.{14}else{10}), r.x + 12., r.y + (r.h-18.)/2., r.w - 34., color, label);
     let x = r.right() - 13.;
     let y = r.cy();
     c.polyline(
@@ -96,11 +119,8 @@ impl Ui<'_> {
     fn panel(&mut self, r: Rect, title: &str, accent: Color, subtitle: &str) {
         let r = r.inset(-3.);
         raised(self.c, r, 8., theme_panel());
-        self.c.fill_rrect(Rect::new(r.x+1.,r.y+1.,r.w-2.,32.),6.,crate::design::color(0x25313b));
-        self.c.polyline(&[(r.x+10.,r.y+33.),(r.right()-10.,r.y+33.)],0.7,crate::design::color(0x35424c).with_alpha(100));
-        self.c
-            .fill_rrect(Rect::new(r.x + 12., r.y + 13., 3., 15.), 1.5, accent);
-        self.label(r.x + 24., r.y + 12., title, 12, theme_ink());
+        self.label(r.x + 13., r.y + 9., title, 18, theme_ink());
+        let _=accent;
         if !subtitle.is_empty() {
             self.label(r.x + 24., r.y + 31., subtitle, 10, theme_dim());
         }
@@ -115,14 +135,14 @@ impl Ui<'_> {
         let id=SETTINGS[k].id;
         let (x,y)=crate::design::knob(id,x,y);
         let n=self.m.norm(id).clamp(0.,1.);
-        let r=Rect::new(x-24.,y-25.,48.,65.);
+        let r=Rect::new(x-26.,y-37.,52.,76.);
         let hot=self.hover(r)||self.st.pressed.as_ref().is_some_and(|t|t.id()==id);
         let arc=|lo:f32,hi:f32,rad:f32|->Vec<(f32,f32)>{
             (0..=40).map(|i|{let a=(135.+270.*(lo+(hi-lo)*i as f32/40.)).to_radians();(x+rad*a.cos(),y+rad*a.sin())}).collect()
         };
-        self.c.polyline(&arc(0.,1.,24.),2.,theme_line());
+        self.c.polyline(&arc(0.,1.,25.),0.7,theme_line());
         let zero=if SETTINGS[k].range.0<0 {0.5} else {0.};
-        self.c.polyline(&arc(zero,n,24.),1.8,color);
+        luminous(self.c,&arc(zero,n,25.),2.,color);
         if let Some(target)=mod_target(k) {
             let depth:f32=ROUTES.iter().filter(|slot|self.m.plain(SETTINGS[**slot].id)>0.&&self.m.plain(SETTINGS[*slot+1].id) as usize==target)
                 .map(|slot|self.m.plain(SETTINGS[slot+2].id).abs()/1000.).sum();
@@ -135,28 +155,51 @@ impl Ui<'_> {
                 }
             }
         }
-        self.c.fill_circle(x+1.,y+2.,22.,crate::design::color(0x060a0e));
-        self.c.fill_rect_gradient(Rect::new(x-22.,y-22.,44.,44.),crate::design::color(0x586a76),crate::design::color(0x24323d),22.);
-        self.c.stroke_circle(x,y,21.5,0.8,crate::design::color(0xa1afb7).with_alpha(65));
-        // The entire center is a shallow dish in the knob, not a value insert.
-        self.c.fill_rect_gradient(Rect::new(x-18.,y-18.,36.,36.),
-            crate::design::color(if hot {0x263c49} else {0x1b2b36}),
-            crate::design::color(if hot {0x4b606c} else {0x3c505c}),18.);
-        self.c.polyline(&arc(0.16,0.5,18.),0.8,crate::design::color(0x12212c).with_alpha(150));
-        self.c.polyline(&arc(0.66,1.,18.),0.7,crate::design::color(0x80929b).with_alpha(45));
+        self.c.fill_circle(x,y+1.,24.,Color::rgb(0x020609));
+        self.c.fill_rect_gradient(Rect::new(x-23.,y-23.,46.,46.),Color::rgb(if hot{0x41525c}else{0x35434d}),Color::rgb(0x050b10),23.);
+        self.c.stroke_circle(x,y,23.,0.7,Color::rgb(0x6b8490).with_alpha(45));
+        self.c.polyline(&arc(0.16,0.47,22.),1.1,Color::rgb(0xb5c8d0).with_alpha(70));
         let a=(135.+270.*n).to_radians();
-        self.c.polyline(&[(x+18.*a.cos(),y+18.*a.sin()),(x+21.*a.cos(),y+21.*a.sin())],2.,theme_ink());
-        let well=Rect::new(x-15.,y-6.,30.,12.);
+        self.c.polyline(&[(x+17.*a.cos(),y+17.*a.sin()),(x+21.*a.cos(),y+21.*a.sin())],1.7,color);
+        let well=Rect::new(x-26.,y+25.,52.,13.);
         let text=self.m.text(id).replace(" voices","").replace(" cents","ct").replace(" deg","\u{00b0}");
         let mut value=text.replace(".0%","%").replace(".00 "," ").replace(' ',"");
         if let Some(hz)=value.strip_suffix("Hz").and_then(|v|v.parse::<f32>().ok()) {
             value=if hz>=1000. {format!("{:.1}kHz",hz/1000.).replace(".0k","k")} else {format!("{hz}Hz")};
         }
-        let mut size=9;
+        let mut size=11;
         while size>6 && self.c.text_width(font(size),&value)>well.w-4. {size-=1;}
         self.c.text_center(font(size),well,theme_ink(),&value);
-        self.c.text_center(font(10),Rect::new(x-30.,y+28.,60.,12.),theme_ink(),caption);
+        self.c.text_center(font(11),Rect::new(x-31.,y-37.,62.,14.),theme_ink(),caption);
         self.hit(r,Target::Knob(id.into()));
+    }
+    fn dial(&mut self,k:usize,x:f32,y:f32,caption:&str,color:Color,radius:f32){
+        let id=SETTINGS[k].id;let(x,y)=crate::design::knob(id,x,y);let n=self.m.norm(id).clamp(0.,1.);
+        let hit=Rect::new(x-radius-9.,y-radius-29.,2.*radius+18.,2.*radius+56.);
+        let hot=self.hover(hit)||self.st.pressed.as_ref().is_some_and(|t|t.id()==id);
+        let arc=|lo:f32,hi:f32,r:f32|->Vec<(f32,f32)>{(0..=56).map(|i|{let a=(135.+270.*(lo+(hi-lo)*i as f32/56.)).to_radians();(x+r*a.cos(),y+r*a.sin())}).collect()};
+        self.c.fill_circle(x,y+2.,radius+1.,Color::rgb(0x010407));
+        self.c.fill_rect_gradient(Rect::new(x-radius,y-radius,2.*radius,2.*radius),Color::rgb(if hot{0x46535c}else{0x34414b}),Color::rgb(0x03090d),radius);
+        for layer in 0..28 {self.c.fill_circle(x+1.,y+2.,radius-0.8-layer as f32*0.52,Color::rgb(0x02090d).with_alpha(5));}
+        self.c.stroke_circle(x,y,radius-0.6,0.7,Color::rgb(0x56717e).with_alpha(70));
+        for i in 0..24{let a=(205.+i as f32*4.).to_radians();let b=a+4_f32.to_radians();let shine=((i as f32/23.*std::f32::consts::PI).sin()*100.) as u8;self.c.polyline(&[(x+(radius-1.4)*a.cos(),y+(radius-1.4)*a.sin()),(x+(radius-1.4)*b.cos(),y+(radius-1.4)*b.sin())],1.8,Color::rgb(0xc2d4df).with_alpha(shine));}
+        let zero=if SETTINGS[k].range.0<0{0.5}else{0.};luminous(self.c,&arc(zero,n,radius-0.4),2.1,color);
+        let a=(135.+270.*n).to_radians();luminous(self.c,&[(x+(radius-9.)*a.cos(),y+(radius-9.)*a.sin()),(x+(radius-3.)*a.cos(),y+(radius-3.)*a.sin())],1.7,color);
+        if let Some(target)=mod_target(k){let depth:f32=ROUTES.iter().filter(|slot|self.m.plain(SETTINGS[**slot].id)>0.&&self.m.plain(SETTINGS[*slot+1].id) as usize==target).map(|slot|self.m.plain(SETTINGS[slot+2].id).abs()/1000.).sum();if depth>0.{self.c.polyline(&arc((n-depth).max(0.),(n+depth).min(1.),radius+4.),1.,theme_mod());if self.live.active{let v=(n+self.live.amounts[target]).clamp(0.,1.);self.c.polyline(&arc(n.min(v),n.max(v),radius+4.),2.,theme_mod());}}}
+        let text=self.m.text(id).replace(" voices","").replace(" cents"," ct");let size=if radius>=25.{14}else{12};
+        self.c.text_center(font(size),Rect::new(x-44.,y-radius-29.,88.,20.),theme_ink(),caption);
+        let mut value_size=size;while value_size>8&&self.c.text_width(font(value_size),&text)>80.{value_size-=1;}
+        self.c.text_center(font(value_size),Rect::new(x-44.,y+radius+8.,88.,19.),theme_ink(),&text);
+        self.hit(hit,Target::Knob(id.into()));
+    }
+    fn toggle(&mut self,k:usize,r:Rect,on:&str,off:&str,color:Color) {
+        let active=self.m.plain(SETTINGS[k].id)>0.5;
+        if on=="ON" && off=="OFF" {power(self.c,r,active);} else {
+            raised(self.c,r,3.,crate::design::color(if active{0x3a4c43}else{0x202a33}));
+            if active {self.c.fill_rrect(Rect::new(r.x+4.,r.bottom()-2.,r.w-8.,1.),0.5,color.with_alpha(170));}
+            self.c.text_center(font(9),r,if active{color}else{theme_dim()},if active{on}else{off});
+        }
+        self.hit(r,Target::Choice(SETTINGS[k].id.into(),if active{0}else{1}));
     }
     fn level_fader(&mut self,k:usize,x:f32,top:f32,bottom:f32,color:Color) {
         let id=SETTINGS[k].id;
@@ -188,20 +231,16 @@ impl Ui<'_> {
     }
     fn grid(&mut self, r: Rect) {
         let r = Rect::new(r.x-6.,r.y,r.w+12.,r.h);
-        self.c.fill_rrect(r, 5., crate::design::color(0x50616b));
-        self.c
-            .fill_rect_gradient(r.inset(1.), crate::design::color(0x080e14), crate::design::color(0x15232c), 4.);
-        self.c
-            .stroke_rrect(r.inset(1.5), 4., 1., crate::design::color(0x020609));
+        self.c.fill_rect_gradient(r,Color::rgb(0x040b10),Color::rgb(0x08141d),6.);
         for i in 1..8 {
             let x = r.x + r.w * i as f32 / 8.;
             self.c
-                .fill_rect(Rect::new(x, r.y + 4., 1., r.h - 8.), crate::design::color(0x202a36));
+                .fill_rect(Rect::new(x, r.y + 4., 1., r.h - 8.), crate::design::color(0x202a36).with_alpha(100));
         }
         for i in 1..4 {
             let y = r.y + r.h * i as f32 / 4.;
             self.c
-                .fill_rect(Rect::new(r.x + 4., y, r.w - 8., 1.), crate::design::color(0x202a36));
+                .fill_rect(Rect::new(r.x + 4., y, r.w - 8., 1.), crate::design::color(0x202a36).with_alpha(100));
         }
     }
     fn env(&mut self, base: usize, r: Rect, color: Color) {
@@ -246,7 +285,7 @@ impl Ui<'_> {
                 ));
             }
         }
-        self.c.polyline(&pts, 1.8, color);
+        glowing_area(self.c,&pts,r.bottom()-9.,color);
         let i = if base == ATTACK { 0 } else { 1 };
         let stage = self.live.env_stage[i];
         let elapsed = self.live.env_elapsed[i];
@@ -272,7 +311,7 @@ pub fn paint(
     hint: &str,
     params: &WaveParams,
     cycles: [usize; 2],
-    preset: Option<usize>,
+    preset: Option<&str>,
 ) -> Vec<Hit> {
     let mut u = Ui {
         c,
@@ -284,23 +323,19 @@ pub fn paint(
     u.c.begin_frame(None);
     u.c.clear(theme_bg());
     u.c.fill_rect_gradient(
-        Rect::new(0., 0., 1180., 66.),
+        Rect::new(0., 0., 1584., 66.),
         crate::design::color(0x3a4851),
         crate::design::color(0x17212a),
         0.,
     );
-    u.c.fill_rect(Rect::new(0., 65., 1180., 1.), crate::design::color(0x6b796f));
-    for y in (68..820).step_by(4) {
-        u.c.fill_rect(
-            Rect::new(0., y as f32, 1180., 1.),
-            crate::design::color(0x8da19f).with_alpha(5),
-        );
-    }
-    u.label(23., 17., "LEMON", 12, theme_a());
-    u.label(23., 32., "WAVE", 23, theme_ink());
+    u.c.fill_rect(Rect::new(0., 65., 1584., 1.), crate::design::color(0x6b796f));
+    u.c.text(font(27),28.,15.,theme_ink(),"LEMON");
+    u.c.text(font(30),149.,12.,theme_a(),"/");u.c.text(font(27),170.,15.,theme_ink(),"WAVE");
+    u.c.fill_rect(Rect::new(277.,18.,1.,26.),theme_line());u.c.text(font(12),297.,23.,theme_dim(),"LEMON STUDIO");
     let page = params.page.load(std::sync::atomic::Ordering::Relaxed);
     for (i, label) in ["SYNTH", "MOD", "TABLE EDIT"].iter().enumerate() {
         let r = page_button(i);
+        if page==i {soft_glow(u.c,r,theme_a(),0.18);}
         raised(
             u.c,
             r,
@@ -311,17 +346,16 @@ pub fn paint(
                 crate::design::color(0x27343f)
             },
         );
-        u.c.text_center(font(11), r, if page == i { theme_a() } else { theme_dim() }, label);
+        u.c.text_center(font(16), r, if page == i { Color::rgb(0x090e10) } else { theme_dim() }, label);
     }
 
     if page != 2 {
-        let title = preset
-            .map(|i| PRESET_NAMES[i])
-            .unwrap_or("Choose a factory preset");
+        let title = preset.unwrap_or("Preset library");
         for (r, t) in [
             (PRESET_PREV, "‹"),
             (PRESET_NEXT, "›"),
             (PRESET_INIT, "Init"),
+            (crate::preset_ui::SAVE, "Save"),
         ] {
             raised(
                 u.c,
@@ -331,15 +365,13 @@ pub fn paint(
             );
             u.c.text_center(font(13), r, theme_ink(), t);
         }
-        dropdown(u.c, Rect::new(450., 18., 268., 32.), title, theme_ink(), false);
-        u.select(ENV_ENGINE, Rect::new(850., 14., 210., 27.), theme_mod());
-        u.label(878., 45., "ENVELOPES 1 + 2 / NEXT NOTE", 9, theme_dim());
-        u.label(1080., 27., "LEMON STUDIO", 9, theme_dim());
+        dropdown(u.c, PRESET_FIELD, title, theme_ink(), false);
+
     } else {
         u.label(
-            440.,
+            800.,
             28.,
-            "WAVETABLE WORKSHOP  /  APPLY THE DRAFT TO HEAR YOUR EDITS",
+            "WAVETABLE WORKSHOP  /  AUDITION HERE, APPLY TO PLAY ON SYNTH",
             12,
             theme_dim(),
         );
@@ -351,340 +383,8 @@ pub fn paint(
     if page == 2 {
         return u.hits;
     }
-    let tables = params.tables.read().unwrap();
-    for o in 0..2 {
-        let x = 16. + 410. * o as f32;
-        let color = if o == 0 { theme_a() } else { theme_b() };
-        let base = o * 8;
-        let source = if o == 0 { A_SOURCE } else { B_SOURCE };
-        let phase = if o == 0 { A_PHASE } else { B_PHASE };
-        u.panel(
-            Rect::new(x, 80., 398., 362.),
-            if o == 0 {
-                "OSCILLATOR A"
-            } else {
-                "OSCILLATOR B"
-            },
-            color,
-            "",
-        );
-        let edit = edit_table_button(o);
-        raised(u.c, edit, 3., crate::design::color(0x344237));
-        u.c.text_center(font(9), edit, color, "EDIT TABLE");
-        let reference = m.plain(SETTINGS[source].id) > 0.5;
-        let table = &tables.oscillators[o];
-        let sample = &tables.samples[o];
-        let label = if reference {
-            "Reference / Saw".to_string()
-        } else if let Some(s) = sample {
-            s.source
-                .name
-                .rsplit(" / ")
-                .next()
-                .unwrap_or(&s.source.name)
-                .to_string()
-        } else if let Some(t) = table {
-            t.source.name.clone()
-        } else {
-            ["Basic Morph", "Hollow", "Glass", "Vowel"][(m.plain(SETTINGS[base].id) as usize).min(3)].to_string()
-        };
-        let browse = crate::sound_browser::button(o);
-        dropdown(u.c, browse, &label, theme_ink(), u.hover(browse));
-        let r = Rect::new(x + 12., 118., 374., 106.);
-        u.grid(r);
-        let position = m.plain(SETTINGS[base + 1].id) / 1000.;
-        let bank = m.plain(SETTINGS[base].id) as usize;
-        let mode = m.plain(SETTINGS[source + 1].id) as usize;
-        let amount = (m.plain(SETTINGS[source + 2].id) / 1000.
-            + m.plain(SETTINGS[base + 7].id) / 200.)
-            .clamp(0., 1.);
-        let warp = Warp::from_reference_id(WARP_IDS[mode.min(10)]).unwrap();
-        let points: Vec<_> = (0..360)
-            .map(|i| {
-                let p = i as f32 / 359.;
-                let y = if let Some(s) = sample.as_ref().filter(|_| !reference) {
-                    s.source.samples[((p * (s.source.samples.len() - 1) as f32) as usize)
-                        .min(s.source.samples.len() - 1)]
-                } else if reference {
-                    let (q, g) = warp.apply((p as f64).min(1. - f64::EPSILON), amount);
-                    (((q + 0.5).fract() * 2. - 1.) as f32) * g
-                } else {
-                    let pivot = 0.5 + m.plain(SETTINGS[base + 7].id) / 200.;
-                    let q = if p < pivot {
-                        p / pivot * 0.5
-                    } else {
-                        0.5 + (p - pivot) / (1. - pivot) * 0.5
-                    };
-                    table
-                        .as_ref()
-                        .map(|t| t.sample(position, q.fract(), 20., 48000.))
-                        .unwrap_or_else(|| crate::dsp::preview(bank, position, q.fract()))
-                };
-                (r.x + 7. + i as f32, r.y + 51. - y.clamp(-1., 1.) * 30.)
-            })
-            .collect();
-        // Adjacent frame shapes behind the result make Position's morph readable.
-        if !reference && sample.is_none() {
-            let frames = table.as_ref().map(|t| t.source.frames()).unwrap_or(5);
-            if frames > 1 {
-                let frame = position * (frames - 1) as f32;
-                let lo = frame.floor() / (frames - 1) as f32;
-                let hi = (frame.ceil() / (frames - 1) as f32).min(1.);
-                for (pos, alpha) in [(lo, 65), (hi, 105)] {
-                    let trace: Vec<_> = (0..360)
-                        .map(|i| {
-                            let phase = i as f32 / 359.;
-                            let y = table
-                                .as_ref()
-                                .map(|t| t.sample(pos, phase, 20., 48000.))
-                                .unwrap_or_else(|| crate::dsp::preview(bank, pos, phase));
-                            (r.x + 7. + i as f32, r.y + 51. - y.clamp(-1., 1.) * 30.)
-                        })
-                        .collect();
-                    u.c.polyline(&trace, 1., color.with_alpha(alpha));
-                }
-            }
-        }
-        u.c.polyline(&points, 4., color.with_alpha(25));
-        u.c.polyline(&points, 1.5, color);
-        let name = if let Some(s) = sample.as_ref().filter(|_| !reference) {
-            format!("SAMPLE: {} | Root {:.1}", s.source.name, s.source.root)
-        } else if reference {
-            "INIT SAW  /  WARP PREVIEW".into()
-        } else {
-            table
-                .as_ref()
-                .map(|t| format!("{}  ·  {} frames", t.source.name, t.source.frames()))
-                .unwrap_or_else(|| {
-                    format!("WAVETABLE: {}", crate::controls::text(base, bank as i32))
-                })
-        };
-        u.c.text_clip(font(9), r.x + 7., r.y + 4., r.w - 14., theme_dim(), &name);
-        let count = (m.plain(SETTINGS[base + 4].id) as usize).clamp(1, 7);
-        let blend = (m.plain(SETTINGS[phase + 2].id) / 1000.
-            + if u.live.active {
-                u.live.amounts[19 + o]
-            } else {
-                0.
-            })
-        .clamp(0., 1.);
-        u.c.fill_rect(
-            Rect::new(r.x + 3., r.bottom() - 21., r.w - 6., 18.),
-            crate::design::color(0x0a141c),
-        );
-        u.c.text(
-            font(8),
-            r.x + 7.,
-            r.bottom() - 16.,
-            theme_dim(),
-            if count > 2 {
-                "UNISON BLEND"
-            } else {
-                "UNISON VOICES"
-            },
-        );
-        let weights: Vec<_> = (0..count)
-            .map(|i| {
-                let w = crate::dsp::blend_weight(count, i, blend);
-                if reference {
-                    w
-                } else {
-                    w / crate::dsp::blend_weight(count, i, 0.75)
-                }
-            })
-            .collect();
-        let peak = weights.iter().copied().fold(1.0_f32, f32::max);
-        for (i, w) in weights.iter().enumerate() {
-            let x = r.x + 114. + i as f32 * 25.;
-            let h = (*w / peak * 13.).max(1.);
-            let central = if count % 2 == 1 {
-                i == count / 2
-            } else {
-                i == count / 2 || i + 1 == count / 2
-            };
-            u.c.fill_rect_gradient(
-                Rect::new(x, r.bottom() - 5. - h, 15., h),
-                if central { theme_ink() } else { color },
-                color.with_alpha(75),
-                2.,
-            );
-        }
-        u.c.text(
-            font(8),
-            r.right() - 61.,
-            r.bottom() - 16.,
-            theme_dim(),
-            &format!("{} VOICES", count),
-        );
-
-        // Keep sound construction on the left and the oscillator's output strip on the right.
-        for panel in [Rect::new(x+10.,232.,302.,83.),Rect::new(x+10.,320.,302.,95.),Rect::new(x+320.,232.,68.,179.)] {
-            u.c.fill_rrect(panel,5.,crate::design::color(0x1b2730));
-            u.c.stroke_rrect(panel,5.,0.8,crate::design::color(0x3b4b56));
-        }
-        u.label(x+20.,239.,"PITCH & VOICES",8,theme_dim());
-        for (j,(k,caption)) in [(base+1,"Position"),(base+3,"Tune"),(base+4,"Unison"),(base+5,"Detune"),(phase+2,"Blend")].into_iter().enumerate() {
-            u.knob(k,x+43.+57.*j as f32,274.,caption,color);
-        }
-        u.label(x+20.,330.,"WAVE SHAPING",8,theme_dim());
-        if let Some(s)=sample.as_ref().filter(|_|!reference) {
-            u.c.text_center(font(8),Rect::new(x+151.,324.,152.,21.),theme_dim(),&format!("ONE SHOT / ROOT {:.1}",s.source.root));
-        } else {
-            let width = u.c.text_width(font(10), "Quantize").ceil() + 30.;
-            let menu = Rect::new(x+161.-width/2.,324.,width,16.);
-            let id = SETTINGS[source+1].id;
-            // Recessed field: keep the bottom above the knob's outer modulation ring.
-            u.c.fill_rrect(Rect::new(menu.x,menu.y+1.,menu.w,menu.h),3.,crate::design::color(0x52636e));
-            u.c.fill_rect_gradient(menu,crate::design::color(0x0b141b),crate::design::color(0x1c2a34),3.);
-            u.c.stroke_rrect(menu,3.,0.8,crate::design::color(0x111c24));
-            u.c.text_clip(font(10),menu.x+8.,menu.y+3.,menu.w-27.,color,&m.text(id));
-            let arrow=menu.right()-11.;
-            u.c.polyline(&[(arrow-3.,menu.cy()-1.),(arrow,menu.cy()+2.),(arrow+3.,menu.cy()-1.)],1.,color);
-            u.hit(menu,Target::Choice(id.into(),m.plain(id).round() as i32));
-        }
-        for (j,(k,caption)) in [(source+2,"Warp"),(base+7,"Bend"),(phase,"Phase"),(phase+1,"Random")].into_iter().enumerate() {
-            u.knob(k,x+43.+76.*j as f32,372.,caption,color);
-        }
-        u.knob(base+6,x+354.,260.,"Pan",color);
-        u.level_fader(base+2,x+354.,315.,371.,color);
-        if sample.is_some() && !reference {
-            for (i, label) in ["Root -12", "Root -1", "Root +1", "Root +12"]
-                .iter()
-                .enumerate()
-            {
-                let r = crate::sound_browser::root_button(o, i);
-                raised(u.c, r, 3., crate::design::color(0x2b3843));
-                u.c.text_center(font(9), r, theme_dim(), label);
-            }
-        } else {
-            let labels = [
-                "Import table".to_string(),
-                format!("Cycle {}", crate::wavetable::CYCLES[cycles[o]]),
-                "Reset table".into(),
-            ];
-            for (r, label) in table_buttons(o).into_iter().zip(labels) {
-                raised(u.c, r, 3., crate::design::color(0x2b3843));
-                u.c.text_center(font(9), r, theme_dim(), &label);
-            }
-        }
-    }
-    drop(tables);
-    u.panel(Rect::new(836., 80., 328., 362.), "FILTER / MIX", theme_a(), "");
-    u.select(FILTER, Rect::new(850., 112., 145., 25.), theme_a());
-    u.select(FILTER_MODEL, Rect::new(1005., 112., 145., 25.), theme_a());
-    let fr = Rect::new(850., 146., 300., 78.);
-    u.grid(fr);
-    let fc = cutoff(m.plain("cutoff"));
-    let mode = m.plain("filter") as usize;
-    let q = 1. / (2. - 1.9 * m.norm("resonance"));
-    let curve: Vec<_> = (0..286)
-        .map(|i| {
-            let f = 20. * 1000_f32.powf(i as f32 / 285.);
-            let w = f / fc;
-            let denom = ((1. - w * w).powi(2) + (w / q).powi(2)).sqrt().max(1e-6);
-            let mut mag = match mode {
-                1 => 1. / denom,
-                2 => w / denom,
-                3 => w * w / denom,
-                _ => 1.,
-            };
-            if m.plain("filter_model") > 1.5 {
-                mag *= mag;
-            }
-            (
-                fr.x + 7. + i as f32,
-                fr.y + 17. + (-20. * mag.max(1e-4).log10() / 48.).clamp(-0.2, 1.) * 52.,
-            )
-        })
-        .collect();
-    u.c.polyline(&curve, 1.5, theme_a());
-    u.label(858., 151., "RESPONSE GUIDE", 9, theme_dim());
-    for (j, (k, cap)) in [
-        (CUTOFF, "Cutoff"),
-        (RESONANCE, "Resonance"),
-        (DRIVE, "Drive"),
-    ]
-    .into_iter()
-    .enumerate()
-    {
-        u.knob(k, 892. + 108. * j as f32, 280., cap, theme_a());
-    }
-    for (j, (k, cap)) in [
-        (SUB, "Sub"),
-        (NOISE, "Noise"),
-        (SPREAD, "Width"),
-        (GAIN, "Output"),
-    ]
-    .into_iter()
-    .enumerate()
-    {
-        u.knob(k, 875. + 82. * j as f32, 356., cap, theme_a());
-    }
-    let env=params.env_tab.load(std::sync::atomic::Ordering::Relaxed).min(1);
-    let lfo=params.lfo_tab.load(std::sync::atomic::Ordering::Relaxed).min(3);
-    let base=if env==0 {ATTACK} else {ENV_ATTACK};
-    let ec=if env==0 {theme_a()} else {theme_b()};
-    u.panel(Rect::new(16.,454.,398.,334.),"",ec,"");
-    u.panel(Rect::new(426.,454.,398.,334.),"",theme_mod(),"");
-    for i in 0..2 {
-        let r=envelope_tab(i);
-        raised(u.c,r,4.,crate::design::color(if env==i {0x36454c} else {0x202b34}));
-        u.c.text_center(font(10),r,if env==i {ec} else {theme_dim()},["ENV 1 / AMP","ENV 2"][i]);
-    }
-    u.select(ENV_ENGINE,Rect::new(254.,459.,110.,22.),ec);
-    for i in 0..4 {
-        let r=lfo_tab(i);
-        raised(u.c,r,4.,crate::design::color(if lfo==i {0x3c354e} else {0x202b34}));
-        u.c.text_center(font(10),r,if lfo==i {theme_mod()} else {theme_dim()},["LFO 1","LFO 2","LFO 3","LFO 4"][i]);
-    }
-    u.env(base,synth_env_graph(),ec);
-    for (_,_,px,py) in envelope_nodes(env,|k|m.plain(SETTINGS[k].id)) {
-        u.c.fill_circle(px,py,4.,theme_bg());u.c.stroke_circle(px,py,3.5,1.5,ec);
-    }
-    let hold=if env==0 {AMP_HOLD} else {ENV_HOLD};
-    for (j,(k,caption)) in [(base,"Attack"),(hold,"Hold"),(base+1,"Decay"),(base+2,"Sustain"),(base+3,"Release")].into_iter().enumerate() {
-        u.knob(k,55.+78.*j as f32,650.,caption,ec);
-    }
-    for (j,caption) in ["Attack curve","Decay curve","Release curve"].iter().enumerate() {
-        u.knob(hold+1+j,68.+108.*j as f32,734.,caption,ec);
-    }
-    if env==1 {u.knob(ENV_AMOUNT,370.,734.,"To filter",ec);}
-    let c=LFO_CONTROLS[lfo];
-    let r=synth_lfo_graph();
-    u.grid(r);
-    let curves=*params.curves.read().unwrap();
-    let points:Vec<_>=(0..=256).map(|j| {
-        let phase=j as f32/256.;
-        let v=if lfo==0 && m.plain("lfo_draw")<0.5 {
-            match m.plain("lfo_shape") as usize {1=>1.-4.*(phase-0.5).abs(),2=>phase*2.-1.,3=>if phase<0.5 {1.} else {-1.},_=>(phase*std::f32::consts::TAU).sin()}
-        } else {curves.sample(lfo,phase)};
-        (r.x+phase*r.w,r.cy()-v*(r.h/2.-2.))
-    }).collect();
-    u.c.polyline(&points,1.6,theme_mod());
-    if u.live.active {let x=r.x+r.w*u.live.phases[lfo];u.c.polyline(&[(x,r.y),(x,r.bottom())],1.,theme_ink());}
-    for (j,label) in ["Sine","Triangle","Ramp","Square","Undo","Copy","Paste"].iter().enumerate() {
-        let r=synth_shape_button(j);raised(u.c,r,3.,crate::design::color(0x293741));u.c.text_center(font(9),r,theme_ink(),label);
-    }
-    u.knob(c[0],472.,674.,"Free Hz",theme_mod());
-    u.select(c[1],Rect::new(520.,648.,132.,24.),theme_mod());
-    u.select(c[2],Rect::new(668.,648.,144.,24.),theme_mod());
-    u.select(c[3],Rect::new(520.,683.,132.,24.),theme_mod());
-    if lfo==0 {
-        u.select(LFO_DRAW,Rect::new(668.,683.,144.,24.),theme_mod());
-        u.select(LFO_SHAPE,Rect::new(438.,746.,104.,24.),theme_mod());
-        u.knob(LFO_AMOUNT,590.,739.,"Direct depth",theme_mod());
-        u.select(LFO_TARGET,Rect::new(636.,746.,176.,24.),theme_mod());
-    } else {u.label(445.,746.,"Draw in the graph, then drag its handle to a control.",9,theme_dim());}
-    paint_fx_rack(&mut u,params);
-    for (_, r, label) in source_buttons(0,params) { paint_source_handle(u.c,r,label,u.hover(r)); }
-    let status = params.status.lock().unwrap();
-    let footer = if hint.is_empty() {
-        status.as_str()
-    } else {
-        hint
-    };
-    let drag_hint=source_buttons(0,params).into_iter().find(|(_,r,_)|u.hover(*r)).map(|(_,_,label)|format!("Click and hold the handle to drag {label} onto a control. Edit routing depth on MOD."));
-    u.c.text_clip(font(10), 20., 800., 1140., theme_dim(), drag_hint.as_deref().unwrap_or(footer));
+    cyberpunk::paint_synth(&mut u,params,cycles,hint);
+    keyboard::paint(&mut u,params);
     u.hits
 }
 
@@ -705,15 +405,25 @@ mod tests {
         }
     }
     #[test]
+    fn cached_glass_and_mesh_preserve_pixels_and_follow_position() {
+        let params=WaveParams::default();let mut patch=crate::dsp::defaults();patch[A_BANK]=2.;patch[B_BANK]=3.;
+        let mut c=Canvas::new(1584,1056,1.).unwrap();
+        paint(&mut c,&Patch(patch),&Default::default(),"",&params,[5;2],None);let first=c.pixmap.data().to_vec();
+        paint(&mut c,&Patch(patch),&Default::default(),"",&params,[5;2],None);assert_eq!(first,c.pixmap.data());
+        let original=patch[A_POSITION];patch[A_POSITION]=123.;paint(&mut c,&Patch(patch),&Default::default(),"",&params,[5;2],None);assert_ne!(first,c.pixmap.data());
+        patch[A_POSITION]=original;params.details.store(127,std::sync::atomic::Ordering::Relaxed);paint(&mut c,&Patch(patch),&Default::default(),"",&params,[5;2],None);
+        params.details.store(0,std::sync::atomic::Ordering::Relaxed);paint(&mut c,&Patch(patch),&Default::default(),"",&params,[5;2],None);assert_eq!(first,c.pixmap.data());
+    }
+    #[test]
     fn modular_rack_scrolled_controls_stay_inside_the_panel_and_clear_each_other() {
         let mut p=crate::dsp::defaults();p[RACK_MODE]=1.;
         for (slot,kind) in [4,5,1,2,3,6,7,8,9,10,11,12,13,4,5,1].into_iter().enumerate(){let b=crate::fxrack::base(slot);p[b]=kind as f32;p[b+6..b+12].copy_from_slice(&crate::fxrack::initial(kind));}
         let m=Patch(p);let params=WaveParams::default();
         for scale in [1.,1.5]{for scroll in (0..=fx_max_scroll(16)).step_by(46) {
             params.fx_scroll.store(scroll,std::sync::atomic::Ordering::Relaxed);
-            let mut c=Canvas::new((1180.*scale) as u32,(820.*scale) as u32,scale).unwrap();
+            let mut c=Canvas::new((1584.*scale) as u32,(1056.*scale) as u32,scale).unwrap();
             let hits=paint(&mut c,&m,&Default::default(),"",&params,[5;2],None);
-            let mut rects:Vec<_>=hits.iter().filter(|h|SPEC.index(h.t.id()).is_some_and(|k|k>=RACK_START)).map(|h|h.r).collect();
+            let mut rects:Vec<_>=hits.iter().filter(|h|SPEC.index(h.t.id()).is_some_and(|k|(RACK_START..RACK_END).contains(&k))).map(|h|h.r).collect();
             for position in 0..16{for action in 0..6 {let r=fx_button(fx_card(position,scroll),action).intersect(&FX_AREA);if r.w>0.&&r.h>0.{rects.push(r);}}}
             for (i,a) in rects.iter().enumerate(){assert!(a.x>=FX_AREA.x&&a.y>=FX_AREA.y&&a.right()<=FX_AREA.right()+0.01&&a.bottom()<=FX_AREA.bottom()+0.01);
                 for b in &rects[i+1..]{assert!(a.right().min(b.right())<=a.x.max(b.x)+0.01||a.bottom().min(b.bottom())<=a.y.max(b.y)+0.01,"overlap {a:?} {b:?}");}}
@@ -750,12 +460,13 @@ mod tests {
         let mut cases=Vec::new();
         for scale in [1.,1.5] {for env in 0..2 {for lfo in 0..4 {cases.push((0,scale,env,lfo));}} cases.push((1,scale,0,0));}
         for (page, scale, env, lfo) in cases {
+          for details in [0,127] {params.details.store(details,std::sync::atomic::Ordering::Relaxed);
             params.env_tab.store(env,std::sync::atomic::Ordering::Relaxed);
             params.lfo_tab.store(lfo,std::sync::atomic::Ordering::Relaxed);
             params
                 .page
                 .store(page, std::sync::atomic::Ordering::Relaxed);
-            let mut c = Canvas::new((1180. * scale) as u32, (820. * scale) as u32, scale).unwrap();
+            let mut c = Canvas::new((1584. * scale) as u32, (1056. * scale) as u32, scale).unwrap();
             let hits = paint(
                 &mut c,
                 &model,
@@ -766,11 +477,12 @@ mod tests {
                 None,
             );
             let mut all: Vec<_> = hits.iter().map(|h| h.r).collect();
-            all.extend([page_button(0), page_button(1)]);
+            all.extend([page_button(0),page_button(1),page_button(2),PRESET_FIELD,PRESET_PREV,PRESET_NEXT,PRESET_INIT]);
+            if page==0 {all.extend([filter_tab(0),filter_tab(1),NOISE_IMPORT,NOISE_CLEAR]);for o in 0..2 {all.push(crate::sound_browser::button(o));all.push(edit_table_button(o));}}
             all.extend(source_buttons(page,&params).into_iter().map(|(_, r, _)| r));
             if page==0 {
                 all.extend((0..2).map(envelope_tab));all.extend((0..4).map(lfo_tab));
-                all.extend((0..7).map(synth_shape_button));all.push(synth_lfo_graph());all.push(synth_env_graph());
+                all.extend((0..7).map(synth_shape_button));if details==0{all.push(synth_lfo_graph());all.push(synth_env_graph());}all.extend((0..7).map(detail_button));
             }
             if page == 1 {
                 for i in 0..4 {
@@ -784,7 +496,7 @@ mod tests {
                 }
             }
             for (i, a) in all.iter().enumerate() {
-                assert!(a.x >= 0. && a.y >= 0. && a.right() <= 1180. && a.bottom() <= 820.);
+                assert!(a.x >= 0. && a.y >= 0. && a.right() <= 1584. && a.bottom() <= 1056.);
                 for b in &all[i + 1..] {
                     let w = a.right().min(b.right()) - a.x.max(b.x);
                     let h = a.bottom().min(b.bottom()) - a.y.max(b.y);
@@ -809,60 +521,38 @@ mod tests {
                     .save_png(format!("{dir}/modulation-page{page}-{scale}.png"))
                     .unwrap();
             }
+          }
         }
     }
 }
 
-pub const FX_AREA:Rect=Rect::new(844.,492.,309.,276.);
-pub const FX_ADD:Rect=Rect::new(1058.,459.,94.,23.);
-pub const FX_CARD_HEIGHT:f32=232.;
-pub fn fx_card(position:usize,scroll:usize)->Rect {Rect::new(845.,493.+position as f32*FX_CARD_HEIGHT-scroll as f32,303.,224.)}
-pub fn fx_button(card:Rect,action:usize)->Rect {Rect::new(card.x+140.+action as f32*26.,card.y+6.,22.,20.)}
-pub fn fx_menu_button(kind:usize)->Rect {Rect::new(850.+((kind-1)%2) as f32*151.,499.+((kind-1)/2) as f32*36.,143.,29.)}
-pub fn fx_max_scroll(count:usize)->usize {(count as f32*FX_CARD_HEIGHT-FX_AREA.h).max(0.) as usize}
+pub fn osc_power(o:usize)->Rect {Rect::new(osc_x(o)+osc_w(o)-53.,96.,36.,26.)}
+pub fn filter_tab(i:usize)->Rect {Rect::new(1182.+192.*i as f32,94.,184.,30.)}
+pub fn filter_input(i:usize)->Rect {Rect::new(1192.+42.*i as f32,258.,36.,25.)}
+pub const NOISE_IMPORT:Rect=Rect::new(930.,781.,104.,26.);
+pub const NOISE_CLEAR:Rect=Rect::new(1040.,781.,104.,26.);
+pub const FX_AREA:Rect=Rect::new(1182.,528.,378.,406.);
+pub const FX_ADD:Rect=Rect::new(1490.,486.,72.,29.);
+pub const FX_CARD_HEIGHT:f32=204.;
+pub fn fx_card(position:usize,scroll:usize)->Rect {Rect::new(1183.,529.+position as f32*FX_CARD_HEIGHT-scroll as f32,374.,194.)}
+pub fn fx_button(card:Rect,action:usize)->Rect {Rect::new(card.x+164.+action as f32*25.,card.y+10.,22.,22.)}
+pub fn fx_menu_button(kind:usize)->Rect {Rect::new(1188.+((kind-1)%2) as f32*184.,537.+((kind-1)/2) as f32*48.,176.,36.)}
+pub fn fx_max_scroll(count:usize)->usize {((count.saturating_sub(1)) as f32*FX_CARD_HEIGHT+195.-FX_AREA.h).max(0.) as usize}
 struct FxModel(crate::dsp::Patch);
 impl Model for FxModel {
  fn plain(&self,id:&str)->f32 {self.0[SPEC.index(id).unwrap()]}
  fn norm(&self,id:&str)->f32 {let k=SPEC.index(id).unwrap();let s=&SETTINGS[k];(self.0[k]-s.range.0 as f32)/(s.range.1-s.range.0) as f32}
- fn text(&self,id:&str)->String {let k=SPEC.index(id).unwrap();if k>=RACK_START {let b=crate::fxrack::base((k-RACK_START)/RACK_STRIDE);let kind=self.0[b] as usize;let col=k-b;
+ fn text(&self,id:&str)->String {let k=SPEC.index(id).unwrap();if (RACK_START..RACK_END).contains(&k) {let b=crate::fxrack::base((k-RACK_START)/RACK_STRIDE);let kind=self.0[b] as usize;let col=k-b;
   if col==5{return crate::fxrack::modes(kind)[(self.0[k] as usize).min(crate::fxrack::modes(kind).len()-1)].into();}
   if col>=6{return crate::fxrack::value(kind,col-6,self.0[k]);}
  }crate::controls::text(k,self.0[k] as i32)}
 }
-fn paint_fx_rack(u:&mut Ui,params:&WaveParams) {
- use std::sync::atomic::Ordering;
- u.panel(Rect::new(836.,454.,328.,334.),"EFFECTS",theme_b(),"");
- raised(u.c,FX_ADD,4.,crate::design::color(0x34463f));u.c.text_center(font(10),FX_ADD,theme_b(),if params.fx_add.load(Ordering::Relaxed){"CLOSE"}else{"+ ADD FX"});
- if params.fx_add.load(Ordering::Relaxed) {
-  for kind in 1..crate::fxrack::NAMES.len(){let r=fx_menu_button(kind);raised(u.c,r,4.,crate::design::color(if u.hover(r){0x40534e}else{0x293741}));u.c.text_center(font(10),r,theme_ink(),crate::fxrack::NAMES[kind]);}
-  u.label(850.,773.,"Choose a module. Repeated effects are welcome.",8,theme_dim());return;
- }
- let p=crate::fxrack::effective(std::array::from_fn(|k|u.m.plain(SETTINGS[k].id)));let slots=crate::fxrack::order(&p);
- let scroll=params.fx_scroll.load(Ordering::Relaxed).min(fx_max_scroll(slots.len()));params.fx_scroll.store(scroll,Ordering::Relaxed);
- if slots.is_empty(){u.c.text_center(font(13),Rect::new(854.,559.,285.,28.),theme_ink(),"Build your effects chain");u.c.text_center(font(10),Rect::new(854.,594.,285.,28.),theme_dim(),"Add modules above, then arrange them here.");}
- let model=FxModel(p);let mut v=Ui{c:u.c,m:&model,st:u.st,hits:Vec::new(),live:u.live};v.c.push_clip(FX_AREA);
- for (position,slot) in slots.iter().enumerate(){let b=crate::fxrack::base(*slot);let kind=model.0[b] as usize;let r=fx_card(position,scroll);if r.bottom()<FX_AREA.y||r.y>FX_AREA.bottom(){continue;}
-  raised(v.c,r,5.,crate::design::color(0x1a2731));
-  v.c.text_clip(font(10).bold(),r.x+9.,r.y+11.,124.,theme_ink(),&format!("{}  {}",position+1,match kind {10=>"Hyper / Dim",11=>"Freq Shifter",_=>crate::fxrack::NAMES[kind]}));
-  for (a,label) in ["ON","A","B","↑","↓","×"].iter().enumerate(){let button=fx_button(r,a);let on=if a<3 {model.0[b+2+a]>0.5}else{false};raised(v.c,button,3.,crate::design::color(if on{0x3e534c}else{0x293741}));v.c.text_center(font(9),button,if on{theme_b()}else{theme_dim()},if a==0&&!on{"OFF"}else{label});}
-  v.select(b+5,Rect::new(r.x+10.,r.y+34.,if kind==4{140.}else{282.},24.),theme_b());
-  if kind==4 {v.select(b+10,Rect::new(r.x+158.,r.y+34.,134.,24.),theme_b());}
-  let labels=crate::fxrack::captions(kind);
-  for i in 0..6{if kind==4&&i==4 {v.c.text_center(font(9),Rect::new(r.x+112.,r.y+164.,80.,37.),theme_dim(),"Beat sync above");continue;}
-   v.knob(b+6+i,r.x+50.+(i%3) as f32*100.,r.y+94.+(i/3) as f32*82.,labels[i],theme_b());}
- }
- v.c.pop_clip();
- for mut h in v.hits {h.r=h.r.intersect(&FX_AREA);if h.r.w>0.&&h.r.h>0.{u.hits.push(h);}}
- if fx_max_scroll(slots.len())>0 {let total=slots.len() as f32*FX_CARD_HEIGHT;let h=(FX_AREA.h*FX_AREA.h/total).max(20.);let y=FX_AREA.y+(FX_AREA.h-h)*scroll as f32/fx_max_scroll(slots.len()) as f32;u.c.fill_rrect(Rect::new(1157.,FX_AREA.y,4.,FX_AREA.h),2.,theme_line());u.c.fill_rrect(Rect::new(1157.,y,4.,h),2.,theme_b());}
- u.label(850.,775.,&format!("{} / 16 modules  ·  Scroll here  ·  ↑↓ reorder",slots.len()),8,theme_dim());
-}
-
 pub fn page_button(page: usize) -> Rect {
     Rect::new(
-        130. + page as f32 * 88.,
-        18.,
-        if page == 2 { 100. } else { 80. },
-        32.,
+        444. + page as f32 * 104.,
+        16.,
+        88.,
+        30.,
     )
 }
 pub fn lfo_panel(i: usize) -> Rect {
@@ -891,17 +581,17 @@ pub fn envelope_nodes(env:usize,value:impl Fn(usize)->f32)->Vec<(usize,Option<us
     if curved && (r.w-16.)*h/total>12. {nodes.push(point(hold_key,None,a+h,1.));}
     nodes
 }
-pub fn envelope_tab(i:usize)->Rect {Rect::new(28.+i as f32*112.,459.,104.,22.)}
-pub fn lfo_tab(i:usize)->Rect {Rect::new(438.+i as f32*80.,459.,72.,22.)}
-pub fn synth_env_graph()->Rect {Rect::new(28.,496.,374.,112.)}
-pub fn synth_lfo_graph()->Rect {Rect::new(438.,496.,374.,112.)}
-pub fn synth_shape_button(i:usize)->Rect {Rect::new(438.+i as f32*54.,615.,50.,21.)}
+pub fn envelope_tab(i:usize)->Rect {Rect::new(320.+i as f32*30.,650.,26.,24.)}
+pub fn lfo_tab(i:usize)->Rect {Rect::new(552.+i as f32*29.,650.,25.,24.)}
+pub fn synth_env_graph()->Rect {Rect::new(24.,695.,420.,96.)}
+pub fn synth_lfo_graph()->Rect {Rect::new(486.,695.,400.,96.)}
+pub fn synth_shape_button(i:usize)->Rect {Rect::new(486.+i as f32*57.,924.,53.,18.)}
 pub fn source_buttons(page: usize, params: &WaveParams) -> Vec<(usize, Rect, &'static str)> {
     if page == 0 {
         let e=params.env_tab.load(std::sync::atomic::Ordering::Relaxed).min(1);
         let l=params.lfo_tab.load(std::sync::atomic::Ordering::Relaxed).min(3);
-        return vec![([12,2][e],Rect::new(374.,459.,28.,22.),["ENV 1","ENV 2"][e]),
-            ([1,5,6,7][l],Rect::new(784.,459.,28.,22.),["LFO 1","LFO 2","LFO 3","LFO 4"][l])];
+        return vec![([12,2][e],Rect::new(424.,650.,28.,24.),["ENV 1","ENV 2"][e]),
+            ([1,5,6,7][l],Rect::new(864.,650.,28.,24.),["LFO 1","LFO 2","LFO 3","LFO 4"][l])];
     }
     let mut v:Vec<_>=[1,5,6,7].into_iter().enumerate().map(|(i,s)| {
         let p=lfo_panel(i);
@@ -999,7 +689,7 @@ fn paint_modulation(u: &mut Ui, params: &WaveParams) {
         let r = Rect::new(528., y, 250., 24.);
         raised(u.c, r, 4., crate::design::color(0x293741));
         let v = u.m.plain(SETTINGS[slot + 2].id) / 1000.;
-        u.c.text_center(font(11), r, theme_mod(), &format!("Depth {:+.1}%", v * 100.));
+        u.c.text_center(font(16), r, theme_mod(), &format!("Depth {:+.1}%", v * 100.));
         u.c.fill_rect(
             Rect::new(
                 r.x + 125_f32.min(125. + v * 114.),
@@ -1019,7 +709,7 @@ fn paint_modulation(u: &mut Ui, params: &WaveParams) {
         u.knob(
             MACRO1 + i,
             930. + (i % 2) as f32 * 148.,
-            560. + (i / 2) as f32 * 125.,
+            568. + (i / 2) as f32 * 125.,
             ["Macro 1", "Macro 2", "Macro 3", "Macro 4"][i],
             theme_a(),
         );

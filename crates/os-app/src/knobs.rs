@@ -67,6 +67,7 @@ impl KnobId {
             // spec: ui/channel-rack.md §11 (3 % per notch; pan percent spans half the range), §7 (swing 4-5 %).
             KnobId::ChanVol(_) => 0.03,
             KnobId::ChanPan(_) => 0.015,
+            KnobId::MixPan(_) => 0.025,
             KnobId::Swing => 0.045,
             KnobId::Strum(k) => k.notch(),
             KnobId::Arp(k) => k.notch(),
@@ -353,16 +354,17 @@ impl crate::app::App {
         let s = &mut self.state;
         match c {
             Control::Knob(id) => {
+                if crate::mixer::locked_knob(s, id) { return; }
                 s.reset_knob(id);
                 self.hint = Cow::Owned(s.knob_text(id));
             }
             Control::Fader(t) => {
-                crate::history::fader(s, t, false);
+                if crate::mixer::locked(s, t) { return; }
+                let tracks = crate::mixer::fader_group(s, t).into_iter().map(|(n, _)| n).collect::<Vec<_>>();
+                if crate::prefs::check(&crate::prefs::UNDO_KNOB_TWEAKS){let snaps=tracks.iter().filter_map(|&n|crate::mixer::track(s,n).map(|m|crate::history::Snap::Fader(n,m.volume))).collect();crate::history::record(s,"Reset selected mixer volumes",crate::history::Snap::Several(snaps));}
                 let v = os_model::MixerTrack::new(t).volume.unwrap_or(0.8);
-                if let Some(m) = crate::mixer::track_mut(s, t) {
-                    m.volume = Some(v);
-                    s.piano.dirty = true;
-                }
+                for n in tracks{if let Some(m)=crate::mixer::track_mut(s,n){m.volume=Some(v);}}
+                s.piano.dirty=true;
                 self.hint = Cow::Owned(crate::mixer::level_text("Volume", v));
             }
             Control::ChanPitch(row) => {

@@ -36,6 +36,8 @@ pub enum Face {
     Ui,
     /// The system's light UI face (Segoe UI Light on Windows): the song position display.
     Light,
+    /// Windows-era lettering from the vintage skin configuration (Arial on Windows).
+    Vintage,
 }
 
 impl Face {
@@ -44,6 +46,7 @@ impl Face {
         match self {
             Face::Ui => "Cuprum",
             Face::Light => "Segoe UI",
+            Face::Vintage => "Arial",
         }
     }
 }
@@ -66,6 +69,9 @@ impl Font {
     /// Cuprum at `size` px with natural ClearType advances.
     pub const fn new(size: u16) -> Font {
         Font { face: Face::Ui, size, width: 0, bold: false, italic: false, natural: true }
+    }
+    pub const fn vintage(size: u16) -> Font {
+        Font { face: Face::Vintage, size, width: 0, bold: false, italic: false, natural: false }
     }
     /// Horizontally condensed: `width` is the average character width in px.
     pub const fn condensed(size: u16, width: u16) -> Font {
@@ -94,6 +100,10 @@ impl Font {
 pub type ClipPx = (i32, i32, i32, i32);
 
 pub struct TextEngine {
+    theme_font: Option<portable::Fd>,
+    mute_theme: bool,
+    theme_font_id: u8,
+    theme_font_data: Option<std::sync::Arc<[u8]>>,
     /// GDI (Windows), unless the portable engine was asked for.
     #[cfg(windows)]
     gdi: Option<gdi::Gdi>,
@@ -111,6 +121,10 @@ impl TextEngine {
             _ => Some(gdi::Gdi::new()?),
         };
         Ok(TextEngine {
+            theme_font: None,
+            mute_theme: false,
+            theme_font_id: 0,
+            theme_font_data: None,
             #[cfg(windows)]
             gdi,
             portable: portable::Fd::new()?,
@@ -122,8 +136,32 @@ impl TextEngine {
         })
     }
 
+    pub fn mute_theme_font(&mut self, muted: bool) { self.mute_theme = muted; }
+
+    pub fn valid_theme_font(bytes: &[u8]) -> bool { portable::Fd::from_bytes(bytes).is_ok() }
+
+    pub fn set_theme_font(&mut self, id: u8, data: Option<std::sync::Arc<[u8]>>) {
+        let same_data = match (&self.theme_font_data, &data) {
+            (None, None) => true,
+            (Some(a), Some(b)) => std::sync::Arc::ptr_eq(a,b),
+            _ => false,
+        };
+        if id == self.theme_font_id && same_data { return; }
+        self.theme_font_id = id;
+        self.theme_font_data = data;
+        let bytes: Option<&[u8]> = match id {
+            1 => Some(CUPRUM),
+            2 => Some(include_bytes!("../fonts/Barlow/BarlowSemiCondensed-Regular.ttf")),
+            3 => Some(include_bytes!("../fonts/Barlow/BarlowCondensed-Medium.ttf")),
+            4 => self.theme_font_data.as_deref(),
+            _ => None,
+        };
+        self.theme_font = bytes.and_then(|bytes| portable::Fd::from_bytes(bytes).ok());
+    }
+
     /// (width, cell height) of `s` in device pixels.
     pub fn extent(&mut self, f: Font, scale: f32, s: &str) -> (i32, i32) {
+        if !self.mute_theme && f.face == Face::Ui && let Some(font) = &mut self.theme_font { return font.extent(f, scale, s); }
         #[cfg(windows)]
         if let Some(g) = &mut self.gdi {
             return g.extent(f, scale, s);
@@ -137,6 +175,7 @@ impl TextEngine {
 
     /// Cell height and ascent (device pixels).
     pub fn metrics(&mut self, f: Font, scale: f32) -> (i32, i32) {
+        if !self.mute_theme && f.face == Face::Ui && let Some(font) = &mut self.theme_font { return font.metrics(f, scale); }
         #[cfg(windows)]
         if let Some(g) = &mut self.gdi {
             return g.metrics(f, scale);
@@ -154,6 +193,9 @@ impl TextEngine {
     pub fn draw(&mut self, pix: &mut Pixmap, clip: ClipPx, f: Font, scale: f32, x: i32, y: i32, c: Color, s: &str, vertical: bool) {
         if s.is_empty() || c.a == 0 {
             return;
+        }
+        if !self.mute_theme && f.face == Face::Ui && let Some(font) = &mut self.theme_font {
+            return font.draw(pix, clip, f, scale, x, y, c, s, vertical);
         }
         #[cfg(windows)]
         if let Some(g) = &mut self.gdi {
@@ -214,7 +256,7 @@ mod gdi {
         bits: *mut u8,
         cap: (i32, i32),
         fonts: HashMap<(Font, u32, bool), HFONT>,
-        names: [Vec<u16>; 2],
+        names: [Vec<u16>; 3],
         metrics: HashMap<(Font, u32), (i32, i32)>,
         /// Text extents by (font, scale, string) hash: views measure the same labels every frame.
         extents: HashMap<u64, (i32, i32), BuildHasherDefault<Id>>,
@@ -244,7 +286,7 @@ mod gdi {
                 bits: std::ptr::null_mut(),
                 cap: (0, 0),
                 fonts: HashMap::new(),
-                names: [Face::Ui, Face::Light].map(|f| f.gdi_name().encode_utf16().chain(Some(0)).collect()),
+                names: [Face::Ui, Face::Light, Face::Vintage].map(|f| f.gdi_name().encode_utf16().chain(Some(0)).collect()),
                 metrics: HashMap::new(),
                 extents: HashMap::default(),
                 drawn: Lru::new(32 << 20),
@@ -298,7 +340,7 @@ mod gdi {
             }
             let px = |v: u16| (f32::from(v) * scale).round() as i32;
             let esc = if vertical { 900 } else { 0 };
-            let quality = if f.natural { CLEARTYPE_NATURAL_QUALITY } else { u32::from(CLEARTYPE_QUALITY) };
+            let quality = if f.face == Face::Vintage { u32::from(ANTIALIASED_QUALITY) } else if f.natural { CLEARTYPE_NATURAL_QUALITY } else { u32::from(CLEARTYPE_QUALITY) };
             // SAFETY: the face name is NUL-terminated UTF-16.
             let h = unsafe {
                 CreateFontW(
@@ -309,7 +351,7 @@ mod gdi {
                     match (f.face, f.bold) {
                         (_, true) => 700,
                         (Face::Light, false) => 300,
-                        (Face::Ui, false) => 400,
+                        (Face::Ui | Face::Vintage, false) => 400,
                     },
                     u32::from(f.italic),
                     0,
@@ -558,8 +600,15 @@ mod portable {
 
     impl Fd {
         pub fn new() -> Result<Fd, String> {
-            let font = fontdue::Font::from_bytes(CUPRUM, fontdue::FontSettings::default()).map_err(|e| e.to_string())?;
-            let (asc, desc, avg) = os2(CUPRUM).ok_or("the UI font has no OS/2 metrics")?;
+            Self::from_bytes(CUPRUM)
+        }
+
+        pub fn from_bytes(bytes: &[u8]) -> Result<Fd, String> {
+            let font = fontdue::Font::from_bytes(bytes, fontdue::FontSettings::default()).map_err(|e| e.to_string())?;
+            let (asc, desc, avg) = os2(bytes).ok_or("The font has no OS/2 metrics")?;
+            if ![asc, desc, avg].into_iter().all(|v| v.is_finite() && (0.0..=3.0).contains(&v)) {
+                return Err("The font has unusable UI metrics".into());
+            }
             super::FONTS.fetch_add(1, super::Ordering::Relaxed);
             Ok(Fd { font, ui: (asc, desc), avg, cache: HashMap::new() })
         }
@@ -572,7 +621,7 @@ mod portable {
         fn vm(&self, f: Font) -> Vm {
             match f.face {
                 Face::Ui => self.ui,
-                Face::Light => SEGOE_UI,
+                Face::Light | Face::Vintage => SEGOE_UI,
             }
         }
 

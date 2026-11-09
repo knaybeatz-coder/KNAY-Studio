@@ -1,5 +1,5 @@
 //! The mixer's compact view of its dedicated Lemon Parametric EQ instance.
-use crate::app::{Action, App, State, Ui};
+use crate::app::{Action, App, Live, State, Ui};
 use crate::mixer::{self, MHit};
 use crate::plugins::{fx_key, EQ_FILE_NAME, LEMON_EQ};
 use lemon_parametric_eq_2::{analyzer::{Analyzer, Look}, params};
@@ -7,6 +7,7 @@ use os_engine::effects::eq::{self, Settings};
 use os_ui::{Color, Font, Rect};
 
 pub const SLOT: u8 = 10;
+pub const BYPASS_VISIBILITY: &str = "visible_mixer-eq-bypass";
 const N: usize = 4096;
 const COLORS: [u32;7] = [0xee7771,0xeaa65b,0xd9cb66,0x88c783,0x69bac9,0x8f9ede,0xc893d0];
 
@@ -37,6 +38,7 @@ impl Scope {
 #[derive(Default)]
 pub struct View {
     pub analyzer: Analyzer,
+    updated: Option<std::time::Instant>,
     pub track: Option<u16>,
     pub rate: u32,
 }
@@ -46,6 +48,7 @@ pub fn settings(s:&State,t:u16)->Settings {
 }
 /// Instantiate lazily, in the reserved EQ position, preserving all ten user slots.
 pub fn ensure(app:&mut App,t:u16)->Option<u8> {
+    if mixer::locked(&app.state, t) { app.state.message = Some(mixer::LOCK_MESSAGE.into()); return None; }
     let key=fx_key(t,SLOT);
     if app.plugins.hosted.contains_key(&key) {return Some(SLOT);}
     let index=app.plugins.effect_index(LEMON_EQ)?;
@@ -84,6 +87,7 @@ pub fn drag(app:&mut App,t:u16,band:u8,g:Rect,(x,y):(f32,f32)) {
 }
 /// Same Alt-click reset as the full editor: preserve the band's type and order.
 pub fn reset_band(app:&mut App,t:u16,band:u8) {
+    if mixer::locked(&app.state, t) { return; }
     let b=settings(&app.state,t).bands[band as usize];
     let key=fx_key(t,SLOT);
     for (name,value) in [("freq",eq::default_freq(band as usize)),("level",0.5),("width",eq::default_width(b.kind))] {
@@ -120,31 +124,64 @@ pub fn wheel(app:&mut App,g:Rect,x:f32,y:f32,notches:f32)->bool {
     true
 }
 
-fn sync(app:&mut App,t:u16)->bool {
+pub(crate) fn sync(app:&mut App,t:u16)->bool {
     let Some(state)=app.plugins.eq_file_state(fx_key(t,SLOT)) else {return false;};
     let Some(p)=mixer::track_mut(&mut app.state,t).and_then(|m|m.slots[SLOT as usize].as_mut()) else {return false;};
     if p.state==state {return false;}
     p.state=state;
     true
 }
-pub fn refresh(app:&mut App)->bool {
-    let t=app.state.selected_mixer;
-    let changed=sync(app,t);
-    app.transport.select_eq_scope(Some(t));
-    let (samples,rate)=app.transport.eq_scope(t).unwrap_or_else(||(vec![0.;N],app.transport.sample_rate().max(44100)));
-    let v=&mut app.state.mixer.mini_eq;
-    if v.track!=Some(t) {v.analyzer=Analyzer::default();v.track=Some(t);}
-    v.rate=rate;
-    let old=v.analyzer.cols.clone();
-    v.analyzer.update(&samples,rate as f32,208,&Look{precision:1,slope:0,smoothing:2,average:false});
-    changed || old!=v.analyzer.cols
+pub(crate) fn refresh_spectrum(app: &mut App, visible: bool) -> bool {
+    let t = app.state.selected_mixer;
+    app.transport.select_eq_scope(visible.then_some(t));
+    if !visible {
+        app.state.mixer.mini_eq = View::default();
+        return false;
+    }
+    let now = std::time::Instant::now();
+    let view = &mut app.state.mixer.mini_eq;
+    let switched = view.track != Some(t);
+    if switched {
+        view.analyzer = Analyzer::default();
+        view.track = Some(t);
+    } else if view.updated.is_some_and(|last| now.duration_since(last) < lemon_parametric_eq_2::analyzer::FRAME) {
+        return false;
+    }
+    view.updated = Some(now);
+    let scope = app.transport.eq_scope(t);
+    view.rate = scope.as_ref().map_or_else(|| app.transport.sample_rate().max(44100), |(_, rate)| *rate);
+    let silence = [0.0; N];
+    let samples = scope.as_ref().map_or(silence.as_slice(), |(samples, _)| samples.as_slice());
+    if samples.iter().all(|x| x.abs() < 1e-6) && view.analyzer.cols.iter().all(|&db| db <= -84.0) {
+        let had_trace = !view.analyzer.cols.is_empty();
+        if had_trace {
+            view.analyzer = Analyzer::default();
+        }
+        return switched || had_trace;
+    }
+    let old = view.analyzer.cols.clone();
+    view.analyzer.update(samples, view.rate as f32, 208, &Look { precision: 1, slope: 0, smoothing: 2, average: false });
+    switched || old != view.analyzer.cols
 }
 pub fn position(app:&mut App) {
     let t=app.state.selected_mixer;
+    if mixer::locked(&app.state, t) { return; }
     let pre=mixer::track(&app.state,t).is_some_and(|m|m.parametric_pre);
     crate::history::record(&mut app.state,"EQ Pre/Post",crate::history::Snap::EqPosition(t,pre));
     if let Some(m)=mixer::track_mut(&mut app.state,t) {m.parametric_pre=!pre;}
     app.state.piano.dirty=true;
+    app.invalidate();
+}
+pub fn toggle_bypass(app: &mut App) {
+    let s = &mut app.state;
+    let track = s.selected_mixer;
+    if mixer::locked(s, track) { return; }
+    let Some(enabled) = mixer::track(s, track).map(|m| m.slot_on[usize::from(SLOT)]) else { return };
+    crate::history::record(s, "Mixer EQ bypass", crate::history::Snap::EqEnabled(track, enabled));
+    if let Some(m) = mixer::track_mut(s, track) {
+        m.slot_on[usize::from(SLOT)] = !enabled;
+    }
+    s.piano.dirty = true;
     app.invalidate();
 }
 pub fn draw(ui:&mut Ui,s:&State,r:Rect) {
@@ -159,9 +196,24 @@ pub fn draw(ui:&mut Ui,s:&State,r:Rect) {
     let hov=ui.hit(pos,Action::Mix(MHit::EqPosition),if pre{"EQ before all plugin slots. Click for Post."}else{"EQ after all plugin slots. Click for Pre."});
     ui.c.fill_rrect(pos,3.,if hov{ui.t.button_hi}else{ui.t.button});
     ui.c.text_center(Font::new(11),pos,ui.t.text,if pre{"Pre"}else{"Post"});
-    ui.c.text(Font::new(10),r.x+55.,r.y+4.,ui.t.text,"EQ");
+    let active = m.is_none_or(|m| m.slot_on[usize::from(SLOT)]);
+    let gap = button.x - pos.right();
+    if crate::workspace_visibility::shown(BYPASS_VISIBILITY) && gap >= 24. && m.is_some() {
+        let power = Rect::new(pos.right() + 4., r.y, (gap - 8.).min(72.), 20.);
+        let hover = ui.hit(power, Action::Mix(MHit::EqBypass), if active {
+            "Bypass this channel's parametric EQ and keep its settings"
+        } else {
+            "Enable this channel's parametric EQ"
+        });
+        ui.c.fill_rrect(power, 3., if hover { ui.t.button_hi } else { ui.t.button });
+        let label = if power.w >= 44. { if active { "EQ On" } else { "EQ Off" } } else { "EQ" };
+        ui.c.text_center(Font::new(10), power, if active { ui.t.text } else { ui.t.accent }, label);
+    } else if gap >= 18. {
+        ui.c.text(Font::new(10), r.x + 55., r.y + 4., ui.t.text, "EQ");
+    }
     if r.h<55. {return;}
     let g=Rect::new(r.x,r.y+24.,r.w,(r.h-38.).max(20.));
+    ui.live(Live::MixerEqSpectrum, g.outset(2.0));
     ui.hit(g,Action::Mix(MHit::EqGraph),mixer::eq_graph_hint(s,g,ui.mouse.0));
     ui.c.fill_rrect(g,3.,ui.t.s(0x1c2427));
     ui.c.push_clip(g.inset(1.));
@@ -182,7 +234,6 @@ pub fn draw(ui:&mut Ui,s:&State,r:Rect) {
     let settings=settings(s,t);
     let design=m.and_then(|m|m.slots[10].as_ref()).map(|p|eq::Options::from_image(&p.state).design(view.rate.max(44100) as f64)).unwrap_or(eq::Design::Ordinary(view.rate.max(44100) as f64));
     let curve=settings.curve(design);
-    let active=m.is_none_or(|m|m.slot_on[10]);
     let pts:Vec<_>=(0..g.w as usize).map(|i|{
         let p=i as f64/(g.w-1.) as f64;
         let db=curve.db(eq::freq_hz(p)) as f32;

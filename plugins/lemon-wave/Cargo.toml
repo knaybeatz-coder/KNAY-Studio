@@ -18,6 +18,7 @@ lemon-small-fx = { path = "../lemon-small-fx" }
 os-plugkit = { path = "../../crates/os-plugkit" }
 os-ui = { path = "../../crates/os-ui" }
 os-theme = { path = "../../crates/os-theme" }
+os-paths = { path = "../../crates/os-paths" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rfd = "0.15"

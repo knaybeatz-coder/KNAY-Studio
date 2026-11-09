@@ -477,6 +477,7 @@ pub fn replace_generator(app: &mut App, index: usize, row: usize) -> Option<Stri
 
 /// Effect `index` into the selected mixer track (spec §1): slot `slot`, else the first empty one.
 pub fn add_effect(app: &mut App, index: usize, slot: Option<u8>) -> Option<String> {
+    if crate::mixer::locked(&app.state, app.state.selected_mixer) { return Some(crate::mixer::LOCK_MESSAGE.into()); }
     let s = &app.state;
     let t = s.selected_mixer;
     let slot = slot.or_else(|| s.project.mixer.iter().find(|m| m.index == t).and_then(|m| m.slots.iter().enumerate().find(|(k,s)|*k!=10&&s.is_none()).map(|(k,_)|k)).map(|k| k as u8));
@@ -484,6 +485,20 @@ pub fn add_effect(app: &mut App, index: usize, slot: Option<u8>) -> Option<Strin
         Some(k) => crate::mixer::run(app, crate::mixer::MCmd::AddEffect(k, index)),
         None => Some("Every slot of this track is in use".into()),
     }
+}
+
+/// Drop a picker selection into free slots in display order; existing effects are preserved.
+pub fn add_effects(app:&mut App,indices:&[usize],slot:Option<u8>)->Option<String>{
+    if crate::mixer::locked(&app.state, app.state.selected_mixer) { return Some(crate::mixer::LOCK_MESSAGE.into()); }
+    if indices.is_empty(){return None;}if indices.iter().any(|&i|i>=app.plugins.effects.len()){return Some("An effect in this selection is unavailable".into());}
+    let t=app.state.selected_mixer;
+    let m=crate::mixer::track(&app.state,t)?;
+    let order:Vec<_>=(0..crate::mixer::user_slot_capacity(&app.state,t)).map(|i|crate::mixer::visible_user_slot(&app.state,t,i)as usize).collect();
+    let start=slot.unwrap_or(0)as usize;
+    let free:Vec<_>=order.iter().copied().filter(|&k|k>=start).chain(order.iter().copied().filter(|&k|k<start)).filter(|&k|m.slots[k].is_none()).take(indices.len()).map(|k|k as u8).collect();
+    if free.len()<indices.len(){return Some(format!("Need {} free effect slots; no effects were added",indices.len()));}
+    for (&index,slot)in indices.iter().zip(free){crate::mixer::run(app,crate::mixer::MCmd::AddEffect(slot,index));}
+    Some(format!("Added {} effects",indices.len()))
 }
 
 pub(crate) fn normalized(s: &str) -> String {

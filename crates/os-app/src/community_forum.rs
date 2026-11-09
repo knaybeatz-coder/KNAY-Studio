@@ -15,7 +15,7 @@ pub struct Category {pub id:u64,pub name:String,pub posts:u64}
 #[derive(Clone,Debug,Default,Serialize,Deserialize)]
 pub struct Page {#[serde(default)]pub category:u64,#[serde(default)]pub categories:Vec<Category>,#[serde(default)]pub profile:Profile,pub threads:Vec<Topic>,pub posts:Vec<Post>,pub topic:Option<Topic>,pub total:u64,pub offset:u64}
 #[derive(Clone,Debug,Default)]
-pub struct View {pub collapsed:std::collections::HashSet<u64>,pub editing_profile:bool,pub name:crate::dialog::Field,pub avatar:String,pub avatar_job:Option<std::sync::Arc<std::sync::Mutex<Option<Result<String,String>>>>>,pub page:Page,pub new_thread:bool,pub title:crate::dialog::Field,pub body:crate::dialog::Field,pub focus:u8,pub reply:Option<u64>,pub height:std::cell::Cell<f32>}
+pub struct View {wrapped:std::cell::RefCell<Option<(u32,u32,Vec<Vec<String>>)>>,pub collapsed:std::collections::HashSet<u64>,pub editing_profile:bool,pub name:crate::dialog::Field,pub avatar:String,pub avatar_job:Option<std::sync::Arc<std::sync::Mutex<Option<Result<String,String>>>>>,pub page:Page,pub new_thread:bool,pub title:crate::dialog::Field,pub body:crate::dialog::Field,pub focus:u8,pub reply:Option<u64>,pub height:std::cell::Cell<f32>}
 fn valid_avatar(s:&str)->bool {s.is_empty()||(s.len()==6144&&s.bytes().all(|b|b.is_ascii_hexdigit()))}
 pub fn valid(p:&Page)->bool {
  let safe=|s:&str,max:usize|s.chars().count()<=max&&!s.chars().any(|c|c.is_control()&&c!='\n'&&c!='\t');
@@ -24,6 +24,7 @@ pub fn valid(p:&Page)->bool {
 }
 pub fn request(s:&State)->serde_json::Value {let p=&s.feature_votes.forum.page;serde_json::json!({"action":"forum_list","thread":p.topic.as_ref().map_or(0,|t|t.id),"offset":p.offset,"category":p.category})}
 pub fn accept(v:&mut crate::feature_votes::View,page:Page,submitted:bool) {
+ v.forum.wrapped.get_mut().take();
  v.forum.page=page;
  if submitted {v.forum.new_thread=false;v.forum.body.set("");v.forum.title.set("");v.forum.reply=None;v.forum.focus=0;}
 }
@@ -144,10 +145,13 @@ pub fn paint(ui:&mut Ui,s:&State,r:Rect) {
  }
  let list=Rect::new(x,r.y+TOP,w,(r.h-TOP).max(0.));ui.c.push_clip(list);
  let mut hidden_depth=None;
- let posts:Vec<_>=p.posts.iter().filter(|post|{if hidden_depth.is_some_and(|d|post.depth>d){return false;}hidden_depth=None;if f.collapsed.contains(&post.id){hidden_depth=Some(post.depth);}true}).map(|post|{
-  let indent=post.depth.min(2) as f32*10.;
-  (post,comment_lines(ui,&post.body,w-indent-24.))
- }).collect();
+ let mut cache=f.wrapped.borrow_mut();
+ let layout=(w.to_bits(),ui.c.scale.to_bits());
+ if cache.as_ref().is_none_or(|(width,scale,lines)|(*width,*scale)!=layout || lines.len()!=p.posts.len()){
+  *cache=Some((layout.0,layout.1,p.posts.iter().map(|post|comment_lines(ui,&post.body,w-post.depth.min(2) as f32*10.-24.)).collect()));
+ }
+ let wrapped=&cache.as_ref().unwrap().2;
+ let posts:Vec<_>=p.posts.iter().zip(wrapped).filter(|(post,_)|{if hidden_depth.is_some_and(|d|post.depth>d){return false;}hidden_depth=None;if f.collapsed.contains(&post.id){hidden_depth=Some(post.depth);}true}).collect();
  let height=if categories&&p.category==0&&!f.new_thread{p.categories.len() as f32*66.}else if f.new_thread{0.}else if p.topic.is_some(){posts.iter().map(|(post,lines)|if f.collapsed.contains(&post.id){48.}else{76.+lines.len() as f32*16.+if post.parent.is_some(){48.}else{0.}}).sum()}else{p.threads.len() as f32*104.};f.height.set(height);
  let scroll=s.browser_scroll.min((height-list.h).max(0.));let mut offset=0.;
  if categories&&p.category==0&&!f.new_thread {

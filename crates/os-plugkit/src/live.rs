@@ -31,6 +31,8 @@ struct LiveEdit {
 pub struct LiveEdits(Mutex<Vec<LiveEdit>>);
 
 impl LiveEdits {
+    /// A full patch recall supersedes edits awaiting host confirmation.
+    pub fn clear(&self) { self.0.lock().unwrap().clear(); }
     /// Records an editor edit: `p` sounds at `norm` (normalised) until its host value moves from what it is now.
     pub fn set(&self, p: ParamPtr, norm: f32) {
         // SAFETY: callers hold pointers from a live params object.

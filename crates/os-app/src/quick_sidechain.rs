@@ -19,6 +19,7 @@ fn preset(port: usize) -> Vec<u8> {
 }
 pub fn run(app: &mut App, dst: u16) -> Option<String> {
     let src = app.state.selected_mixer;
+    if mx::locked(&app.state, src) || mx::locked(&app.state, dst) { return Some(mx::LOCK_MESSAGE.into()); }
     if src == 0 || src == dst || mx::track(&app.state, dst).is_none() {
         return Some("Select the trigger track, then Quick Sidechain on a different destination".into());
     }

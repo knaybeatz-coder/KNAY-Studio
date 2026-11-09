@@ -1375,6 +1375,34 @@ impl NoteIds {
 }
 
 impl os_host::Plugin for Plugin {
+    fn programs(&self)->Vec<(u32,u32,String)>{
+        let Some(c)=&self.controller else{return Vec::new()};
+        let units=c.cast::<dyn IUnitInfo>();
+        let mut programs=Vec::new();
+        unsafe {
+            for i in 0..c.get_parameter_count() {
+                let mut param:ParameterInfo=std::mem::zeroed();
+                if c.get_parameter_info(i,&mut param)!=kResultOk || param.flags & 0x8000==0 || param.step_count<0 {continue;}
+                let list=units.as_ref().and_then(|u|(0..u.get_unit_count()).find_map(|j|{
+                    let mut unit:UnitInfo=std::mem::zeroed();
+                    (u.get_unit_info(j,&mut unit)==kResultOk && unit.id==param.unit_id && unit.program_list_id>=0).then_some(unit.program_list_id)
+                }));
+                for j in 0..=param.step_count.min(16383) {
+                    let value=f64::from(j)/f64::from(param.step_count.max(1));
+                    let mut buf=[0u16;128];
+                    let name=if units.as_ref().zip(list).is_some_and(|(u,l)|u.get_program_name(l,j,buf.as_mut_ptr())==kResultOk){
+                        String::from_utf16_lossy(&buf[..buf.iter().position(|&x|x==0).unwrap_or(128)])
+                    }else{self.param_text(param.id,value).unwrap_or_default()};
+                    programs.push((param.id,j as u32,if name.is_empty(){format!("Program {}",j+1)}else{name}));
+                }
+            }
+        }
+        programs
+    }
+    fn select_program(&mut self,id:u32,index:u32)->bool{
+        let Some(&(_,steps))=self.param_ids.iter().find(|&&(p,_)|p==id) else{return false};
+        index<=steps as u32 && self.set_param(id,f64::from(index)/f64::from(steps.max(1)))
+    }
     fn mpe_support(&self)->u8{if [0,2].iter().all(|&i|self.mpe_map[i]!=u32::MAX){2}else if (1..16).all(|ch|[74,129].iter().all(|&cc|self.midi_map.get(ch*130+cc).is_some_and(|&id|id!=u32::MAX&&self.midi_map.get(cc)!=Some(&id)))){1}else{0}}
     fn desc(&self) -> &Descriptor {
         &self.desc

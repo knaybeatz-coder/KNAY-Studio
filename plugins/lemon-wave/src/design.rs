@@ -35,7 +35,7 @@ impl Design {
             if !crate::controls::SETTINGS.iter().any(|s|s.id==id) || p.iter().any(|x|!x.is_finite() || x.abs()>300.) {return Err(format!("Invalid knob offset: {id}"))}
         }
         for (id,r) in &v.selectors {
-            if !crate::controls::SETTINGS.iter().any(|s|s.id==id) || r.iter().any(|x|!x.is_finite()) || r[0]<0. || r[1]<0. || r[2]<20. || r[3]<16. || r[0]+r[2]>1180. || r[1]+r[3]>820. {return Err(format!("Invalid selector rectangle: {id}"))}
+            if !crate::controls::SETTINGS.iter().any(|s|s.id==id) || r.iter().any(|x|!x.is_finite()) || r[0]<0. || r[1]<0. || r[2]<20. || r[3]<16. || r[0]+r[2]>1584. || r[1]+r[3]>992. {return Err(format!("Invalid selector rectangle: {id}"))}
         }
         Ok(v)
     }
@@ -84,6 +84,6 @@ mod tests {
         apply(d);assert_eq!(color(0x25303a).r,0x11);assert_eq!(knob("cutoff",100.,100.),(112.,92.));
         assert!(Design::parse(r#"{"bevel":5}"#).is_err());
         assert!(Design::parse(r##"{"colors":{"broken":"#112233"}}"##).is_err());
-        apply(Design::default());assert_eq!(color(0x25303a).r,original.r);
+        apply(Design::parse(include_str!("../design/live.json")).unwrap());assert_eq!(color(0x25303a).r,original.r);
     }
 }

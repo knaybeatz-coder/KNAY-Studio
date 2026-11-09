@@ -604,6 +604,7 @@ impl ChannelState {
 
 #[derive(Debug, Clone, Copy)]
 struct Voice {
+    drive:f32,
     origin: Option<ClipOrigin>,
     channel: usize,
     pos: f64,
@@ -990,6 +991,7 @@ fn strip_process(track:&mut MixTrack,buf:&mut[f32]) {
 }
 
 pub struct Engine {
+    vocal_audition:Option<crate::vocal_audition::Voice>,
     frozen_instrument_rows: Vec<usize>,
     peak_links: Vec<(os_model::PeakLink,f32)>,
     audition: Vec<(u64,usize,u16,u8)>,
@@ -1488,7 +1490,7 @@ impl Engine {
                     key: n.key,
                     end: (n.len > 0).then_some(n.tick + n.len),
                     velocity: n.velocity,
-                    levels: crate::NoteLevels::of_bytes(n.pan, n.mod_x, n.mod_y),
+                    levels: crate::NoteLevels { drive:f32::from(n.drive)/127., ..crate::NoteLevels::of_bytes(n.pan, n.mod_x, n.mod_y) },
                     from,
                     start,
                     buf: 0,
@@ -1673,6 +1675,7 @@ impl Engine {
             inst_shapes: Vec::new(),
             next_voice: 0,
             inst_live: Vec::with_capacity(64),
+            vocal_audition:None,
             audition: Vec::new(),audition_held:Vec::new(),audition_frame:0,
             inst_midi: Vec::with_capacity(64),
             inst_events: Vec::with_capacity(64),
@@ -1885,7 +1888,11 @@ impl Engine {
         }
         self.audition.sort_by_key(|n|(n.0,n.3!=0));self.tail_done=false;
     }
+    pub fn vocal_start(&mut self,sample:std::sync::Arc<crate::Sample>,start:usize,end:usize,cents:f32,gain:f32){self.vocal_audition=crate::vocal_audition::Voice::new(sample,start,end,cents,gain,self.rate);self.tail_done=false;}
+    pub fn vocal_tune(&mut self,cents:f32,gain:f32){if let Some(v)=&mut self.vocal_audition{v.tune(cents,gain);}}
+    pub fn vocal_stop(&mut self){if let Some(v)=&mut self.vocal_audition{v.release();}}
     pub fn stop_audition(&mut self) {
+        self.vocal_stop();
         self.audition.clear();
         for (ch,key) in std::mem::take(&mut self.audition_held){self.note_off(ch,key);}
     }
@@ -2007,6 +2014,15 @@ impl Engine {
         for (_, playback) in &mut self.mpe { playback.chase_notes = on; }
     }
 
+    /// Let live Song playback advance on an empty arrangement without the pattern fallback.
+    pub fn empty_song_transport(&mut self) {
+        self.triggers.clear();
+        self.mpe.clear();
+        self.next_trigger = 0;
+        self.late.clear();
+        self.end_tick = 0;
+    }
+
     /// Drop the scheduled notes: the engine only plays live notes (`note_on`).
     pub fn clear_schedule(&mut self) {
         self.triggers.clear();
@@ -2104,7 +2120,7 @@ impl Engine {
         };
         self.note_off_one(channel, key); // retrigger
         self.voices.push(Voice {
-            origin: None,
+            drive:0.,origin: None,
             channel,
             pos: 0.0,
             step,
@@ -2225,7 +2241,7 @@ impl Engine {
     /// the first quiet tick at or after its end. An engine that only plays live notes is over while it is silent and
     /// starts again with the next note; one kept awake (`set_awake`) is never over.
     pub fn finished(&self) -> bool {
-        if !self.audition.is_empty() {return false;}
+        if !self.audition.is_empty()||self.vocal_audition.as_ref().is_some_and(|v|v.active()) {return false;}
         let drained = self.out_pos >= self.out.len();
         if self.live_only {
             if self.awake {
@@ -2467,6 +2483,7 @@ impl Engine {
         }
         self.sounding = std::mem::take(&mut old.sounding);
         self.inst_live = std::mem::take(&mut old.inst_live);
+        self.vocal_audition=old.vocal_audition.take();
         self.audition=std::mem::take(&mut old.audition);self.audition_held=std::mem::take(&mut old.audition_held);self.audition_frame=old.audition_frame;
         self.inst_midi = std::mem::take(&mut old.inst_midi);
         // A detached stack member must not retain live notes or a sustain pedal whose
@@ -2669,12 +2686,12 @@ impl Engine {
         if self.pdc.waiting.iter().any(|w| w.0 <= now) {
             let (due, rest): (Vec<_>, Vec<_>) = std::mem::take(&mut self.pdc.waiting).into_iter().partition(|w| w.0 <= now);
             self.pdc.waiting = rest;
-            for (_, target, n) in due {
-                self.auto_value(target, n, len.max(1) as u32);
+            for (_, target, n, starts_here) in due {
+                self.auto_value(target, n, if starts_here { 0 } else { len.max(1) as u32 });
             }
         }
         let b = os_model::curve::tick_step(self.ppq);
-        let mut values: Vec<(Target, i64)> = Vec::new();
+        let mut values: Vec<(Target, i64, bool)> = Vec::new();
         for a in self.autos.iter_mut().rev() {
             // Where clips on one target overlap, the latest decides that target.
             if now < a.start || now >= a.end || a.targets.iter().all(|t| values.iter().any(|v| v.0 == *t)) {
@@ -2701,30 +2718,23 @@ impl Engine {
             let n = handed_on(walk.value(pts));
             for &t in &a.targets {
                 if !values.iter().any(|v| v.0 == t) {
-                    values.push((t, n));
+                    values.push((t, n, now == a.start));
                 }
             }
         }
         let len = if now == self.auto_from { 0 } else { len.max(1) as u32 };
-        self.set_auto_values(values, len);
-    }
-
-    /// Passes automation values (2^30 = 1) on to their targets, each only when it differs from the one last passed on;
-    /// `len`: the ticks volumes and pans glide over (0 = set in place). A value for a mixer track or slot whose audio
-    /// is late waits the whole ticks that fit into the lateness; nothing waits on playback's first tick (spec:
-    /// audio/delay-compensation.md "Automation waits for late audio").
-    fn set_auto_values(&mut self, values: Vec<(os_model::target::Target, i64)>, len: u32) {
-        for (target, n) in values {
+        for (target, value, starts_here) in values {
             let wait = if len == 0 { 0 } else { self.wait_ticks(target) };
             if wait > 0 {
-                self.pdc.waiting.push((self.tick + wait, target, n));
+                self.pdc.waiting.push((self.tick + wait, target, value, starts_here));
             } else {
-                self.auto_value(target, n, len);
+                self.auto_value(target, value, if starts_here { 0 } else { len });
             }
         }
     }
 
-    /// Passes automation value `n` on to `target` when it differs from the one last passed on (`set_auto_values`).
+    /// Passes a value (2^30 = 1) to its target only when it differs from the last value.
+    /// A zero length sets gains in place so they are ready before the first frame is rendered.
     fn auto_value(&mut self, target: os_model::target::Target, n: i64, len: u32) {
         use os_model::target::Target;
         // Plugin parameters: per-tick plugins get this value, the others the curve sampled through the tick
@@ -2960,6 +2970,7 @@ impl Engine {
         for(row,b)in mpe_events{let children=self.channels.get(row).map(|c|c.stack.clone()).unwrap_or_default();self.midi_one(row,b,0.);for child in children{self.midi_one(child,b,0.);}}
 
         self.audition_tick(len);
+        if let Some(v)=&mut self.vocal_audition{v.mix(&mut self.bus[0][..len*2]);if !v.active(){self.vocal_audition=None;}}
         let (channels, w) = (&self.channels, self.sinc_w);
         let bus = &mut self.bus;
         self.voices.retain_mut(|v| render_voice(v, channels, bus, 0, 0, len, w));
@@ -3318,7 +3329,7 @@ impl Engine {
         let gain = self.channels[t.channel].start_gain_via(t.vel, t.pan, layer);
         let serial = self.channels[t.channel].serial;
         self.voices.push(Voice {
-            origin: t.origin,
+            drive:t.levels.drive,origin: t.origin,
             channel: t.channel,
             pos: t.from,
             step: t.rate,
@@ -3783,7 +3794,7 @@ impl Engine {
     /// quarter notes (`tick_tempo`): what FL tells plugins in a bar of other than 4 steps per beat is not measured.
     fn transport_at(&self, frame: u64) -> TransportInfo {
         let mut start = TransportInfo {
-            playing: true,
+            playing: !self.live_only,
             tempo: self.tick_tempo(),
             frame: 0,
             beats: 0.0,
@@ -3865,7 +3876,9 @@ impl Engine {
         self.pdc.switched = true;
         // A song back at its start: the initial values first, then automation clips act there as usual.
         if to == 0 && !self.init.is_empty() {
-            self.set_auto_values(self.init.clone(), 0);
+            for (target, value) in self.init.clone() {
+                self.auto_value(target, value, 0);
+            }
         }
     }
 
@@ -4040,6 +4053,7 @@ fn render_voice(v: &mut Voice, channels: &[ChannelState], bus: &mut [Vec<f32>], 
             }
             (l as f32, r as f32)
         };
+        let (l,r)=if v.drive>0.{let gain=1.+15.*v.drive;((l*gain).clamp(-1.,1.),(r*gain).clamp(-1.,1.))}else{(l,r)};
         if let Some(r) = glide {
             // The volume parameter glides linearly and the volume law applies to it; the pan glides linearly
             // in the left / right gains (spec: audio/pattern-controls.md).
@@ -4323,6 +4337,7 @@ fn processing_order(tracks: &[MixTrack]) -> Vec<usize> {
 /// A scheduled note on the song's tick line.
 #[derive(Debug, Clone, Copy)]
 struct Sched {
+    drive:u8,
     expression:u32,
     expression_len:u64,
     release:u8,
@@ -4355,7 +4370,7 @@ struct Sched {
 impl Sched {
     fn note(tick: u64, n: &os_model::Note) -> Self {
         Sched {
-            expression:n.expression,
+            drive:n.drive,expression:n.expression,
             expression_len:u64::from(n.length),
             release:n.release,
             origin: None,
@@ -4636,7 +4651,7 @@ fn schedule(project: &Project, mode: PlayMode, report: &mut EngineReport) -> (Ve
                         // An audio clip plays its channel's sample from the window start (milliseconds), cut at the clip end.
                         Some(ChannelKind::AudioClip | ChannelKind::Sampler) => {
                             let from_s = c.window.map_or(0.0, |w| w.0.max(0.0) / 1000.0);
-                            out.push(Sched { expression:0, expression_len:0, release:64, origin: Some((c.track, start, len, from_s.to_bits())), tick: start, channel: usize::from(ch), key: 60, fine: 120, velocity: 100, pan: 64, mod_x: 128, mod_y: 128, cut: Some(start + len), len, from_s, clip: ClipFx::of(c, fx), slide: false, porta: false });
+                            out.push(Sched { drive:0,expression:0, expression_len:0, release:64, origin: Some((c.track, start, len, from_s.to_bits())), tick: start, channel: usize::from(ch), key: 60, fine: 120, velocity: 100, pan: 64, mod_x: 128, mod_y: 128, cut: Some(start + len), len, from_s, clip: ClipFx::of(c, fx), slide: false, porta: false });
                         }
                         Some(ChannelKind::Automation) => {}
                         _ => report.automation_clips_ignored += 1,
@@ -4741,6 +4756,13 @@ mod tests {
         next.note_on(0,70,100);next.audition_notes(&[(0,60,100,0,24000)]);next.process(&mut vec![0.;2000]);next.stop_audition();next.process(&mut vec![0.;2000]);assert_eq!(probe.lock().unwrap().held,vec![70],"stopping preview preserves unrelated live notes");
     }
 
+    #[test]
+    fn vocal_hold_mixes_through_master_survives_update_and_releases_only_itself(){
+        let mut p=project(vec![],vec![]);p.channels[0].kind=ChannelKind::Plugin;let mut lib=SampleLibrary::default();let probe=Arc::new(std::sync::Mutex::new(Probe{log:vec![],held:vec![],at:0}));let mut e=Engine::new(&p,&mut lib,48000,PlayMode::Pattern(1));e.set_instrument(0,probe.clone());e.clear_schedule();
+        let x:Vec<f32>=(0..24000).map(|i|(i as f32*220.*std::f32::consts::TAU/24000.).sin()*0.2).collect();let sample=Arc::new(crate::Sample{rate:24000,left:x.clone(),right:x});e.note_on(0,70,100);e.vocal_start(sample,0,24000,0.,1.);let mut out=vec![0.;12000];e.process(&mut out);assert!(out.iter().any(|v|v.abs()>0.01),"audition must reach the master output");assert!(!e.finished());e.vocal_tune(700.,1.);
+        let mut next=Engine::new(&p,&mut lib,48000,PlayMode::Pattern(1));next.set_instrument(0,probe.clone());next.clear_schedule();next.continue_from(&mut e);assert!(next.vocal_audition.is_some());next.process(&mut out);assert!(out.iter().any(|v|v.abs()>0.01));next.vocal_stop();next.process(&mut vec![0.;12000]);assert!(next.vocal_audition.is_none());assert!(probe.lock().unwrap().held.contains(&70),"release must preserve unrelated held notes");
+    }
+
     /// Records the transport it is given before each block (instrument and effect).
     #[derive(Default)]
     struct Clock {
@@ -4816,6 +4838,15 @@ mod tests {
             // 48000 * 60 / (130 * 96) = 230.77 samples per tick.
             assert!(seen.iter().all(|s| s.1 == 230 || s.1 == 231), "{who}: one call per tick");
         }
+        // Audition and playback use separate engines but share the plugin instance.
+        let mut idle = Engine::new(&p, &mut lib, 48000, PlayMode::Pattern(1));
+        idle.clear_schedule();
+        idle.set_awake(true);
+        idle.set_instrument(0, inst.clone());
+        idle.process(&mut out);
+        assert!(!inst.lock().unwrap().seen.last().unwrap().0.playing);
+        e.process(&mut out);
+        assert!(inst.lock().unwrap().seen.last().unwrap().0.playing);
         let t = TransportInfo { looping: None, ..fx.lock().unwrap().seen[0].0 };
         let later = t.advanced(48000 * 3, 48000);
         assert_eq!((later.frame, later.bar), (144000, 1));
@@ -5891,11 +5922,11 @@ mod tests {
         e.set_instrument(0, log.clone());
         e.render_all(480);
         let got = log.lock().unwrap().0.clone();
-        let half = crate::NoteLevels { pan: 0.5, mod_x: 0.5, mod_y: -0.5 };
+        let half = crate::NoteLevels { drive:0., pan: 0.5, mod_x: 0.5, mod_y: -0.5 };
         let centred = crate::NoteLevels::of_bytes(64, 128, 128);
         assert_eq!(centred, crate::NoteLevels::default());
         assert_eq!(got, vec![(60, half), (62, centred)]);
-        assert_eq!(crate::NoteLevels::of_bytes(0, 0, 255), crate::NoteLevels { pan: -1.0, mod_x: -1.0, mod_y: 127.0 / 128.0 });
+        assert_eq!(crate::NoteLevels::of_bytes(0, 0, 255), crate::NoteLevels { drive:0., pan: -1.0, mod_x: -1.0, mod_y: 127.0 / 128.0 });
     }
 
     /// Records what a layer's child is given, by frame: note ons (velocity), offs, chokes and tunings (semitones); it
@@ -7076,6 +7107,13 @@ mod tests {
         assert!(end < 0.03, "near the end: {end}");
         let after = at(&mut e, 384.0 * 3.5);
         assert!(after < 0.03, "after the clip it keeps the last value: {after}");
+        // A clip entering during playback must set its first gain before rendering audio.
+        p.automations[0].points = vec![AutoPoint::new(0.0, 0.0), AutoPoint::new(8.0, 0.0)];
+        let mut at_entry = Engine::new(&p, &mut lib, 48000, PlayMode::Song);
+        at_entry.tick = 384;
+        at_entry.run_automation(256);
+        assert_eq!(at_entry.channels[0].vol_v, 0.0);
+        assert!(at_entry.channels[0].ramp.is_none());
         // A mixer pan clip moves the track's matrix.
         p.automations[0].targets = vec![target::mixer(1, target::MIXER_PAN)];
         p.automations[0].points = vec![AutoPoint::new(0.0, 0.0), AutoPoint::new(8.0, 0.0)];
@@ -7196,9 +7234,9 @@ mod tests {
         assert_eq!(t.routes[1].gain, os_dsp::mixer::send_gain_auto(0.8));
         assert_eq!(t.sep, 64);
         assert_eq!(t.strip.settings(),[0.6,0.4,0.3,0.2,0.7,0.,0.,0.]);
-        // The dry level and the send glide there: by at most the engine's limit per sample.
-        assert!(t.effects[0].dry.current < dry(6400) && t.effects[0].dry.current > 0.0, "dry: {:?}", t.effects[0].dry);
-        assert!(t.routes[1].glide.current > 0.0 && t.routes[1].glide.current < t.routes[1].gain);
+        // At clip entry, both gains are already at their automated values for the first sample.
+        assert_eq!(t.effects[0].dry.current, dry(6400));
+        assert_eq!(t.routes[1].glide.current, t.routes[1].gain);
         ticks(&mut e, 600);
         let t = &e.tracks[1];
         assert_eq!((t.effects[0].dry.current, t.routes[1].glide.current), (dry(6400), t.routes[1].gain));

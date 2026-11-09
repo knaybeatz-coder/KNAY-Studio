@@ -14,6 +14,7 @@ use crate::playlist::EditTarget;
 /// What a value box sets.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Target {
+    SampleTempo(usize),
     Knob(KnobId),
     /// A mixer track's volume fader (0..1, the fader law; spec: ui/mixer.md §4).
     Fader(u16),
@@ -73,7 +74,7 @@ fn unit(t: Target) -> Unit {
         Target::Knob(KnobId::Swing | KnobId::SlotMix(..) | KnobId::Strip(..)) => Unit::Percent,
         Target::Knob(KnobId::MasterPitch) => Unit::Hz,
         // The equaliser's settings take the plain 0..1 position for now.
-        Target::Param(..) | Target::Knob(KnobId::Varispeed | KnobId::ChanPitch(_) | KnobId::Eq(..) | KnobId::Strum(_) | KnobId::Arp(_) | KnobId::PianoDlg(_)) => Unit::Plain,
+        Target::SampleTempo(_) | Target::Param(..) | Target::Knob(KnobId::Varispeed | KnobId::ChanPitch(_) | KnobId::Eq(..) | KnobId::Strum(_) | KnobId::Arp(_) | KnobId::PianoDlg(_)) => Unit::Plain,
     }
 }
 
@@ -104,6 +105,7 @@ fn opening_norm(t: Target, remembered: bool) -> bool {
 /// The caption under the field (spec §6, §7).
 pub fn caption(s: &State, t: Target) -> String {
     let name = match t {
+        Target::SampleTempo(_) => return "Source tempo (BPM, 20-400)".into(),
         Target::Knob(KnobId::MasterPitch) => return "Master pitch (Hz)".into(),
         Target::Knob(k @ (KnobId::MixPan(m) | KnobId::MixSep(m) | KnobId::SlotMix(m, _))) => {
             let label = if let KnobId::MixSep(_) = k { "Stereo separation".to_string() } else { knob_label(s, k) };
@@ -149,6 +151,7 @@ fn position_for_gain(k: Law, g: f64) -> f64 {
 
 pub(crate) fn get(s: &State, t: Target) -> Option<f64> {
     match t {
+        Target::SampleTempo(_) => Some(s.tempo),
         Target::Knob(k) => Some(f64::from(s.knob(k))),
         Target::Fader(m) => Some(crate::mixer::track(s, m)?.volume.unwrap_or(0.8)),
         Target::Param(key, index) => crate::params::param_value(s, key, index),
@@ -156,7 +159,15 @@ pub(crate) fn get(s: &State, t: Target) -> Option<f64> {
 }
 
 fn set(s: &mut State, t: Target, v: f64) {
+    let locked = match t {
+        Target::Fader(track) => crate::mixer::locked(s, track),
+        Target::Knob(id) => crate::mixer::locked_knob(s, id),
+        Target::Param(key, _) => crate::mixer::locked_effect(s, key),
+        _ => false,
+    };
+    if locked { s.message = Some(crate::mixer::LOCK_MESSAGE.into()); return; }
     match t {
+        Target::SampleTempo(row) => s.sample_tempo_requests.push((row,(v*1000.).round() as u32)),
         Target::Knob(k) => {
             crate::history::knob(s, k, false);
             s.set_knob(k, v as f32);
@@ -230,6 +241,7 @@ fn strip_suffix_ci<'a>(text: &'a str, suffix: &str) -> &'a str {
 /// (spec §4, §5, §8; unreadable = unchanged is the OS choice).
 pub fn parse(t: Target, norm: bool, text: &str) -> Option<f64> {
     let text = text.trim();
+    if matches!(t,Target::SampleTempo(_)){return text.parse::<f64>().ok().filter(|v|v.is_finite() && (20.0..=400.0).contains(v));}
     if text.is_empty() {
         return None;
     }
@@ -290,7 +302,7 @@ pub fn accept(s: &mut State, t: Target, norm: bool, typed: &str) {
         s.playlist.typein_norm = norm;
     }
     // The field as it opened keeps the exact value (no rounding to the shown decimals, OS).
-    if typed.trim() == text(s, t, norm).trim() {
+    if !matches!(t,Target::SampleTempo(_)) && typed.trim() == text(s, t, norm).trim() {
         return;
     }
     if let Some(v) = parse(t, norm, typed) {
