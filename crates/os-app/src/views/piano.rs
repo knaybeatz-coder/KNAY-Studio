@@ -193,7 +193,7 @@ pub fn paint(ui: &mut Ui, s: &State, r: Rect, f: &FrameInfo) {
     lit.extend(s.piano.typed.iter().filter(|&&(c, _)| Some(c) == ch).map(|&(_, k)| k));
     lit.extend(f.sounding.iter().filter(|&&(c, _)| Some(c) == ch).map(|&(_, k)| i32::from(k)));
     ui.live(Live::Sounding, l.keys);
-    keyboard(ui, &l, &g, &lit);
+    keyboard(ui, &l, &g, &lit, i32::from(s.piano.harmony.root % 12));
     if s.piano.harmony.shade || s.piano.harmony.scale_only {
         ui.c.push_clip(l.keys);
         for &key in &g.keys {
@@ -603,8 +603,9 @@ pub(super) fn play_start_marker(ui:&mut Ui,x:f32,y:f32){
     ui.c.fill_rect(Rect::new(mx - 5.0, y + 3.0, 10.0, 1.0), ui.t.h(0xffc08b));
 }
 
-fn keyboard(ui: &mut Ui, l: &Layout, g: &Geom, lit: &[i32]) {
-    if !crate::piano_tools::classic_keyboard() { keyboard_shaped(ui,l,g,lit); return; }
+/// `root`: the pitch class of the key chosen in the toolbar (0 = C): its keys are the grey, labelled ones, as in FL Studio.
+fn keyboard(ui: &mut Ui, l: &Layout, g: &Geom, lit: &[i32], root: i32) {
+    if !crate::piano_tools::classic_keyboard() { keyboard_shaped(ui,l,g,lit,root); return; }
     let k=l.keys;
     ui.hit(k,Action::PianoKeys,"Keyboard");ui.c.push_clip(k);
     // Equal-width chromatic rows, including sharp labels, as in the classic piano roll.
@@ -618,6 +619,8 @@ fn keyboard(ui: &mut Ui, l: &Layout, g: &Geom, lit: &[i32]) {
             else if black {(Color::rgb(0x44494e),Color::rgb(0x60666c))}
             else {(Color::rgb(0xcbd0d5),Color::rgb(0xaeb5bc))};
         ui.c.fill_rect_gradient(r,left,right,0.);
+        // KNAY: the root's keys in grey, as FL Studio marks the key's root.
+        if key.rem_euclid(12)==root && !pressed {ui.c.fill_rect(r,Color::rgb(0x8d949b).with_alpha(if black{150}else{200}));}
         if ui.t.style.vintage_2005 && g.row >= 8.0 {
             ui.c.fill_rect(Rect::new(r.x, r.y, r.w, 1.0), left.shade(0.12));
             ui.c.fill_rect(Rect::new(r.right() - 1.0, r.y + 1.0, 1.0, r.h - 2.0), right.shade(-0.24));
@@ -634,7 +637,7 @@ fn keyboard(ui: &mut Ui, l: &Layout, g: &Geom, lit: &[i32]) {
     ui.c.fill_rect(Rect::new(k.right(),k.y,1.,k.h),Color::rgb(0x131718));
 }
 
-fn keyboard_shaped(ui: &mut Ui, l: &Layout, g: &Geom, lit: &[i32]) {
+fn keyboard_shaped(ui: &mut Ui, l: &Layout, g: &Geom, lit: &[i32], root: i32) {
     if g.keys.len() < (TOP_KEY+1) as usize {
         ui.c.push_clip(l.keys);
         for &key in &g.keys {
@@ -682,6 +685,33 @@ fn keyboard_shaped(ui: &mut Ui, l: &Layout, g: &Geom, lit: &[i32]) {
         if !g.keys.contains(&key) { continue; }
         let y = g.y_of(key);
         match key.rem_euclid(12) {
+            0 if root != 0 => {
+                // KNAY: another key's root is the grey one; C keeps only its octave label.
+                if row >= 10.0 {
+                    let font = if t.style.vintage_2005 { Font::vintage(11).bold() } else { Font::new(12) };
+                    ui.c.text_right(font, k.right() - 4.0, y + 1.0 + (row - ROW) / 2.0, t.key_label, &key_name(key));
+                }
+                ui.c.fill_rect(Rect::new(k.x, y + row - 1.0, k.w - 1.0, 1.0), sep);
+            }
+            r if r == root && !is_black(key) => {
+                // KNAY: the chosen key's root, grey in the white key's shape (half of each black neighbour), labelled.
+                let top = if is_black(key + 1) { y - half } else { y };
+                let bottom = if is_black(key - 1) { y + row - 1.0 + half } else { y + row - 1.0 };
+                if !lit.contains(&key) && lemon {
+                    ui.c.fill_rect(Rect::new(k.x, top, k.w - 1.0, bottom - top), t.key_c);
+                } else if !lit.contains(&key) {
+                    let left = t.key_white_left.shade(-0.16);
+                    ui.c.fill_rect_gradient(Rect::new(k.x, y, 45.0, row - 1.0), left, left, 0.0);
+                    ui.c.fill_rect(Rect::new(k.x + 45.0, top, k.w - 46.0, bottom - top), t.key_c);
+                }
+                if row >= 10.0 {
+                    let font = if t.style.vintage_2005 { Font::vintage(11).bold() } else { Font::new(12) };
+                    ui.c.text_right(font, k.right() - 4.0, y + 1.0 + (row - ROW) / 2.0, t.key_label, &key_name(key));
+                }
+                if r == 5 || r == 0 {
+                    ui.c.fill_rect(Rect::new(k.x, y + row - 1.0, k.w - 1.0, 1.0), sep);
+                }
+            }
             0 => {
                 // C: darker key, extended half a row up on the right; octave label.
                 if !lit.contains(&key) && lemon {
@@ -721,6 +751,18 @@ fn keyboard_shaped(ui: &mut Ui, l: &Layout, g: &Geom, lit: &[i32]) {
                 let x = k.x + if i == 0 { 0.0 } else { 10.0 + 8.0 * (i - 1) as f32 };
                 let w = if i == 0 { 10.0 } else if i == 5 { 3.0 } else { 8.0 };
                 ui.c.fill_rect(Rect::new(x, y, w, row), c);
+            }
+        }
+    }
+    // KNAY: a black root (C#, D#, F#, G#, A#) is marked grey too, labelled when there is room.
+    if is_black(root) {
+        for key in lo..=hi {
+            if !g.keys.contains(&key) || key.rem_euclid(12) != root || lit.contains(&key) { continue; }
+            let y = g.y_of(key);
+            let w = if lemon { 45.0 } else { 46.0_f32.min(k.w) };
+            ui.c.fill_rect(Rect::new(k.x, y + 1.0, w, (row - 2.0).max(1.0)), t.key_c.with_alpha(220));
+            if row >= 10.0 {
+                ui.c.text_right(Font::new(10), k.x + w - 3.0, y + (row - ROW) / 2.0, t.key_label, &key_name(key));
             }
         }
     }
