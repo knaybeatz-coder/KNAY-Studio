@@ -50,6 +50,7 @@ pub enum CpuCmd {
     /// View FPS (true) or the voice count (false).
     Fps(bool),
     Misc,
+    LoadBars(bool),
     Monitor,
     AudioSettings,
 }
@@ -87,6 +88,7 @@ pub struct Cpu {
     /// View FPS instead of the voice count.
     pub fps_view: bool,
     /// Misc ticked: handles, threads and fonts in the history's place.
+    pub load_bars:bool,
     pub misc: bool,
     at: Option<Instant>,
     /// Frames painted since the last reading.
@@ -110,6 +112,7 @@ impl Cpu {
             match line.trim().split_once('=') {
                 Some(("refresh", v)) => self.refresh = Refresh::ALL.into_iter().find(|r| r.label().eq_ignore_ascii_case(v.trim())).unwrap_or_default(),
                 Some(("view", v)) => self.fps_view = v.trim() == "fps",
+                Some(("load_bars",v))=>self.load_bars=v.trim()=="1",
                 Some(("misc", v)) => self.misc = v.trim() == "1",
                 _ => {}
             }
@@ -117,7 +120,7 @@ impl Cpu {
     }
 
     fn text(&self) -> String {
-        format!("refresh={}\nview={}\nmisc={}\n", self.refresh.label(), if self.fps_view { "fps" } else { "voices" }, u8::from(self.misc))
+        format!("refresh={}\nview={}\nmisc={}\nload_bars={}\n", self.refresh.label(), if self.fps_view { "fps" } else { "voices" }, u8::from(self.misc),u8::from(self.load_bars))
     }
 
     /// Keeps the panel's settings for the next start.
@@ -136,6 +139,7 @@ impl Cpu {
         match c {
             CpuCmd::Refresh(r) => self.refresh = r,
             CpuCmd::Fps(f) => self.fps_view = f,
+            CpuCmd::LoadBars(on)=>self.load_bars=on,
             CpuCmd::Misc => self.misc = !self.misc,
             CpuCmd::Monitor | CpuCmd::AudioSettings => return,
         }

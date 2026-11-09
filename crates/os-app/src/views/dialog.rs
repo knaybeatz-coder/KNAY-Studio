@@ -50,6 +50,14 @@ pub fn paint(ui: &mut Ui, s: &State) {
         ui.hit(full, Action::Swallow, "");
         match &m.body {
             Body::ClipFx(channel,page)=>{let r=place(s,m,510.,386.);frame(ui,r,"Clip Effects");crate::clip_effects::paint(ui,s,r,*channel,*page);},
+            Body::NoteProperties(f)=>{let r=place(s,m,460.,420.);frame(ui,r,"Note properties");crate::piano_note_properties::paint(ui,r,f);},
+            Body::Normalize(f)=>{let r=place(s,m,440.,260.);frame(ui,r,"Normalize audio clips");crate::clip_normalize::paint(ui,r,f);},
+            Body::StripSilence(f)=>{let r=place(s,m,550.,470.);frame(ui,r,"Strip silence");crate::strip_silence::paint(ui,r,f);},
+            Body::VocalAlign(form) => {
+                let r = place(s, m, (s.screen.0 - 24.).clamp(500., 830.), 438.);
+                frame(ui, r, "Vocal Align");
+                crate::vocal_align::paint(ui, r, form);
+            }
             Body::Warp(f)=>{let r=place(s,m,(s.screen.0-24.).clamp(600.,1000.),430.);frame(ui,r,"Audio warp markers");crate::warp::paint(ui,r,f);},
             Body::Ai => ai_box(ui,s,m),
             Body::RoutePicker(f) => route_picker_box(ui,s,m,f),
@@ -98,7 +106,7 @@ pub(super) fn frame(ui: &mut Ui, r: Rect, title: &str) {
     if hov && lemon {
         lk::window_button_hover(ui.c, t, x, true);
     }
-    ui.c.icon(&tabler::X, x.inset(5.0), if hov { t.glyph } else { t.text_dim });
+    crate::icons::draw(ui.c, crate::icons::Icon::Close, x.inset(5.0), if hov { t.glyph } else { t.text_dim });
 }
 
 /// A body panel: square with darker lines along its top and bottom (Classic), an outlined rounded panel (Lemon).
@@ -662,18 +670,26 @@ fn places(ui: &mut Ui, f: &FileDlg, r: Rect) {
         let hov = ui.hit(row.intersect(&clip), Action::Dlg(DHit::Place(i)), p.path.display().to_string());
         let sel = now == Some(i);
         row_bg(ui, row, sel, hov);
+        use crate::icons::Icon;
         let shape = match p.kind {
-            PlaceKind::Home => &tabler::USER,
-            PlaceKind::Desktop => &tabler::LAYOUT_ROWS,
-            PlaceKind::Documents => &tabler::FILE_TEXT,
-            PlaceKind::Downloads => &tabler::DOWNLOAD,
-            PlaceKind::Music => &tabler::MUSIC,
-            PlaceKind::Start => &tabler::FOLDER_OPEN,
-            PlaceKind::Drive => &tabler::BOX,
+            PlaceKind::Home => Icon::User,
+            PlaceKind::Desktop => Icon::Playlist,
+            PlaceKind::Documents => Icon::FileText,
+            PlaceKind::Downloads => Icon::Download,
+            PlaceKind::Music => Icon::Note,
+            PlaceKind::Start => Icon::FolderOpen,
+            PlaceKind::Drive => Icon::Drive,
         };
         let ink = row_ink(ui, sel, hov);
         let ic = if sel && lemon(ui) { t.brand_sel(brand::MAIN) } else if sel || hov { t.glyph } else { t.text_dim };
-        ui.c.icon(shape, Rect::new(row.x + 8.0, row.y + 3.0, 16.0, 16.0), ic);
+        let r = Rect::new(row.x + 8.0, row.y + 3.0, 16.0, 16.0);
+        let original = match p.kind {
+            PlaceKind::Desktop => &tabler::LAYOUT_ROWS,
+            PlaceKind::Documents => &tabler::FILE_TEXT,
+            PlaceKind::Downloads => &tabler::DOWNLOAD,
+            _ => crate::icons::default_shape(shape),
+        };
+        crate::icons::draw_with_default(ui.c, shape, original, r, ic);
         ui.c.text_clip(font, row.x + 30.0, (row.cy() - lh / 2.0).round(), row.w - 36.0, ink, &p.label);
         y += 22.0;
     }

@@ -130,6 +130,7 @@ pub enum Mode {
 
 pub struct Monitor {
     pub mode: Mode,
+    pub combined:bool,
     pub cfg: Settings,
     /// The F12 debug panel is open.
     pub debug: bool,
@@ -161,7 +162,7 @@ pub const SILENT_DB: f32 = -200.0;
 impl Default for Monitor {
     fn default() -> Self {
         Monitor {
-            mode: Mode::Spectrum,
+            mode: Mode::Spectrum,combined:false,
             cfg: Settings::default(),
             debug: false,
             wave: [(0.0, 0.0); COLS],
@@ -280,7 +281,8 @@ impl Monitor {
         self.meter(if live { [db(pl), db(pr)] } else { [SILENT_DB; 2] }, now, dt);
         match self.mode {
             Mode::Scope => self.scope(live),
-            Mode::Spectrum => self.spectrum(live, dt),
+            Mode::Spectrum if self.combined=>{self.bars_db.fill(SILENT_DB);self.scope(live);},
+            Mode::Spectrum => self.spectrum(live,dt),
         }
         before != (self.wave, self.bars_db, self.meter_db, self.hold)
     }

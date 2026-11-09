@@ -25,8 +25,11 @@ function database(string $directory): PDO {
     $db->exec('CREATE TABLE IF NOT EXISTS announcements(id INTEGER PRIMARY KEY, title TEXT NOT NULL, body TEXT NOT NULL, published INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL, edited INTEGER NOT NULL)');
     forum_schema($db);feedback_schema($db);
     query($db,'INSERT OR IGNORE INTO settings VALUES(?,?)',['secret',bin2hex(random_bytes(32))]);
-    foreach (['Track freeze and unfreeze to save CPU','ARA integration for compatible audio editors','Live collaboration on projects'] as $i=>$title) {
-        query($db,'INSERT OR IGNORE INTO features(id,title,normalized,created) VALUES(?,?,?,?)',[$i+1,$title,strtolower($title),time()]);
+    if (!query($db,'SELECT 1 FROM settings WHERE k=?',['starter_requests_initialized'])->fetchColumn()) {
+        foreach (['Track freeze and unfreeze to save CPU','ARA integration for compatible audio editors','Live collaboration on projects'] as $i=>$title) {
+            query($db,'INSERT OR IGNORE INTO features(id,title,normalized,created) VALUES(?,?,?,?)',[$i+1,$title,strtolower($title),time()]);
+        }
+        query($db,'INSERT OR IGNORE INTO settings(k,v) VALUES(?,?)',['starter_requests_initialized','1']);
     }
     return $db;
 }
@@ -104,9 +107,9 @@ function handle(PDO $db,array $in,string $ip,string $token): array {
         } elseif($action==='suggest') {
             if(!$user){throw new DomainException('Connect before suggesting.',401);}
             $title=$in['title']??'';
-            if(!is_string($title)||!preg_match('//u',$title)||strlen($title)>480){throw new DomainException('Use 8–120 characters.',400);}
+            if(!is_string($title)||!preg_match('//u',$title)||strlen($title)>480){throw new DomainException('Use 8â€“120 characters.',400);}
             $title=preg_replace('/\s+/u',' ',trim($title));$n=preg_match_all('/./us',$title);
-            if($n<8||$n>120||preg_match('/[\p{C}<>]|https?:|www\./iu',$title)){throw new DomainException('Use 8–120 characters, without links or markup.',400);}
+            if($n<8||$n>120||preg_match('/[\p{C}<>]|https?:|www\./iu',$title)){throw new DomainException('Use 8â€“120 characters, without links or markup.',400);}
             $norm=function_exists('mb_strtolower')?mb_strtolower($title,'UTF-8'):strtolower($title);
             if(query($db,'SELECT 1 FROM features WHERE normalized=?',[$norm])->fetchColumn()){throw new DomainException('That suggestion is already on the board.',409);}
             limit_request($db,'suggest-user:'.$user,3,86400);limit_request($db,'suggest-ip:'.$peer,6,86400);

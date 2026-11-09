@@ -6,7 +6,7 @@
 //! frame and whether it was maximized) and, inside it, the Playlist, Mixer and Piano roll (their floating rects and
 //! whether each was maximized or collapsed to its title bar), the Channel rack (its place and size), the Plugin
 //! performance monitor, the Tempo tapper and the Touch controller. App-wide, kept in `settings.txt` (`settings_file`)
-//! as the app closes, never in the project. Which windows are open is not kept: a start shows its usual ones.
+//! as the app closes, never in the project. A fresh session also restores Channel Rack visibility when a prior choice exists.
 //!
 //! Keys: `window_main` (`x,y,w,h,maximized`: outer top-left and inner size in the units the window system places
 //! windows in, points on macOS and pixels elsewhere), `window_playlist`, `window_mixer`, `window_piano_roll`
@@ -23,6 +23,7 @@ use crate::views;
 
 /// The Playlist, Mixer and Piano roll (`State::wins`) and their keys.
 const WINS: [(Win, &str); 3] = [(Win::Playlist, "window_playlist"), (Win::Mixer, "window_mixer"), (Win::PianoRoll, "window_piano_roll")];
+const DETACHABLE: [(Win, &str); 4] = [WINS[0], WINS[1], WINS[2], (Win::Browser,"window_browser")];
 const RACK: &str = "window_channel_rack";
 const PERF: &str = "window_plugin_performance";
 const TAPPER: &str = "window_tempo_tapper";
@@ -60,14 +61,16 @@ pub fn restore(s: &mut State) {
     s.startup_layout_pending = get("window_playlist").is_none() && get("window_mixer").is_none()
         && !["window_playlist_detached", "window_mixer_detached"].iter().any(|k|get(k).as_deref()==Some("1"));
     s.mixer.traditional_layout=get("mixer_traditional_layout").and_then(|v|v.parse::<u8>().ok()).filter(|v|*v<8).unwrap_or(3);
-    crate::mixer::set_layout(s,match get("mixer_view").as_deref() {
+    // The vintage view is already restored from its own profile setting by MixerUi.
+    crate::mixer::set_regular_layout(s,match get("mixer_view").as_deref() {
         Some("channel-strip")=>crate::rack_mixer::VIEW,
         Some("compact")=>crate::mixer::COMPACT,
         Some("traditional")=>crate::mixer::TRADITIONAL+s.mixer.traditional_layout,
         _=>crate::mixer::WIDE,
     });
-    s.native_detached=WINS.iter().filter(|(_,k)|get(&format!("{k}_detached")).as_deref()==Some("1")).map(|(w,_)|*w).collect();
-    for (w,k) in WINS {if s.native_detached.contains(&w)&&get(&format!("{k}_detached_open")).as_deref()==Some("1"){s.raise(w);}}
+    s.native_detached=DETACHABLE.iter().filter(|(_,k)|get(&format!("{k}_detached")).as_deref()==Some("1")).map(|(w,_)|*w).collect();
+    if s.native_detached.contains(&Win::Browser) { s.show_browser = get("window_browser_detached_open").as_deref()!=Some("0"); }
+    for (w,k) in DETACHABLE {if s.native_detached.contains(&w)&&get(&format!("{k}_detached_open")).as_deref()==Some("1"){s.raise(w);}}
     for (w, key) in WINS {
         let (Some(i), Some([x, y, rw, rh, max, mini])) = (w.slot(), numbers(key)) else { continue };
         if rw > 0.0 && rh > 0.0 {
@@ -88,6 +91,11 @@ pub fn restore(s: &mut State) {
     }
     // A reopened project's layout takes precedence over the last application session.
     restore_project_layout(s);
+    if s.path.is_none() {
+        match get("window_channel_rack_open").as_deref(){
+            Some("1")=>s.raise(Win::ChannelRack),Some("0")=>s.hide(Win::ChannelRack),_=>{}
+        }
+    }
 }
 
 /// First-run default only; defer until the main canvas supplies the actual display size.
@@ -101,7 +109,11 @@ pub fn apply_startup_layout(s: &mut State) {
     let height=work.h.max(min_mix+min_playlist);
     let mix_h=(height*0.62).round().clamp(min_mix,height-min_playlist);
     s.wins[Win::Mixer.slot().unwrap()]=WinState {rect:Rect::new(work.x,work.y,work.w,mix_h),maxed:false,mini:false};
-    s.wins[Win::Playlist.slot().unwrap()]=WinState {rect:Rect::new(work.x,work.y+mix_h,work.w,height-mix_h),maxed:false,mini:false};
+    // A wrapped toolbar can leave less space than the two minimum heights.
+    // Keep the Playlist footer on screen and overlap the frames by the shortage.
+    let playlist_h=height-mix_h;
+    let playlist_y=(work.bottom()-playlist_h).max(work.y);
+    s.wins[Win::Playlist.slot().unwrap()]=WinState {rect:Rect::new(work.x,playlist_y,work.w,playlist_h),maxed:false,mini:false};
     s.hide(Win::ChannelRack);s.hide(Win::PianoRoll);
     s.raise(Win::Playlist);s.raise(Win::Mixer);
     s.dock_work=Some(work);
@@ -110,15 +122,16 @@ pub fn apply_startup_layout(s: &mut State) {
 /// Keeps where the windows inside the main window are, for the next start. The monitor, tapper and touch controller only
 /// once they have a place (opened in this run or an earlier one).
 pub fn save(s: &State) {
-    write("mixer_view",if s.mixer.layout==crate::rack_mixer::VIEW {"channel-strip"}else if crate::mixer::traditional(s) {"traditional"} else if s.mixer.layout==crate::mixer::COMPACT {"compact"} else {"full"});
+    write("mixer_view",if s.mixer.layout==crate::rack_mixer::VIEW {"channel-strip"}else if (crate::mixer::TRADITIONAL..crate::mixer::TRADITIONAL + 8).contains(&s.mixer.layout) {"traditional"} else if s.mixer.layout==crate::mixer::COMPACT {"compact"} else {"full"});
     write("mixer_traditional_layout",&s.mixer.traditional_layout.to_string());
-    for (w,k) in WINS {write(&format!("{k}_detached"),if s.native_detached.contains(&w){"1"}else{"0"});write(&format!("{k}_detached_open"),if s.shown(w){"1"}else{"0"});}
+    for (w,k) in DETACHABLE {write(&format!("{k}_detached"),if s.native_detached.contains(&w){"1"}else{"0"});write(&format!("{k}_detached_open"),if s.shown(w){"1"}else{"0"});}
     for (w, key) in WINS {
         if let Some(i) = w.slot() {
             let ws = s.wins[i];
             keep(key, &[ws.rect.x, ws.rect.y, ws.rect.w, ws.rect.h, switch(ws.maxed), switch(ws.mini)]);
         }
     }
+    write("window_channel_rack_open",if s.shown(Win::ChannelRack){"1"}else{"0"});
     keep(RACK, &[s.rack_pos.0, s.rack_pos.1, s.rack_size.0, s.rack_size.1]);
     for (key, pos, placed) in [(PERF, s.perf.pos, s.perf.placed), (TAPPER, s.tapper.pos, s.tapper.placed), (TOUCH, s.touch.pos, s.touch.placed)] {
         if placed {
@@ -170,7 +183,9 @@ mod tests {
             let mut c=os_ui::Canvas::new(w,h,1.).unwrap();a.paint(&mut c,None);
             let work=a.state.work_rect();let m=a.state.win_rect(Win::Mixer);let p=a.state.win_rect(Win::Playlist);
             assert_eq!((m.x,m.y,m.w),(work.x,work.y,work.w));
-            assert_eq!((p.x,p.y,p.w,p.bottom()),(work.x,m.bottom(),work.w,work.bottom()));
+            assert_eq!((p.x,p.w,p.bottom()),(work.x,work.w,work.bottom()));
+            let overlap=(Win::Mixer.min_size().1+Win::Playlist.min_size().1-work.h).max(0.);
+            assert!((m.bottom()-p.y-overlap).abs()<0.01);
             assert!(m.h>=Win::Mixer.min_size().1 && p.h>=Win::Playlist.min_size().1);
             assert!(a.state.shown(Win::Mixer)&&a.state.shown(Win::Playlist));
             assert!(!a.state.shown(Win::ChannelRack)&&!a.state.shown(Win::PianoRoll));
@@ -185,6 +200,24 @@ mod tests {
     /// Moved, resized, maximized and collapsed windows come back as they were at the next start; the monitor, tapper and
     /// touch controller open where they were left instead of centred.
     #[test]
+    fn vintage_mixer_restores_its_own_view() {
+        use crate::mixer::{self, TRADITIONAL, WIDE};
+        crate::vintage::set_enabled(true);
+        for (vintage, regular) in [(TRADITIONAL, WIDE), (WIDE, TRADITIONAL + 2)] {
+            let mut app = App::new(None);
+            mixer::set_regular_layout(&mut app.state, regular);
+            mixer::set_layout(&mut app.state, vintage);
+            save(&app.state);
+
+            let mut reopened = App::new(None);
+            restore(&mut reopened.state);
+            assert_eq!(mixer::view(&reopened.state), vintage);
+            assert_eq!(reopened.state.mixer.layout, regular);
+            assert_eq!(crate::settings_file::flag("vintage_full_mixer", false), vintage == WIDE);
+        }
+    }
+
+    #[test]
     fn windows_come_back_where_they_were() {
         let mut app = App::new(None);
         let s = &mut app.state;
@@ -198,11 +231,13 @@ mod tests {
         s.tapper.pos = (700.0, 420.0);
         s.tapper.placed = true;
         crate::mixer::set_layout(s,crate::mixer::TRADITIONAL);
+        s.raise(Win::ChannelRack);
         save(&app.state);
 
         let mut next = App::new(None);
         assert!(next.state.wins.iter().all(|w| w.maxed), "a new App starts with the defaults");
         restore(&mut next.state);
+        assert!(next.state.shown(Win::ChannelRack));
         let (a, b) = (&app.state, &next.state);
         assert_eq!(b.mixer.layout,crate::mixer::TRADITIONAL);
         for i in 0..3 {
@@ -300,8 +335,8 @@ pub fn project_snapshot(s:&State,plugins:&crate::plugins::Plugins)->serde_json::
         if let (Some(pos),Some(d))=(pos,plugins.descriptor(key)){editors.push(serde_json::json!({"key":key,"uid":d.uid(),"position":[pos.0,pos.1],"detached":h.window.as_ref().map_or(h.detached,|w|w.detached()),"open":h.window.is_some()}));}
     }
     #[cfg(not(windows))] let _=plugins;
-    let detached:Vec<_>=WINS.iter().map(|(w,_)|s.native_detached.contains(w)).collect();
-    let frames:Vec<_>=WINS.iter().map(|(w,_)|s.native_frames.iter().find(|(k,_)|k==w).map(|(_,f)|serde_json::json!([f.pos.0,f.pos.1,f.size.0,f.size.1,f.max]))).collect();
+    let detached:Vec<_>=DETACHABLE.iter().map(|(w,_)|s.native_detached.contains(w)).collect();
+    let frames:Vec<_>=DETACHABLE.iter().map(|(w,_)|s.native_frames.iter().find(|(k,_)|k==w).map(|(_,f)|serde_json::json!([f.pos.0,f.pos.1,f.size.0,f.size.1,f.max]))).collect();
     serde_json::json!({"version":1,"windows":wins,"rack":[s.rack_pos.0,s.rack_pos.1,s.rack_size.0,s.rack_size.1,s.shown(Win::ChannelRack)],"editors":editors,"detached":detached,"frames":frames})
 }
 pub fn write_project_layout(file:&mut os_flp::FlpFile,value:serde_json::Value){
@@ -317,11 +352,11 @@ fn project_layout(s:&State)->Option<serde_json::Value>{
 }
 pub fn restore_project_layout(s:&mut State){
     let Some(v)=project_layout(s)else{return};
-    if let Some(flags)=v["detached"].as_array().filter(|a|a.len()==WINS.len()) {
+    if let Some(flags)=v["detached"].as_array().filter(|a|a.len()==WINS.len() || a.len()==DETACHABLE.len()) {
         s.native_layout_generation=s.native_layout_generation.wrapping_add(1);
-        s.native_detached=WINS.iter().zip(flags).filter(|(_,on)|on.as_bool()==Some(true)).map(|((w,_),_)|*w).collect();
+        s.native_detached=DETACHABLE.iter().zip(flags).filter(|(_,on)|on.as_bool()==Some(true)).map(|((w,_),_)|*w).collect();
         s.native_frames.clear();
-        for (i,(w,_)) in WINS.iter().enumerate(){let a=&v["frames"][i];
+        for (i,(w,_)) in DETACHABLE.iter().enumerate(){let a=&v["frames"][i];
             let pos=|n:usize|a[n].as_i64().and_then(|v|i32::try_from(v).ok()).filter(|v|v.unsigned_abs()<100000);
             let size=|n:usize|a[n].as_u64().filter(|v|*v>0&&*v<=32768).map(|v|v as u32);
             if let (Some(x),Some(y),Some(width),Some(height))=(pos(0),pos(1),size(2),size(3)){s.native_frames.push((*w,MainWin{pos:(x,y),size:(width,height),max:a[4].as_bool().unwrap_or(false)}));}

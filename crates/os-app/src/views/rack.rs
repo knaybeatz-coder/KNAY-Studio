@@ -12,16 +12,26 @@ use super::{rgb, FrameInfo};
 use crate::app::{Action, Live, Scroll, State, Ui, Win};
 use crate::icons::{self, Icon};
 use crate::knobs::KnobId;
+use crate::vintage_rack_art as art;
 use crate::rack::{self as rk, FillHit, FillType, Tab};
 
 pub const ROW_H: f32 = 30.0;
 pub const STEP_W: f32 = 16.0;
+
+pub fn step_width(s: &State) -> f32 {
+    if s.vintage_2005 { 16.0 } else { STEP_W }
+}
+
 /// Default outer size (§1): 16 steps, FL's 499 px plus Lemon Studio's wider name button (§17).
 pub const DEFAULT_SIZE: (f32, f32) = (539.0 + rk::NAME_W - rk::FL_NAME_W, 246.0);
 /// Smallest height: one row (§5).
 pub const MIN_H: f32 = 96.0 + ROW_H;
 /// Space above the first row and below the last one inside the rows panel.
 const PAD: f32 = 18.0;
+
+fn row_padding(s: &State) -> f32 {
+    if s.vintage_2005 { 4.0 } else { PAD }
+}
 /// The Classic name button's face: the channel colour mixed this far toward the theme's neutral face (`clip_colors`
 /// stores new clip channels' colours through it).
 pub const NAME_MIX: f32 = 0.35;
@@ -51,6 +61,14 @@ pub struct Cols {
 }
 
 pub fn cols(s: &State) -> Cols {
+    if s.vintage_2005 {
+        // Compact vintage controls with real-sized labels and independent hit geometry.
+        let name_w = (64.0 * s.rack.name_pct as f32 / 100.0).round().max(40.0);
+        let delta = name_w - 64.0;
+        return Cols { name_x: 56.0, name_w, dx: -48.0 + delta,
+            slot_x: 125.0 + delta, step_x: 137.0 + delta,
+            loop_w: if s.rack.loop_mode { rk::LOOP_W } else { 0.0 } };
+    }
     let mix_off = if s.rack.show_mixer { 0.0 } else { rk::MIX_W };
     let name_w = (rk::NAME_W * s.rack.name_pct as f32 / 100.0).round();
     let dx = name_w - rk::FL_NAME_W - mix_off + 40.0;
@@ -60,21 +78,22 @@ pub fn cols(s: &State) -> Cols {
 /// Width of a window showing one step (§5: W = 259 + 16·(n − 1) in the default layout).
 pub fn base_w(s: &State) -> f32 {
     let c = cols(s);
-    259.0 + c.dx + c.loop_w
+    if s.vintage_2005 { c.step_x + step_width(s) + 16.0 + c.loop_w } else { 259.0 + c.dx + c.loop_w }
 }
 
 /// Smallest width (Lemon Studio's; FL's is 4 steps, §5): four beats of the project's signature, and never under the
 /// default 16 steps, below which the title bar's right group runs into the speaker and the "Channel rack" title.
 pub fn min_w(s: &State) -> f32 {
     let steps = (4 * rk::beat_steps(s)).max(16);
-    base_w(s) + STEP_W * (steps - 1) as f32
+    base_w(s) + step_width(s) * (steps - 1) as f32
 }
 
 /// Snap a dragged size so whole steps and rows appear (§5), at least [`min_w`] and one row.
 pub fn snap_size(s: &State, w: f32, h: f32) -> (f32, f32) {
     let b = base_w(s);
-    let w = b + STEP_W * ((w - b) / STEP_W).round();
-    let h = 96.0 + ROW_H * ((h - 96.0) / ROW_H).round();
+    let w = b + step_width(s) * ((w - b) / step_width(s)).round();
+    let pitch = if s.vintage_2005 { 28.0 } else { ROW_H };
+    let h = 96.0 + pitch * ((h - 96.0) / pitch).round();
     (w.max(min_w(s)), h.max(MIN_H))
 }
 
@@ -86,7 +105,7 @@ fn plain_steps(notes: &[os_model::Note], ch: u16) -> bool {
 
 /// The window's outer rectangle.
 pub fn rect(s: &State) -> Rect {
-    Rect::new(s.rack_pos.0, s.rack_pos.1, s.rack_size.0, s.rack_size.1)
+    Rect::new(s.rack_pos.0, s.rack_pos.1, if s.vintage_2005 { s.rack_size.0.max(min_w(s)) } else { s.rack_size.0 }, s.rack_size.1)
 }
 
 /// Where the window paints: its rect and the graph editor, which hangs below it (§14).
@@ -114,7 +133,7 @@ pub fn panel(win: Rect) -> Rect {
 
 /// Steps that fit the window width (§3: 16 at the default width, 36 at 819 px).
 pub fn visible_steps(s: &State) -> u32 {
-    (((s.rack_size.0 - base_w(s)) / STEP_W).floor() as i32 + 1).max(1) as u32
+    (((rect(s).w - base_w(s)) / step_width(s)).floor() as i32 + 1).max(1) as u32
 }
 
 /// A shown row: its channel, the content offset of its name button top, and whether it is zipped (§17).
@@ -123,21 +142,22 @@ pub struct RowPos {
     pub row: usize,
     pub top: f32,
     pub zipped: bool,
+    pitch: f32,
 }
 
 impl RowPos {
     pub fn pitch(&self) -> f32 {
-        if self.zipped { rk::ZIP_H } else { ROW_H }
+        if self.zipped { rk::ZIP_H } else { self.pitch }
     }
 }
 
 pub fn layout(s: &State) -> Vec<RowPos> {
-    let mut y = PAD + 2.0;
+    let mut y = row_padding(s) + 2.0;
     rk::shown(s)
         .into_iter()
         .map(|row| {
             let zipped = s.rack.zipped.contains(&row);
-            let p = RowPos { row, top: y, zipped };
+            let p = RowPos { row, top: y, zipped, pitch: if s.vintage_2005 { 28.0 } else { ROW_H } };
             y += p.pitch();
             p
         })
@@ -151,7 +171,7 @@ pub fn rows_h(s: &State) -> f32 {
 
 /// Height of all rows plus the padding (content pixels for the vertical scroll bar).
 pub fn content_h(s: &State) -> f32 {
-    rows_h(s) + 2.0 * PAD
+    rows_h(s) + 2.0 * row_padding(s)
 }
 
 fn scroll(s: &State) -> f32 {
@@ -171,7 +191,7 @@ pub fn row_at(s: &State, y: f32) -> Option<usize> {
         return None;
     }
     layout(s).into_iter().find(|p| {
-        let band = row_y(s, p) - (ROW_H - 22.0) / 2.0;
+        let band = row_y(s, p) - if s.vintage_2005 {0.0}else{(ROW_H - 22.0) / 2.0};
         y >= band && y < band + p.pitch()
     }).map(|p| p.row)
 }
@@ -181,13 +201,13 @@ pub fn name_rect(s: &State, r: usize) -> Option<Rect> {
     let p = layout(s).into_iter().find(|p| p.row == r)?;
     let c = cols(s);
     let ry = row_y(s, &p);
-    Some(Rect::new(s.rack_pos.0 + c.name_x, ry, c.name_w, 26.0))
+    Some(Rect::new(s.rack_pos.0 + c.name_x, ry, c.name_w, if s.vintage_2005 { 28.0 } else { 26.0 }))
 }
 
 /// The step column under screen x `x` (any row), if inside the step area.
 pub fn step_at(s: &State, x: f32) -> Option<u32> {
     let c = cols(s);
-    let f = (x - (s.rack_pos.0 + c.step_x) + sx(s)) / STEP_W;
+    let f = (x - (s.rack_pos.0 + c.step_x) + sx(s)) / step_width(s);
     (f >= 0.0).then_some(f as u32)
 }
 
@@ -195,7 +215,7 @@ pub fn step_at(s: &State, x: f32) -> Option<u32> {
 fn sx(s: &State) -> f32 {
     let shown = visible_steps(s);
     let total = rk::pattern_steps(s).max(shown) + 256;
-    s.rack_scroll_x.clamp(0.0, ((total - shown) as f32 * STEP_W).max(0.0))
+    s.rack_scroll_x.clamp(0.0, ((total - shown) as f32 * step_width(s)).max(0.0))
 }
 
 /// Name width that fits the longest channel name (Options > Channel button width > Size to fit).
@@ -212,8 +232,8 @@ pub fn graph_rect(s: &State) -> Option<Rect> {
     let p = layout(s).into_iter().find(|p| p.row == s.selected_channel && !p.zipped)?;
     let c = cols(s);
     let x = s.rack_pos.0 + c.step_x - 2.0;
-    let w = visible_steps(s) as f32 * STEP_W + 3.0;
-    Some(Rect::new(x, row_y(s, &p) + 27.0, w, GRAPH_H))
+    let w = visible_steps(s) as f32 * step_width(s) + 3.0;
+    Some(Rect::new(x, row_y(s, &p) + if s.vintage_2005 {28.0} else {27.0}, w, GRAPH_H))
 }
 
 /// The columns of the steps playing at ticks `a` and `b` in pattern mode, when they differ: lit steps down the
@@ -230,7 +250,7 @@ pub fn step_columns(s: &State, a: f64, b: f64) -> Vec<Rect> {
     let inner = panel(win);
     let x0 = win.x + cols(s).step_x - sx(s);
     let bottom = win.bottom() - 22.0;
-    [ka, kb].into_iter().map(|k| Rect::new(x0 + STEP_W * k as f32 - 2.0, inner.y, STEP_W + 1.0, bottom - inner.y)).collect()
+    [ka, kb].into_iter().map(|k| Rect::new(x0 + step_width(s) * k as f32 - 2.0, inner.y, step_width(s) + 1.0, bottom - inner.y)).collect()
 }
 
 /// The bars area of the graph editor (above its tab row).
@@ -265,7 +285,12 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo) {
     let lemon = super::lemon(ui);
     let hv = crate::high_visibility::on();
     // Frame (§1). Lemon (spec: ui/lemon-design.md §5): one rounded outlined panel.
-    if lemon {
+    if t.style.vintage_2005 {
+        ui.c.fill_rect(win, Color::rgb(0x5f686d));
+        art::frame_left(ui.c, Rect::new(x,y,8.,h));
+        art::frame_right(ui.c, Rect::new(win.right()-6.,y,6.,h));
+        ui.c.fill_rect(Rect::new(x+8.,win.bottom()-2.,w-14.,2.),Color::rgb(0x20292e));
+    } else if lemon {
         lk::outlined(ui.c, win, lk::r_panel(t), t.window_border, t.window_body);
     } else {
         ui.c.fill_rect(win, t.window_border);
@@ -280,7 +305,10 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo) {
 
     // Rows panel (§1, §3).
     let inner = panel(win);
-    if lemon {
+    if t.style.vintage_2005 {
+        // The original has a continuous steel body, not a second boxed inset.
+        ui.c.fill_rect(Rect::span(x+8.,win.right()-6.,y+32.,inner.bottom()),Color::rgb(0x5f686d));
+    } else if lemon {
         lk::outlined(ui.c, inner.outset(1.0), lk::r_btn(t), t.rack_inset_border, t.rack_inset);
     } else {
         ui.c.fill_rect(inner.outset(1.0), t.rack_inset_border);
@@ -295,7 +323,7 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo) {
     let len = rk::pattern_steps(s);
     let sx = sx(s);
     let total_steps = len.max(steps_shown) + 256;
-    let first_step = (sx / STEP_W).floor() as u32;
+    let first_step = (sx / step_width(s)).floor() as u32;
     let per_step = rk::per_step(s);
     let (group, bars) = (rk::beat_steps(s), rk::pattern_bars(s, len * per_step));
     let pat = s.project.pattern(s.pattern);
@@ -303,7 +331,7 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo) {
     // Playback position (pattern mode): the current step (§16).
     let cur_step = (f.playing && !f.song).then(|| (f.tick / f64::from(per_step)).floor() as u32);
     let step_x0 = x + c.step_x;
-    let steps_right = (step_x0 + steps_shown as f32 * STEP_W - 2.0).min(rows_clip.right());
+    let steps_right = (step_x0 + steps_shown as f32 * step_width(s) - 2.0).min(rows_clip.right());
 
     ui.c.push_clip(rows_clip);
     for p in layout(s) {
@@ -315,7 +343,7 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo) {
         let ch = &s.project.channels[i];
         let focused = i == s.selected_channel;
         let selected = s.rack.sel.contains(&i);
-        let nb = Rect::new(x + c.name_x, ry, c.name_w, 26.0);
+        let nb = Rect::new(x + c.name_x, ry, c.name_w, if s.vintage_2005 { 28.0 } else { 26.0 });
         if p.zipped {
             // A zipped row: a 7 px bar in the name column (§17).
             let zr = Rect::new(nb.x, ry + 1.0, nb.w, 7.0);
@@ -328,20 +356,23 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo) {
             continue;
         }
         // Mute LED, or the padlock of a locked channel (§10).
-        let lr = Rect::new(x + 11.5, ry + 6.5, 12.0, 12.0);
+        let lr = Rect::new(x + if s.vintage_2005 { 3.0 } else { 11.5 }, ry + if s.vintage_2005 { 7.0 } else { 6.5 }, 12.0, 12.0);
         ui.hit(lr, Action::ChannelEnable(i), "Mute / solo  (shift/ctrl+)0..9");
         if s.rack.locked.contains(&i) {
             padlock(ui, x + 17.5, ry + 12.5, ch.enabled);
         } else {
-            rack_led(ui, x + 17.5, ry + 12.5, ch.enabled);
+            rack_led(ui, lr.cx(), lr.cy(), ch.enabled);
         }
         // Pan and volume knobs (§11).
-        ui.hit(Rect::new(x + 27.0, ry + 5.0, 15.0, 16.0), Action::Knob(KnobId::ChanPan(i)), s.knob_text(KnobId::ChanPan(i)));
-        row_knob(ui, x + 34.5, ry + 13.0, s.knob(KnobId::ChanPan(i)));
-        ui.hit(Rect::new(x + 44.0, ry + 5.0, 15.0, 16.0), Action::Knob(KnobId::ChanVol(i)), s.knob_text(KnobId::ChanVol(i)));
-        row_knob(ui, x + 51.5, ry + 13.0, s.knob(KnobId::ChanVol(i)));
+        for (cx, id) in [(if s.vintage_2005 {26.}else{34.5},KnobId::ChanPan(i)),
+            (if s.vintage_2005 {44.}else{51.5},KnobId::ChanVol(i))] {
+            let cy=ry+if s.vintage_2005 {14.}else{13.};
+            let radius=if s.vintage_2005 {8.} else {7.5};
+            ui.hit(Rect::new(x+cx-radius,cy-radius,2.*radius,2.*radius),Action::Knob(id),s.knob_text(id));
+            row_knob(ui,x+cx,cy,s.knob(id),matches!(id,KnobId::ChanPan(_)));
+        }
         // Mixer track box (§12).
-        if s.rack.show_mixer {
+        if s.rack.show_mixer && !s.vintage_2005 {
             let mb = Rect::span(x + 66.0, x + 99.0, ry + 1.0, ry + 25.0);
             let mhov = ui.hit(mb, Action::RackMixer(i), format!("Target mixer track: {} (click to choose; drag to mixer; wheel to change)", insert_name(ch.mixer_track)));
             let face = match (s.rack.colorful, ch.color) {
@@ -362,13 +393,21 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo) {
             ui.c.text_right(nf, x + 91.0, (mb.cy() - lh / 2.0).round(), num_c, &label);
             spin_mark(ui, x + 94.0, ry + 13.0, t.text_dim.shade(-0.1));
         }
+        if !s.vintage_2005 {
         let px = x + c.name_x - 40.0;
         ui.hit(Rect::new(px, ry + 4.0, 18.0, 20.0), Action::Knob(KnobId::ChanPitch(i)), s.knob_text(KnobId::ChanPitch(i)));
-        row_knob(ui, px + 9.0, ry + 13.0, s.knob(KnobId::ChanPitch(i)));
+        row_knob(ui, px + 9.0, ry + 13.0, s.knob(KnobId::ChanPitch(i)), false);
         let follow = Rect::new(px + 20.0, ry + 5.0, 16.0, 17.0);
-        ui.hit(follow, Action::RackPitchFollow(i), "Global Pitch Follow: toggle without changing the current pitch");
-        ui.c.fill_rrect(follow, 3.0, if ch.misc.main_pitch { t.accent } else { t.button_hi });
-        ui.c.text_center(Font::new(10), follow, if ch.misc.main_pitch { Color::rgb(0x000000) } else { Color::rgb(0xffffff) }, "G");
+        let hov=ui.hit(follow, Action::RackPitchFollow(i), "Global Pitch Follow: toggle without changing the current pitch");
+        if t.style.vintage_2005 {
+            os_ui::kit::bordered(ui.c, follow, 0.0, t.window_border, t.sunken);
+            ui.c.text_center(Font::new(10), follow, if ch.misc.main_pitch { t.accent } else { t.text_dim }, "G");
+        } else {
+            ui.c.fill_rrect(follow, 3.0, if ch.misc.main_pitch { t.accent } else { t.button_hi });
+            ui.c.text_center(Font::new(10), follow, if ch.misc.main_pitch { Color::rgb(0x000000) } else { Color::rgb(0xffffff) }, "G");
+        }
+        if hov {ui.c.stroke_rrect(follow,3.,1.5,t.glyph);}
+        }
         // Name button (§13): the channel colour fills the face.
         let nhov = ui.hit(nb, Action::ChannelSelect(i), "Click: plugin window, Shift+click: rename, right-click: channel menu");
         let base = ch.color.map_or(t.name_button, |col| rgb(col).mix(t.name_button, NAME_MIX));
@@ -376,7 +415,10 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo) {
         let face = if nhov { face.shade(0.06) } else { face };
         // The name text is brighter under High visibility (`crate::high_visibility::rack_name`).
         let name_c = crate::high_visibility::rack_name(t, lemon, hv);
-        let col = if lemon {
+        let col = if t.style.vintage_2005 {
+            art::name(ui.c,nb,ch.color.map(rgb),nhov);
+            t.text
+        } else if lemon {
             let col = lk::name_button(ui.c, t, nb, ch.color.map(rgb), focused, nhov);
             if focused { col } else { name_c }
         } else {
@@ -387,23 +429,36 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo) {
             if focused { col.shade(0.25) } else { col }
         };
         let label = ch.name.clone().unwrap_or_else(|| format!("Channel {}", ch.index + 1));
-        let nf = Font::new(14);
+        let nf = if s.vintage_2005 { Font::vintage(11) } else { Font::new(14) };
         let label = shorten(ui, nf, &label, nb.w - 8.0);
         ui.c.push_clip(nb.inset(1.0));
         if s.rack.align_left {
             let lh = ui.c.line_height(nf);
             ui.c.text(nf, nb.x + if lemon { 9.0 } else { 5.0 }, (nb.cy() - lh / 2.0).round(), col, &label);
         } else {
-            ui.c.text_center(nf, nb, col, &label);
+            let label_rect=nb;
+            if s.vintage_2005 {
+                ui.c.text_center(nf,Rect::new(label_rect.x+1.,label_rect.y+1.,label_rect.w,label_rect.h),Color::rgb(0x333d42),&label);
+            }
+            ui.c.text_center(nf, label_rect, col, &label);
         }
         ui.c.pop_clip();
+        if s.vintage_2005 {
+            let route = Rect::new(nb.right()-18., nb.y+1., 17., nb.h-2.);
+            ui.hit(route, Action::RackMixer(i), format!("Target mixer track: {}", insert_name(ch.mixer_track)));
+
+        }
         // Activity / select slot (§8, §16).
-        let slot = Rect::span(x + c.slot_x, x + c.slot_x + 6.0, ry + 2.0, ry + 24.0);
+        let slot = Rect::span(x + c.slot_x, x + c.slot_x + 6.0, ry + if s.vintage_2005 { 7.0 } else { 2.0 }, ry + if s.vintage_2005 { 22.0 } else { 24.0 });
         let sel_hit = Rect::span(x + c.slot_x - 4.0, x + c.slot_x + 10.0, ry, ry + 26.0);
-        ui.hit(sel_hit, Action::RackSelect(i), "Select (Up/Down)");
+        let sel_hover=ui.hit(sel_hit, Action::RackSelect(i), "Select (Up/Down)");
+        if sel_hover {ui.c.stroke_rrect(slot.outset(2.),3.,1.,t.glyph);}
         ui.live(Live::Sounding, slot);
         let sounding = f.sounding.iter().any(|&(n, _)| n == ch.index) && ch.enabled;
-        if lemon {
+        if t.style.vintage_2005 {
+            let body=Rect::new(slot.x-5.,ry,17.,28.);
+            if selected || sounding { art::selector_on(ui.c,body); } else { art::selector_off(ui.c,body); }
+        } else if lemon {
             let fill = if sounding { t.accent } else { ui.t.s(0x2b2d2f) };
             lk::outlined(ui.c, slot, 3.0, ui.t.s(0x1f2224), fill);
             if selected {
@@ -415,7 +470,7 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo) {
             let slot_fill = if sounding { ui.t.tx(0xd8dcde) } else { ui.t.s(0x2b2d2f) };
             ui.c.fill_rect(slot.inset(1.0), slot_fill);
         }
-        if selected && !lemon {
+        if selected && !lemon && !s.vintage_2005 {
             let fr = Rect::span(x + c.slot_x - 1.0, x + c.slot_x + 7.0, ry, ry + 26.0);
             ui.c.fill_rect(Rect::new(fr.x, fr.y, fr.w, 2.0), t.accent);
             ui.c.fill_rect(Rect::new(fr.x, fr.bottom() - 2.0, fr.w, 2.0), t.accent);
@@ -438,14 +493,15 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo) {
             }
             ui.hit(block.intersect(&rows_clip),Action::ChannelSelect(i),"Audio waveform: click for sample settings; right-click for channel menu");
         } else if s.rack_roll_view || !plain_steps(notes, ch.index) {
-            let block = Rect::span(step_x0 - 2.0, steps_right + 2.0, ry - 2.0, ry + 28.0);
+            let block = Rect::span(step_x0 - 2.0, steps_right + 2.0, ry - 2.0, ry + if s.vintage_2005 {26.0} else {28.0});
             mini_roll(ui, block, notes, ch.index, per_step, &bars, focused);
             ui.hit(block.intersect(&rows_clip), Action::RackRoll(i), "Piano roll preview - click to open the Piano roll");
         } else {
             let row_len = rk::row_len(s, i);
+            ui.hit(Rect::span(step_x0-1.,steps_right,ry,ry+p.pitch()).intersect(&rows_clip),Action::Swallow,"Step sequencer");
             ui.c.push_clip(step_area);
             for k in first_step..(first_step + steps_shown + 1) {
-                let sr = Rect::new(step_x0 + STEP_W * k as f32 - sx, ry + 4.0, 13.0, 19.0);
+                let sr = Rect::new(step_x0 + step_width(s) * k as f32 - sx, ry + if s.vintage_2005 {0.0} else {4.0}, step_width(s) - if s.vintage_2005 { 0.0 } else { 3.0 }, if s.vintage_2005 { 28.0 } else { 19.0 });
                 let on = rk::step_on(notes, ch.index, k, per_step);
                 let hov = ui.hit(sr.intersect(&step_area), Action::Step(i, k), "Step - click or drag to paint (left / right)");
                 step_button(ui, sr, (k / group) % 2 == 1, on, k >= row_len, hov, on && cur_step.is_some_and(|c| c % len.max(1) == k));
@@ -472,13 +528,39 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo) {
     if vbar {
         let track = Rect::span(inner.right() - 10.0, inner.right(), inner.y, inner.bottom());
         super::scrollbar(ui, track, true, scroll, view_h, total_h, Scroll::RackY);
+        if s.vintage_2005 {
+            ui.c.fill_rect(track,Color::rgb(0x414d54));
+            let thumb_h=(view_h/total_h*track.h).max(16.);
+            let top=track.y+scroll/(total_h-view_h).max(1.)*(track.h-thumb_h);
+            let thumb=Rect::new(track.x+1.,top,track.w-2.,thumb_h);
+            ui.c.fill_rect(thumb,Color::rgb(0x7c898e));
+            for i in 0..(thumb.h/4.) as u32 {
+                ui.c.fill_rect(Rect::new(thumb.x,thumb.y+i as f32*4.+1.,thumb.w,2.),Color::rgb(0x535f65));
+            }
+        }
     }
 
     // Footer (§4, §16).
-    add_button(ui, x + c.name_x, c.name_w, y + h);
+    if s.vintage_2005 {
+        crate::vintage_skin::native(ui.c,"FooterLeft",0,x,win.bottom()-24.);
+        crate::vintage_skin::draw(ui.c,"FooterMiddle",0,Rect::new(x+133.,win.bottom()-24.,w-135.,22.));
+        crate::vintage_skin::native(ui.c,"FooterRight",0,win.right()-2.,win.bottom()-24.);
+        let filter=Rect::new(x+10.,win.bottom()-24.,c.name_x+c.name_w-10.,20.);
+        let hot=ui.hit(filter,Action::RackFilter,"Channel display filter (PgUp/PgDn)");
+        ui.c.fill_rect(filter,Color::rgb(0x1a2429));
+        ui.c.fill_rect(filter.inset(2.),Color::rgb(0x060c0e));
+        ui.c.fill_rect(Rect::new(filter.x+2.,filter.y+1.,filter.w-4.,1.),Color::rgb(0x8e9b9c));
+        let label=match s.rack.filter {
+            rk::Filter::All=>"All", rk::Filter::Unsorted=>"Unsorted",
+            rk::Filter::Group(g)=>s.rack.groups.get(g).map_or("All",|g|g.name.as_str()),
+        };
+        ui.c.text_clip(Font::vintage(11),filter.x+4.,filter.y+3.,filter.w-18.,t.text,label);
+        icons::draw(ui.c,Icon::ArrowDown,Rect::new(filter.right()-12.,filter.y+6.,7.,7.),if hot {t.glyph}else{t.text_dim});
+        add_button(ui,x+c.slot_x-6.,18.,y+h);
+    } else { add_button(ui, x + c.name_x, c.name_w, y + h); }
     if let Some(k) = cur_step {
         let k = k % len.max(1);
-        let px = step_x0 + STEP_W * k as f32 - sx;
+        let px = step_x0 + step_width(s) * k as f32 - sx;
         if px >= step_x0 - 1.0 && px + 13.0 <= steps_right + 2.0 {
             if lemon {
                 ui.c.fill_rrect(Rect::new(px, y + h - 30.0, 13.0, 7.0), 2.5, t.accent);
@@ -488,14 +570,14 @@ pub fn paint(ui: &mut Ui, s: &State, f: &FrameInfo) {
         }
     }
     let track = Rect::span(x + c.slot_x + 8.0, x + w - 2.0, y + h - 13.0, y + h - 6.0);
-    let view = steps_shown as f32 * STEP_W;
-    super::scrollbar(ui, track, false, sx, view, total_steps as f32 * STEP_W, Scroll::RackX);
+    let view = steps_shown as f32 * step_width(s);
+    super::scrollbar(ui, track, false, sx, view, total_steps as f32 * step_width(s), Scroll::RackX);
     // Redraw the bar in the rack's own look: flat track, thin dark thumb, end chevrons (Classic only).
     if !lemon {
     ui.c.fill_rect(track, t.scrollbar);
     ui.c.fill_rect(Rect::new(track.x, track.y, 1.0, track.h), ui.t.s(0x181c1e));
     ui.c.fill_rect(Rect::new(track.right() - 1.0, track.y, 1.0, track.h), ui.t.s(0x181c1e));
-    let total_px = total_steps as f32 * STEP_W;
+    let total_px = total_steps as f32 * step_width(s);
     let tlen = (view / total_px * track.w).clamp(16.0f32.min(track.w), track.w.max(0.0));
     let max = (total_px - view).max(0.0);
     let off = if max > 0.0 { sx / max * (track.w - tlen) } else { 0.0 };
@@ -522,18 +604,58 @@ fn title_bar(ui: &mut Ui, s: &State, win: Rect, c: Cols, f: &FrameInfo) {
     let t = ui.t;
     let lemon = super::lemon(ui);
     let (x, y, r) = (win.x, win.y, win.right());
+    if s.vintage_2005 && crate::vintage_skin::available() {
+        native_title(ui,s,win,f);
+        return;
+    }
+    if s.vintage_2005 {
+        let q=0.75;
+        let old=ui.c.rescale(ui.c.scale*q);
+        let (hx,hy,hr)=(x/q,y/q,r/q);
+        art::header_middle(ui.c,Rect::new(hx,hy,win.w/q,32.));
+        art::header_left(ui.c,Rect::new(hx,hy,132.,32.));
+        art::header_swing(ui.c,Rect::new(hr-198.,hy,96.,32.),s.knob(KnobId::Swing));
+        art::header_graph(ui.c,Rect::new(hr-100.,hy,32.,32.));
+        art::header_roll(ui.c,Rect::new(hr-68.,hy,32.,32.));
+        ui.c.unscale(old);
+        let left=|dx,dy,w,h|Rect::new(x+dx*q,y+dy*q,w*q,h*q);
+        let right=|dx,dy,w,h|Rect::new(r-dx*q,y+dy*q,w*q,h*q);
+        for (b,action,hint,on) in [
+            (left(10.,4.,22.,24.),Action::RackOptions,"Channel options",false),
+            (left(72.,6.,20.,20.),Action::RackSpeaker,"Play pattern",f.playing && !f.song),
+            (left(94.,8.,14.,16.),Action::RackLoop,"Loop mode",s.rack.loop_mode),
+            (right(100.,2.,32.,28.),Action::RackGraph,"Graph editor",s.rack.graph_open),
+            (right(68.,2.,32.,28.),Action::RackRollView,"Step / piano roll view",s.rack_roll_view),
+        ] {
+            let hot=ui.hit(b,action,hint);
+            if on {ui.c.stroke_rrect(b.inset(1.),1.,1.,Color::rgb(0xd5ae76));}
+            else if hot {ui.c.fill_rect(b.inset(1.),Color::rgb(0xffffff).with_alpha(15));}
+        }
+        let length=left(34.,3.,24.,24.);
+        ui.hit(length,Action::RackLen,"Pattern length: drag or right-click");
+        if let Some(n)=rk::explicit_len(s) {
+            ui.c.fill_rect(length.inset(2.),Color::rgb(0x6e9395));
+            ui.c.text_center(Font::vintage(10),length,Color::rgb(0x233a3c),&n.to_string());
+        }
+        ui.hit(right(198.,3.,92.,26.),Action::Knob(KnobId::Swing),s.knob_text(KnobId::Swing));
+        let close=right(31.,3.,24.,24.);
+        let hot=ui.hit(close,Action::CloseWin(Win::ChannelRack),"Close");
+        icons::draw(ui.c,Icon::Close,close.inset(4.),if hot {t.glyph}else{t.text_dim});
+        return;
+    }
     let ohov = ui.hit(Rect::new(x + 8.0, y + 6.0, 16.0, 17.0), Action::RackOptions, "Channel options");
     ui.c.fill_polygon(&[(x + 14.0, y + 10.5), (x + 18.5, y + 14.0), (x + 14.0, y + 17.5)], if ohov { ui.t.tx(0xffffff) } else { ui.t.tx(0xc2c8cc) });
     ui.hit(Rect::new(x + 29.0, y + 4.0, 22.0, 23.0), Action::Knob(KnobId::MasterPitch), s.knob_text(KnobId::MasterPitch));
-    row_knob(ui, x + 40.0, y + 15.0, s.knob(KnobId::MasterPitch));
+    row_knob(ui, x + 40.0, y + 15.0, s.knob(KnobId::MasterPitch), false);
     ui.c.text(Font::new(8), x + 52.0, y + 3.0, t.text_dim, "Global pitch");
     ui.c.text(Font::new(10), x + 52.0, y + 14.0, t.text, &format!("{:+.2} st", s.project.main_pitch.unwrap_or(0) as f32 / 100.0));
     // Display filter combo (§7, §21).
     let follow=Rect::new(x+128.,y+5.,16.,20.);
     let all=crate::rack_controls::all_follow(s);
-    ui.hit(follow,Action::RackPitchFollow(usize::MAX),"Global Pitch Follow for all channels: preserve current pitch");
+    let hov=ui.hit(follow,Action::RackPitchFollow(usize::MAX),"Global Pitch Follow for all channels: preserve current pitch");
     ui.c.fill_rrect(follow,3.,if all {t.accent}else{t.button_hi});
     ui.c.text_center(Font::new(10),follow,if all {Color::rgb(0)}else{Color::rgb(0xffffff)},"G");
+    if hov {ui.c.stroke_rrect(follow,3.,1.5,t.glyph);}
     let combo = Rect::span(x + 147.0, x + c.name_x + c.name_w, y + 4.0, y + 27.0);
     let chov = ui.hit(combo, Action::RackFilter, "Channel display filter (PgUp/PgDn)");
     if lemon {
@@ -602,45 +724,49 @@ fn title_bar(ui: &mut Ui, s: &State, win: Rect, c: Cols, f: &FrameInfo) {
     }
     spin_mark(ui, r - 104.0, y + 15.0, ui.t.s(0x6f7476));
     // Loop mode (§7, §15): green outline when on.
-    let lr = Rect::new(r - 90.5, y + 5.0, 19.0, 19.0);
-    let lhov = ui.hit(lr, Action::RackLoop, "Loop mode");
-    let green = ui.t.a(0x8fd14a);
-    if lemon {
-        // Lemon: toggles are lit rounded squares with dark glyphs.
-        if s.rack.loop_mode {
-            lk::lit_in(ui.c, ui.t, lr, lk::r_btn(t), lhov);
-        } else if lhov {
-            ui.c.fill_rrect(lr, lk::r_btn(t), t.button_hi);
+    if crate::workspace_visibility::shown("visible_rack-loop") {
+        let lr = Rect::new(r - 90.5, y + 5.0, 19.0, 19.0);
+        let lhov = ui.hit(lr, Action::RackLoop, "Loop mode");
+        let green = ui.t.a(0x8fd14a);
+        if lemon {
+            // Lemon: toggles are lit rounded squares with dark glyphs.
+            if s.rack.loop_mode {
+                lk::lit_in(ui.c, ui.t, lr, lk::r_btn(t), lhov);
+            } else if lhov {
+                ui.c.fill_rrect(lr, lk::r_btn(t), t.button_hi);
+            }
+            crate::icons::draw(ui.c, crate::icons::Icon::Repeat, lr.inset(2.5), if s.rack.loop_mode { lk::ink_on_lit(ui.t) } else { t.glyph });
+        } else {
+            if s.rack.loop_mode || lhov {
+                ui.c.stroke_rrect(lr, 3.0, 1.0, if s.rack.loop_mode { green } else { t.glyph.shade(-0.3) });
+            }
+            crate::icons::draw(ui.c, crate::icons::Icon::Repeat, lr.inset(2.5), if s.rack.loop_mode { green } else if lhov { ui.t.tx(0xffffff) } else { t.glyph });
         }
-        ui.c.icon(&os_ui::tabler::REPEAT, lr.inset(2.5), if s.rack.loop_mode { lk::ink_on_lit(ui.t) } else { t.glyph });
-    } else {
-        if s.rack.loop_mode || lhov {
-            ui.c.stroke_rrect(lr, 3.0, 1.0, if s.rack.loop_mode { green } else { t.glyph.shade(-0.3) });
-        }
-        ui.c.icon(&os_ui::tabler::REPEAT, lr.inset(2.5), if s.rack.loop_mode { green } else if lhov { ui.t.tx(0xffffff) } else { t.glyph });
     }
     // Graph editor (§7, §14): blue outline when on.
-    let gx = r - 58.0;
-    let gr = Rect::new(gx - 9.5, y + 5.0, 19.0, 19.0);
-    let ghov = ui.hit(gr, Action::RackGraph, "Graph editor (Ctrl+K)");
-    let blue = ui.t.a(0x40a8e0);
-    let gc = if lemon {
-        if s.rack.graph_open {
-            lk::lit_in(ui.c, ui.t, gr, lk::r_btn(t), ghov);
-        } else if ghov {
-            ui.c.fill_rrect(gr, lk::r_btn(t), t.button_hi);
+    if crate::workspace_visibility::shown("visible_rack-graph") {
+        let gx = r - 58.0;
+        let gr = Rect::new(gx - 9.5, y + 5.0, 19.0, 19.0);
+        let ghov = ui.hit(gr, Action::RackGraph, "Graph editor (Ctrl+K)");
+        let blue = ui.t.a(0x40a8e0);
+        let gc = if lemon {
+            if s.rack.graph_open {
+                lk::lit_in(ui.c, ui.t, gr, lk::r_btn(t), ghov);
+            } else if ghov {
+                ui.c.fill_rrect(gr, lk::r_btn(t), t.button_hi);
+            }
+            if s.rack.graph_open { lk::ink_on_lit(ui.t) } else { t.glyph }
+        } else {
+            if s.rack.graph_open || ghov {
+                ui.c.stroke_rrect(gr, 3.0, 1.0, if s.rack.graph_open { blue } else { t.glyph.shade(-0.3) });
+            }
+            if s.rack.graph_open { blue } else if ghov { ui.t.tx(0xffffff) } else { t.glyph }
+        };
+        for (i, hgt) in [5.0, 9.0, 6.0, 11.0, 4.0].into_iter().enumerate() {
+            ui.c.fill_rect(Rect::new(gx - 7.0 + 3.0 * i as f32, y + 20.0 - hgt, 2.0, hgt), gc);
         }
-        if s.rack.graph_open { lk::ink_on_lit(ui.t) } else { t.glyph }
-    } else {
-        if s.rack.graph_open || ghov {
-            ui.c.stroke_rrect(gr, 3.0, 1.0, if s.rack.graph_open { blue } else { t.glyph.shade(-0.3) });
-        }
-        if s.rack.graph_open { blue } else if ghov { ui.t.tx(0xffffff) } else { t.glyph }
-    };
-    for (i, hgt) in [5.0, 9.0, 6.0, 11.0, 4.0].into_iter().enumerate() {
-        ui.c.fill_rect(Rect::new(gx - 7.0 + 3.0 * i as f32, y + 20.0 - hgt, 2.0, hgt), gc);
+        ui.c.fill_rect(Rect::new(gx - 8.0, y + 20.0, 16.0, 1.0), gc.shade(-0.3));
     }
-    ui.c.fill_rect(Rect::new(gx - 8.0, y + 20.0, 16.0, 1.0), gc.shade(-0.3));
     // Step sequencer / piano roll overview (§6).
     let roll_view = s.rack_roll_view;
     let sxc = r - 35.0;
@@ -685,6 +811,34 @@ fn title_bar(ui: &mut Ui, s: &State, win: Rect, c: Cols, f: &FrameInfo) {
 /// `odd`: in an odd colour group (red; a group is a beat of the project's signature, §23).
 fn step_button(ui: &mut Ui, r: Rect, odd: bool, on: bool, past_len: bool, hov: bool, playing: bool) {
     let t = ui.t;
+    if t.style.vintage_2005 {
+        match (odd,on) {
+            (false,false)=>art::step_gray(ui.c,r), (true,false)=>art::step_red(ui.c,r),
+            (false,true)=>art::step_gray_on(ui.c,r), (true,true)=>art::step_red_on(ui.c,r),
+        }
+        if past_len && !on {ui.c.fill_rect(r.inset(2.),Color::rgb(0).with_alpha(30));}
+        if hov {ui.c.fill_rect(r.inset(2.),Color::rgb(0xffffff).with_alpha(15));}
+        if playing {ui.c.fill_rect(Rect::new(r.x+5.,r.y+5.,r.w-10.,2.),t.record);}
+        return;
+    }
+    let finish = t.appearance.rack_steps.or(t.appearance.buttons);
+    if finish.is_some() || t.appearance.small_radius.is_some() {
+        let color = if on { t.step_on } else {
+            match (past_len, odd) {
+                (false, false) => t.step_a,
+                (false, true) => t.step_b,
+                (true, false) => t.step_dim_a,
+                (true, true) => t.step_dim_b,
+            }
+        };
+        let color = if hov { color.shade(0.1) } else { color };
+        os_ui::kit::styled_surface(ui.c, t, r, t.style.radius_small, t.rack_control_border, color, color,
+            finish.unwrap_or(os_theme::appearance::Finish::Beveled));
+        if playing {
+            ui.c.fill_rect(Rect::new(r.x + 3.0, r.y + 3.0, (r.w - 6.0).max(0.0), 2.0), t.record);
+        }
+        return;
+    }
     if super::lemon(ui) {
         return lk::step(ui.c, t, r, on, odd, past_len, hov, playing);
     }
@@ -726,8 +880,8 @@ fn graph_editor(ui: &mut Ui, s: &State, sx: f32, first: u32, shown: u32) {
     let x0 = s.rack_pos.0 + cols(s).step_x;
     let group = rk::beat_steps(s);
     for k in first..first + shown + 1 {
-        let cx = x0 + STEP_W * k as f32 - sx;
-        let col = Rect::new(cx - 1.0, bars.y, STEP_W, bars.h);
+        let cx = x0 + step_width(s) * k as f32 - sx;
+        let col = Rect::new(cx - 1.0, bars.y, step_width(s), bars.h);
         ui.c.fill_rect(col, if (k / group) % 2 == 0 { ui.t.s(0x1b1e20) } else { ui.t.s(0x202326) });
         ui.c.fill_rect(Rect::new(col.right() - 1.0, col.y, 1.0, col.h), ui.t.s(0x111315));
         let Some(n) = notes.iter().find(|n| n.position / ps == k) else { continue };
@@ -786,6 +940,15 @@ fn mini_roll(ui: &mut Ui, block: Rect, notes: &[os_model::Note], ch: u16, per_st
         ui.c.fill_rect(span, sep);
         ui.c.fill_rect(Rect::span(span.x, span.right(), span.y + 1.0, span.bottom() - 1.0), fill);
     }
+    if ui.t.style.vintage_2005 {
+        ui.c.fill_rect(block,Color::rgb(0x182629));
+        if !crate::vintage_skin::draw(ui.c,"SSPRView",0,block) {ui.c.fill_rect_gradient(block.inset(2.),Color::rgb(0x31474c),Color::rgb(0x596e70),0.);}
+        ui.c.fill_rect(Rect::new(block.x+1.,block.y+2.,2.,block.h-4.),Color::rgb(0xb3a05d));
+        for k in 1..16 {
+            let x=(block.x+block.w*k as f32/16.).round();
+            ui.c.fill_rect(Rect::new(x,block.y+2.,1.,block.h-4.),Color::rgb(0x93ada7).with_alpha(22));
+        }
+    }
     let mine: Vec<&os_model::Note> = notes.iter().filter(|n| n.channel == ch).collect();
     let lo = mine.iter().map(|n| n.key).min().unwrap_or(60);
     let hi = mine.iter().map(|n| n.key).max().unwrap_or(60);
@@ -795,24 +958,46 @@ fn mini_roll(ui: &mut Ui, block: Rect, notes: &[os_model::Note], ch: u16, per_st
         let nx = x_of(n.position);
         let len = if n.length == 0 { per_step } else { n.length };
         let nw = (len as f32 * scale - 1.0).max(2.0);
-        let t = if hi == lo { 0.5 } else { f32::from(n.key - lo) / range };
+        let t = if ui.t.style.vintage_2005 {
+            0.5+(f32::from(n.key)-(f32::from(lo)+f32::from(hi))*0.5)/range.max(24.)
+        } else if hi == lo { 0.5 } else { f32::from(n.key - lo) / range };
         let ny = (block.bottom() - 7.0 - t * (block.h - 10.0)).round();
-        ui.c.fill_rect(Rect::new(nx, ny, nw, 1.0), ui.t.a(0x698a6f));
-        ui.c.fill_rect(Rect::new(nx, ny + 1.0, nw, 3.0), ui.t.a(0x9ed1a5));
+        if ui.t.style.vintage_2005 {
+            ui.c.fill_rect(Rect::new(nx,ny,nw,2.),Color::rgb(0xa4bca9));
+            ui.c.fill_rect(Rect::new(nx,ny+2.,nw,1.),Color::rgb(0x78968a));
+        } else {
+            ui.c.fill_rect(Rect::new(nx, ny, nw, 1.0), ui.t.a(0x698a6f));
+            ui.c.fill_rect(Rect::new(nx, ny + 1.0, nw, 3.0), ui.t.a(0x9ed1a5));
+        }
     }
     ui.c.pop_clip();
 }
 
 /// Row knob (§3): dark ball, r 7, light pointer from the centre to the rim.
-fn row_knob(ui: &mut Ui, cx: f32, cy: f32, value: f32) {
+fn row_knob(ui: &mut Ui, cx: f32, cy: f32, value: f32, bipolar: bool) {
     let hov = ui.hovering(Rect::new(cx - 7.5, cy - 7.5, 15.0, 15.0));
-    os_ui::kit::knob(ui.c, ui.t, cx, cy, 7.5, value, false, os_ui::kit::KnobLook::Row, os_ui::kit::State::hover(hov));
+    if ui.t.style.vintage_2005 {
+        let r=Rect::new(cx-9.,cy-9.,18.,18.);
+        art::knob(ui.c,r,value);
+        // The channel gain reaches unity at the clockwise end of the dial.
+        if !bipolar && crate::workspace_visibility::shown(crate::vintage::GAIN_MARKS) {
+            ui.c.line(cx + 5.5, cy + 5.5, cx + 8.0, cy + 8.0, 1.0, crate::vintage::UNITY_INK);
+        }
+        if hov {ui.c.stroke_circle(cx,cy,7.,1.,Color::rgb(0xb8c4c6).with_alpha(90));}
+    } else {
+        os_ui::kit::knob(ui.c, ui.t, cx, cy, 7.5, value, bipolar, os_ui::kit::KnobLook::Row, os_ui::kit::State::hover(hov));
+    }
 }
 
 /// Enable LED (§3: ring r 5, green ball).
 fn rack_led(ui: &mut Ui, cx: f32, cy: f32, on: bool) {
     let hov = ui.hovering(Rect::new(cx - 6.0, cy - 6.0, 12.0, 12.0));
-    os_ui::kit::led(ui.c, ui.t, cx, cy, 5.0, os_ui::kit::State::hover(hov).with_on(on));
+    if ui.t.style.vintage_2005 {
+        let r=Rect::new(cx-7.,cy-7.,14.,14.);
+        if on {art::led_on(ui.c,r);} else {art::led_off(ui.c,r);}
+    } else {
+        os_ui::kit::led(ui.c, ui.t, cx, cy, 5.0, os_ui::kit::State::hover(hov).with_on(on));
+    }
 }
 
 /// The small green padlock of a locked channel (§10); dimmed when the channel is muted.
@@ -955,4 +1140,39 @@ pub fn paint_fill(ui: &mut Ui, s: &State) {
     let hov = ui.hit(ar, Action::RackFill(FillHit::Accept), "Write the sequence to the channel's steps (Enter)");
     os_ui::kit::button(ui.c, t, ar, os_ui::kit::State::hover(hov));
     ui.c.text_center(font, ar, t.text, "Accept");
+}
+
+/// Native 409 x 22 header: fixed ends and an extensible plain center.
+fn native_title(ui:&mut Ui,s:&State,win:Rect,f:&FrameInfo) {
+    use crate::vintage_skin as skin;
+    let (x,y,r)=(win.x,win.y,win.right());
+    skin::draw(ui.c,"RackMiddle",0,Rect::new(x,y,win.w,22.));
+    skin::native(ui.c,"RackLeft",0,x,y);
+    skin::native(ui.c,"RackSwing",0,r-154.,y);
+    skin::native(ui.c,"RackEnd",0,r-27.,y);
+    let swing=Rect::new(r-125.,y+2.,44.,16.);
+    ui.hit(swing,Action::Knob(KnobId::Swing),s.knob_text(KnobId::Swing));
+    let thumb=Rect::new(swing.x+s.knob(KnobId::Swing)*17.,y+1.,21.,13.);
+    if !skin::alpha_native(ui.c,"HSlider",0,thumb.x,thumb.y) {crate::vintage::metal(ui.c,thumb,Color::rgb(0x899297));}
+    let graph=Rect::new(r-78.,y,25.,22.);
+    let roll=Rect::new(r-53.,y,25.,22.);
+    skin::draw(ui.c,"SSFXBtns",usize::from(s.rack.graph_open),graph);
+    skin::draw(ui.c,"SSFXBtns",2+usize::from(s.rack_roll_view),roll);
+    for (rect,action,hint,on) in [
+        (Rect::new(x,y,17.,22.),Action::RackOptions,"Channel options",false),
+        (Rect::new(x+43.,y,13.,22.),Action::RackSpeaker,"Play pattern",f.playing && !f.song),
+        (Rect::new(x+56.,y+3.,12.,14.),Action::RackLoop,"Loop mode",s.rack.loop_mode),
+        (graph,Action::RackGraph,"Graph editor",s.rack.graph_open),
+        (roll,Action::RackRollView,"Step / piano roll view",s.rack_roll_view),
+    ] {
+        let hot=ui.hit(rect,action,hint);
+        if on {ui.c.fill_rect(Rect::new(rect.x+2.,rect.bottom()-3.,rect.w-4.,1.),Color::rgb(0xd4a778));}
+        else if hot {ui.c.fill_rect(rect.inset(2.),Color::rgb(0xffffff).with_alpha(16));}
+    }
+    let length=Rect::new(x+17.,y+1.,21.,19.);
+    ui.hit(length,Action::RackLen,"Pattern length: drag or right-click");
+    ui.c.text_center(Font::vintage(10),length,Color::rgb(0x233a3c),&rk::explicit_len(s).map_or("--".into(),|n|n.to_string()));
+    let close=Rect::new(r-20.,y+3.,14.,15.);
+    ui.hit(close,Action::CloseWin(Win::ChannelRack),"Close");
+    skin::native(ui.c,"MinClose",4,close.x,close.y);
 }

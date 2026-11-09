@@ -9,6 +9,8 @@
 // spec: plugins/fruity-parametric-eq-2.md, plugins/parametric-eq-2.md (the state's option table)
 
 pub mod design;
+pub mod dynamic;
+pub mod spectral;
 pub mod routed;
 mod equalizer;
 mod fft;

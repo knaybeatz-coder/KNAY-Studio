@@ -31,6 +31,8 @@ use super::*;
 pub struct KeyMsg {
     /// Hardware scancode as winit's `PhysicalKeyExtScancode` expects it (extended keys carry 0xE000).
     pub scancode: u32,
+    pub undo:bool,
+    pub shift:bool,
     pub pressed: bool,
     pub ctrl: bool,
     pub alt: bool,
@@ -78,6 +80,7 @@ unsafe extern "system" fn key_hook(code: i32, wp: WPARAM, lp: LPARAM) -> LRESULT
                 let in_frame = frame_of(focus).is_some();
                 let up = lp & (1 << 31) != 0;
                 let repeat = !up && lp & (1 << 30) != 0;
+                if in_frame && repeat && wp==usize::from(b'Z') && GetKeyState(i32::from(VK_CONTROL))<0 {return 1;}
                 if in_frame && !repeat {
                     let mut sc = ((lp >> 16) & 0xff) as u32;
                     if lp & (1 << 24) != 0 {
@@ -85,10 +88,10 @@ unsafe extern "system" fn key_hook(code: i32, wp: WPARAM, lp: LPARAM) -> LRESULT
                     }
                     let down = |vk: u16| GetKeyState(i32::from(vk)) < 0;
                     if let Ok(mut k) = KEYS.lock() {
-                        k.push(KeyMsg { scancode: sc, pressed: !up, ctrl: down(VK_CONTROL), alt: down(VK_MENU) });
+                        k.push(KeyMsg { scancode:sc,shift:down(windows_sys::Win32::UI::Input::KeyboardAndMouse::VK_SHIFT),undo:wp==usize::from(b'Z') && down(VK_CONTROL), pressed: !up, ctrl: down(VK_CONTROL), alt: down(VK_MENU) });
                     }
                     // The host owns project undo; do not also undo inside the native editor.
-                    if sc==0x2c && down(VK_CONTROL) {return 1;}
+                    if wp==usize::from(b'Z') && down(VK_CONTROL) {os_clap::wake();return 1;}
                 }
             }
         }
@@ -137,8 +140,23 @@ pub fn focus_main() {
     }
 }
 
+static CLICKED_TRACK:std::sync::atomic::AtomicUsize=std::sync::atomic::AtomicUsize::new(0);
+pub fn clicked_strip()->Option<u16>{CLICKED_TRACK.swap(0,Ordering::Relaxed).checked_sub(1).map(|t|t as u16)}
+unsafe extern "system" fn strip_mouse_hook(code:i32,wp:WPARAM,lp:LPARAM)->LRESULT{unsafe{
+    if code==0 && wp==WM_LBUTTONDOWN as usize && lp!=0 {
+        let mut hwnd=(*(lp as *const MOUSEHOOKSTRUCT)).hwnd;
+        let prop:Vec<u16>="LemonStripTrack".encode_utf16().chain(Some(0)).collect();
+        while !hwnd.is_null(){
+            let track=GetPropW(hwnd,prop.as_ptr()) as usize;
+            if track!=0 {CLICKED_TRACK.store(track,Ordering::Relaxed);break;}
+            hwnd=GetAncestor(hwnd,GA_PARENT);
+        }
+    }
+    CallNextHookEx(std::ptr::null_mut(),code,wp,lp)
+}}
 fn install_key_hook() {
     KEY_HOOK.call_once(|| unsafe {
+        SetWindowsHookExW(WH_MOUSE,Some(strip_mouse_hook),std::ptr::null_mut(),GetCurrentThreadId());
         SetWindowsHookExW(WH_KEYBOARD, Some(key_hook), std::ptr::null_mut(), GetCurrentThreadId());
     });
 }
@@ -412,8 +430,14 @@ impl FrameWindow {
     }
 
     /// The plugin's smallest editor size when the frame's edges may resize it (`None`: a fixed size).
+    pub fn enable_wave_zoom(&self) {
+        self.state.borrow_mut().wave_zoom=true;
+        self.set_resizable(None);
+    }
+
     pub fn set_resizable(&self, min: Option<(f32, f32)>) {
         let mut st = self.state.borrow_mut();
+        let min=st.effective_resize_min(min);
         if st.resize_min != min {
             st.resize_min = min;
             if min.is_none() {
@@ -606,7 +630,7 @@ unsafe fn apply_clip(hwnd: HWND, state: &RefCell<State>) {
             expose();
         }
         SetWindowRgn(hwnd, rgn, 1); // the system owns `rgn` now
-        RedrawWindow(hwnd, std::ptr::null(), gained, RDW_INVALIDATE | RDW_ALLCHILDREN);
+        RedrawWindow(hwnd, std::ptr::null(), gained, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
         for r in [whole, old, gained, lost] {
             DeleteObject(r);
         }
@@ -656,6 +680,8 @@ unsafe extern "system" fn area_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM
                 }
                 Some(os_hostlink::Cmd::Automate) => LinkMsg::Automate(lp.max(0) as usize),
                 Some(os_hostlink::Cmd::Audio) => LinkMsg::Audio(lp != 0),
+                Some(os_hostlink::Cmd::SampleFit) => LinkMsg::SampleFit(lp),
+                Some(os_hostlink::Cmd::BrowseSample) if lp==1 => LinkMsg::LocateSample,
                 Some(os_hostlink::Cmd::BrowseSample) => LinkMsg::BrowseSample,
                 _ => return 0,
             };
@@ -696,6 +722,19 @@ unsafe extern "system" fn frame_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARA
         }
         let Some(w) = win_of(hwnd) else { return DefWindowProcW(hwnd, msg, wp, lp) };
         match msg {
+            WM_SETCURSOR if wp as HWND == hwnd && (lp as u32 & 0xffff)==HTCLIENT as u32 => {
+                let mut pt:POINT=std::mem::zeroed();
+                GetCursorPos(&mut pt);ScreenToClient(hwnd,&mut pt);
+                let st=w.state.borrow();
+                let edge=st.sizing.map(|s|(s.right,s.bottom)).or_else(||match part_at(&st,pt.x as f32/w.scale,pt.y as f32/w.scale){
+                    Some(Part::Edge{right,bottom})=>Some((right,bottom)),_=>None,
+                });
+                if let Some((right,bottom))=edge{
+                    let shape=if right && bottom {IDC_SIZENWSE} else if right {IDC_SIZEWE} else {IDC_SIZENS};
+                    SetCursor(LoadCursorW(std::ptr::null_mut(),shape));return 1;
+                }
+                DefWindowProcW(hwnd,msg,wp,lp)
+            }
             WM_NCHITTEST => {
                 // The whole frame is client area; the title bar is moved by hand (WM_LBUTTONDOWN).
                 HTCLIENT as LRESULT
@@ -765,6 +804,7 @@ unsafe extern "system" fn frame_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARA
             }
             WM_MOUSEMOVE => {
                 if w.state.borrow().track_drag.is_some() {
+                    let (x,y)=client_point(hwnd,lp,w.scale,false);w.state.borrow_mut().motion(x,y,false);
                     SetCursor(route_clip_cursor());
                     return 0;
                 }
@@ -1053,6 +1093,34 @@ fn screens() -> Vec<[i32; 4]> {
 
 /// Screen position for a new plugin window: right of the owner's left edge, below its toolbar (physical px; the
 /// offset is logical, so the window lands on the same part of the layout at every scale).
+pub fn chop_placement(owner:isize,pos:(i32,i32),scale:f32,detached:bool,work:Option<[i32;4]>)->(f32,(i32,i32)){
+    use windows_sys::Win32::Graphics::Gdi::{MonitorFromPoint,GetMonitorInfoW,MONITORINFO,MONITOR_DEFAULTTONEAREST};
+    let bounds=unsafe{
+        if let Some([x,y,r,b])=work.filter(|_|!detached && owner!=0){
+            let mut origin=POINT{x:0,y:0};ClientToScreen(owner as HWND,&mut origin);
+            [x+origin.x,y+origin.y,r+origin.x,b+origin.y]
+        }else{
+            let mut info:MONITORINFO=std::mem::zeroed();info.cbSize=std::mem::size_of::<MONITORINFO>() as u32;
+            if GetMonitorInfoW(MonitorFromPoint(POINT{x:pos.0,y:pos.1},MONITOR_DEFAULTTONEAREST),&mut info)==0{return (scale,pos);}
+            [info.rcWork.left,info.rcWork.top,info.rcWork.right,info.rcWork.bottom]
+        }
+    };
+    fit_chop(bounds,pos,scale)
+}
+fn fit_chop([l,t,r,b]:[i32;4],pos:(i32,i32),scale:f32)->(f32,(i32,i32)){
+    let width=lemon_chop::view::W as f32+2.*BORDER;
+    let height=lemon_chop::view::H as f32+TITLE_H+STRIP_H+BORDER+1.;
+    let fit=scale.min((r-l).max(1) as f32/width).min((b-t).max(1) as f32/height);
+    (fit,(pos.0.clamp(l,(r-(width*fit).ceil() as i32).max(l)),pos.1.clamp(t,(b-(height*fit).ceil() as i32).max(t))))
+}
+#[test]
+fn chop_fits_below_toolbar_on_small_displays(){
+    for scale in [1.,1.25,1.5]{
+        let (k,(x,y))=fit_chop([200,85,1280,720],(420,160),scale);
+        assert!(x>=200 && y>=85 && x as f32+1054.*k<=1280.01 && y as f32+941.*k<=720.01);
+    }
+}
+
 pub fn default_position(owner: isize, scale: f32) -> (i32, i32) {
     let mut r: RECT = unsafe { std::mem::zeroed() };
     unsafe { GetWindowRect(owner as HWND, &mut r) };

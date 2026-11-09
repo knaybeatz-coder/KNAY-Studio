@@ -726,8 +726,12 @@ impl Played {
                     if let Some(ring) = slot.ring.get() {
                         let rel = lo.saturating_sub(KEEP).saturating_sub(feed.start);
                         if rel > feed.released {
+                            // The reader refills whole chunks. Wake it when that much new
+                            // space is available, rather than after every audio block.
+                            let refill_due = rel / CHUNK != feed.released / CHUNK;
                             feed.released = rel;
                             slot.used.store(pack(feed.req, rel), Ordering::Release);
+                            if refill_due { self.disk.wake(); }
                         }
                         let s = feed.start;
                         return Some(resample::read_by(n, pos, ratio, quality, |x| ring.at(x - s)));

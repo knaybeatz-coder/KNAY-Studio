@@ -147,6 +147,10 @@ impl App {
             self.midi_refresh(false);
         }
         let evs = self.midi.poll();
+        if self.state.vintage_2005 && !evs.is_empty() {
+            self.state.vintage_midi_until = Some(std::time::Instant::now() + std::time::Duration::from_millis(120));
+            self.damage_live(crate::app::Live::VintageMidi);
+        }
         self.midi_events(evs);
         self.midi_pending();
         self.ext_sync_tick();

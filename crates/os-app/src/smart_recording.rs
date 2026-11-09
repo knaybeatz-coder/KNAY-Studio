@@ -27,7 +27,13 @@ impl App {
         if !matches!(ch.kind,os_model::ChannelKind::Plugin){return false;}
         let arr=pl::arr_mut(s).number;
         let old=s.project.instrument_lanes.iter().find(|v|v.0==ch.index&&v.1==arr).copied();
-        let lane=old.map(|v|v.2).or_else(||(0..pl::TRACKS).find(|t|
+        // A played recording may already exist as a pattern before its first mixer assignment.
+        let existing=pl::clips(s).iter().enumerate().filter(|(_,clip)|match clip.source {
+            ClipSource::Pattern(n)=>s.project.pattern(n).is_some_and(|p|p.notes.iter().any(|note|note.channel==ch.index)),
+            ClipSource::Channel(id)=>id==ch.index,
+        }).max_by_key(|(i,clip)|(s.playlist.sel.contains(i),clip.track==s.playlist.track,
+            clip.source==ClipSource::Pattern(s.pattern),std::cmp::Reverse(*i))).map(|(_,clip)|clip.track);
+        let lane=old.map(|v|v.2).or(existing).or_else(||(0..pl::TRACKS).find(|t|
             !pl::clips(s).iter().any(|c|c.track==*t) && !s.project.instrument_lanes.iter().any(|v|v.1==arr&&v.2==*t)));
         let Some(lane)=lane else {s.message=Some("No empty playlist track available".into());return true;};
         let snap=Snap::Several(vec![Snap::ChannelRoute(row,ch.mixer_track),Snap::Playlist(Box::new(pl::capture(s))),
@@ -46,7 +52,7 @@ impl App {
 
     fn smart_automation_live(&self)->bool {
         Opt::Smart.on() && Opt::Automation.on() && self.state.rec.armed
-            && self.state.rec.count.is_none() && self.transport.playing() && !self.transport.paused()
+            && self.state.rec.count.is_none() && !self.pre_roll_active() && self.transport.playing() && !self.transport.paused()
     }
     pub(crate) fn smart_begin_host(&mut self,a:&Action) {
         if !self.smart_automation_live(){return;}
@@ -138,6 +144,23 @@ mod tests {
         assert_eq!(instrument_lane(&app.state).unwrap().1,1);
         assert_eq!(app.state.project.patterns[0].name.as_deref(),Some("My verse"));
         assert_eq!(app.state.project.patterns.len(),2);
+    }
+
+    #[test]
+    fn assigning_mixer_reuses_the_recorded_playlist_row() {
+        use crate::playlist as pl;
+        let mut app = App::new(None);
+        app.state.project = crate::app::test_project();
+        app.state.project.channels[0].kind = os_model::ChannelKind::Plugin;
+        app.state.project.patterns[0].notes.push(os_model::Note::step(0, 0));
+        let clip = os_model::Clip::new(384, 384, 3, ClipSource::Pattern(1));
+        pl::arr_mut(&mut app.state).clips = vec![clip];
+        app.route_sample_to(0, 5);
+        assert_eq!(instrument_lane(&app.state), Some((3, 1)));
+        assert_eq!(app.state.project.channels[0].mixer_track, 5);
+        let clips = pl::clips(&app.state);
+        assert_eq!(clips.len(), 1);
+        assert_eq!((clips[0].track, clips[0].position), (3, 384));
     }
 
     #[test]

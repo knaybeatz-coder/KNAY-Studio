@@ -414,6 +414,8 @@ pub struct Plugin {
     editor: bool,
     /// Device pixels per unit of the open editor's sizes: 1, except on macOS, where editors measure in points.
     editor_scale: f32,
+    #[cfg(target_os = "linux")]
+    editor_display: Option<(x11_dl::xlib::Xlib, *mut x11_dl::xlib::Display)>,
     queue: Vec<Note>,
     /// Automation values (frame offset, parameter index, value) for the next process call.
     auto: Vec<(u32, u32, f32)>,
@@ -477,6 +479,8 @@ impl Plugin {
             processing: false,
             editor: false,
             editor_scale: 1.0,
+            #[cfg(target_os = "linux")]
+            editor_display: None,
             queue: Vec::with_capacity(MAX_NOTES),
             auto: Vec::with_capacity(MAX_AUTO),
             mpe_channels:0,
@@ -709,7 +713,7 @@ impl Plugin {
     }
 
     /// Processes one piece (at most `MAX_FRAMES` frames): `input` is an effect's input, else the inputs are silent.
-    fn run(&mut self, left: &mut [f32], right: &mut [f32], input: Option<(&[f32], &[f32])>) {
+    fn run(&mut self, left: &mut [f32], right: &mut [f32], input: Option<(&[f32], &[f32])>, key: Option<(&[f32], &[f32])>) {
         let n = left.len();
         let max = MAX_FRAMES as usize;
         let base = self.scratch.as_mut_ptr();
@@ -730,7 +734,15 @@ impl Plugin {
                 _ => None,
             };
             self.in_ptrs.push(host.unwrap_or_else(|| {
-                unsafe { std::ptr::write_bytes(s, 0, n) };
+                let dest = unsafe { std::slice::from_raw_parts_mut(s,n) };
+                match (c,key) {
+                    (2,Some((l,r))) if self.ins==3 => {
+                        for ((out,a),b) in dest.iter_mut().zip(l).zip(r){*out=(*a+*b)*0.5;}
+                    }
+                    (2,Some((l,_)))=>dest.copy_from_slice(l),
+                    (3,Some((_,r)))=>dest.copy_from_slice(r),
+                    _=>dest.fill(0.),
+                }
                 s
             }));
         }
@@ -771,7 +783,7 @@ impl Plugin {
 
     /// Renders a host block in pieces: notes and automation inside it, the transport, an effect's input (`effect`: the
     /// buffers hold it, and get the output).
-    fn render(&mut self, rate: u32, left: &mut [f32], right: &mut [f32], effect: bool) {
+    fn render(&mut self, rate: u32, left: &mut [f32], right: &mut [f32], effect: bool,key:Option<(&[f32],&[f32])>) {
         self.start_processing();
         // Stable sorts: events at the same time keep their order (a note off before the next note on).
         self.queue.sort_by_key(|e| e.time);
@@ -790,9 +802,9 @@ impl Plugin {
                 ir.clear();
                 il.extend_from_slice(&left[a..b]);
                 ir.extend_from_slice(&right[a..b]);
-                self.run(&mut left[a..b], &mut right[a..b], Some((&il, &ir)));
+                self.run(&mut left[a..b], &mut right[a..b], Some((&il, &ir)),key.map(|(l,r)|(&l[a..b],&r[a..b])));
             } else {
-                self.run(&mut left[a..b], &mut right[a..b], None);
+                self.run(&mut left[a..b], &mut right[a..b], None,None);
             }
             at = end;
         }
@@ -840,7 +852,20 @@ impl Plugin {
             *s = None;
         }
         // The answer says little: many plugins return 0 for an editor they did open.
-        self.inst.dispatch(op::EDITOR_OPEN, 0, 0, parent, 0.0);
+        // Some Linux VST2 editors use both the host Display and the X11 window ID.
+        #[cfg(target_os = "linux")]
+        let display = {
+            let xlib = x11_dl::xlib::Xlib::open().map_err(|e| e.to_string())?;
+            let display = unsafe { (xlib.XOpenDisplay)(std::ptr::null()) };
+            if display.is_null() {
+                return Err("Could not open the X11 display for the VST2 editor".into());
+            }
+            self.editor_display = Some((xlib, display));
+            display as isize
+        };
+        #[cfg(not(target_os = "linux"))]
+        let display = 0;
+        self.inst.dispatch(op::EDITOR_OPEN, 0, display, parent, 0.0);
         self.editor = true;
         let (w, h) = self.rect().unwrap_or((400, 300));
         Ok(self.to_px(w, h))
@@ -858,6 +883,10 @@ impl Plugin {
     pub fn close_editor(&mut self) {
         if std::mem::take(&mut self.editor) {
             self.inst.dispatch(op::EDITOR_CLOSE, 0, 0, std::ptr::null_mut(), 0.0);
+            #[cfg(target_os = "linux")]
+            if let Some((xlib, display)) = self.editor_display.take() {
+                unsafe { (xlib.XCloseDisplay)(display) };
+            }
         }
     }
 
@@ -912,6 +941,21 @@ impl Plugin {
 }
 
 impl os_host::Plugin for Plugin {
+    fn programs(&self)->Vec<(u32,u32,String)> {
+        let count=self.inst.num_programs().clamp(0,16384);
+        (0..count).map(|i|{
+            let mut buf=[0u8;256];
+            // effGetProgramNameIndexed: query without switching the live instrument.
+            self.inst.dispatch(29,i,0,buf.as_mut_ptr().cast(),0.);
+            let name=text(&buf);
+            (0,i as u32,if name.is_empty(){format!("Program {}",i+1)}else{name})
+        }).collect()
+    }
+    fn select_program(&mut self,_:u32,index:u32)->bool{
+        if index>=self.inst.num_programs().max(0) as u32{return false;}
+        self.inst.dispatch(op::SET_PROGRAM,0,index as isize,std::ptr::null_mut(),0.);
+        true
+    }
     fn mpe_support(&self)->u8{1}
     fn desc(&self) -> &Descriptor {
         &self.desc
@@ -1120,7 +1164,7 @@ impl os_engine::Instrument for Plugin {
             os_host::wake();
             return;
         }
-        self.render(rate, left, right, false);
+        self.render(rate, left, right, false,None);
     }
 }
 
@@ -1134,7 +1178,12 @@ impl os_engine::HostedEffect for Plugin {
             os_host::wake();
             return;
         }
-        self.render(rate, left, right, true);
+        self.render(rate, left, right, true,None);
+    }
+
+    fn process_fx_keyed(&mut self, rate:u32,left:&mut [f32],right:&mut [f32],key:(&[f32],&[f32])){
+        if self.rate!=rate {return self.process_fx(rate,left,right);}
+        self.render(rate,left,right,true,Some(key));
     }
 
     fn reset_fx(&mut self) {

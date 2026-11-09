@@ -36,7 +36,7 @@ pub fn paint(ui: &mut Ui, s: &State, b: &LinkBox) {
     ui.c.text(f.bold(), r.x + 10.0, r.y + 7.0, t.text, "Remote control settings");
     let x = Rect::new(r.right() - 24.0, r.y + 4.0, 20.0, 20.0);
     let hov = hit(ui, x, RAct::Close, "Close (Esc)");
-    ui.c.icon(&os_ui::tabler::X, x.inset(3.0), if hov { t.glyph } else { t.text });
+    crate::icons::draw(ui.c, crate::icons::Icon::Close, x.inset(3.0), if hov { t.glyph } else { t.text });
     // The target's name.
     let name = crate::typein::caption(s, b.target);
     let field = Rect::new(r.x + 10.0, r.y + 32.0, r.w - 20.0, 22.0);

@@ -4,7 +4,7 @@ use crate::app::State;
 use crate::playlist::{Cmd, Mark, PItem, PickKind};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Control { Show(PickKind), Fades, ZeroCrossing, Step, Slide, NoteColor(u8) }
+pub enum Control { Show(PickKind), Select(PickKind), Fades, ZeroCrossing, Step, Slide, NoteColor(u8) }
 
 pub struct Controls {
     pub shown: Option<PickKind>,
@@ -29,8 +29,9 @@ pub fn run(s: &mut State, cmd: Control) {
     use crate::settings_file as sf;
     let c = &mut s.playlist.controls;
     match cmd {
-        Control::Show(k) => {
-            c.shown = if c.shown == Some(k) { None } else { Some(k) };
+        Control::Show(k) | Control::Select(k) => {
+            // View-menu visibility can toggle; category tabs must never hide the panel.
+            c.shown = if matches!(cmd,Control::Show(_)) && c.shown == Some(k) { None } else { Some(k) };
             sf::write("playlist_clip_controls", match c.shown { Some(PickKind::Audio) => "audio", Some(PickKind::Automation) => "automation", Some(PickKind::Pattern) => "pattern", _ => "hidden" });
         }
         Control::Fades => { c.fades = !c.fades; sf::set_flag("playlist_fade_controls", c.fades); }

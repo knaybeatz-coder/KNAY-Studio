@@ -109,6 +109,8 @@ impl NameTarget {
 pub struct Snap {
     pub text: Option<String>,
     pub base: Option<String>,
+    pub design: os_theme::Design,
+    native: Option<os_theme::Theme>,
 }
 
 /// What a change was, so a run of wheel notches on one knob is one undo step.
@@ -189,15 +191,25 @@ pub fn fix_text(text: &str, d: os_theme::Design) -> Option<String> {
 impl App {
     // ---- Undo / redo ----
 
-    fn snap(&self) -> Snap {
-        Snap { text: self.state.fl_text.clone(), base: self.state.theme_base.clone() }
+    pub(crate) fn snap_theme(&self) -> Snap {
+        let design = self.design();
+        let native = self.state.fl_text.is_none() && self.theme.colors != os_theme::design::palette(design, None);
+        Snap {
+            text: self.state.fl_text.clone(),
+            base: self.state.theme_base.clone(),
+            design,
+            native: native.then(|| self.theme.clone()),
+        }
     }
 
     /// Before a theme change: the state now goes on the undo list (one step for a run of wheel notches on one knob) and
     /// the redo list empties.
     pub(crate) fn theme_mark(&mut self, step: Step) {
+        self.theme_mark_snapshot(step, self.snap_theme());
+    }
+
+    pub(crate) fn theme_mark_snapshot(&mut self, step: Step, snap: Snap) {
         let now = Instant::now();
-        let snap = self.snap();
         let h = &mut self.state.settings.history;
         let run = matches!((h.last, step), (Some((Step::Wheel(a), t)), Step::Wheel(b)) if a == b && now.duration_since(t) < WHEEL_RUN);
         h.last = Some((step, now));
@@ -214,7 +226,7 @@ impl App {
     /// Theme undo (`redo` = redo): goes back to the last state that differs from now. Returns the message.
     pub(crate) fn theme_undo(&mut self, redo: bool) -> String {
         self.picker_close();
-        let now = self.snap();
+        let now = self.snap_theme();
         let h = &mut self.state.settings.history;
         h.last = None;
         let (from, to) = if redo { (&mut h.redo, &mut h.undo) } else { (&mut h.undo, &mut h.redo) };
@@ -243,9 +255,15 @@ impl App {
 
     /// Applies a theme state: the window, the skin and theme tiles, and `current.flstheme` (removed for none).
     pub(crate) fn theme_restore(&mut self, s: Snap) {
-        self.theme = crate::app::skin_theme(self.design(), &self.theme.name.clone(), s.text.as_deref());
+        let previous_design = self.design();
+        self.theme = self.state.settings.advanced_theme.as_ref().and_then(|edit| edit.original_for(&s))
+            .or(s.native)
+            .unwrap_or_else(|| crate::app::skin_theme(s.design, &self.theme.name.clone(), s.text.as_deref()));
+        if previous_design != s.design && self.state.settings.advanced_theme.is_none() {
+            crate::app::save_design(s.design);
+        }
         os_theme::set_current(&self.theme.colors);
-        if let Some(d) = crate::app::theme_dir() {
+        if self.state.settings.advanced_theme.is_none() && let Some(d) = crate::app::theme_dir() {
             match &s.text {
                 Some(t) => {
                     let _ = std::fs::create_dir_all(&d);
@@ -258,7 +276,11 @@ impl App {
         }
         self.state.fl_text = s.text;
         self.state.theme_base = s.base;
-        self.sync_preset();
+        if self.state.settings.advanced_theme.is_some() {
+            self.check_readable();
+        } else {
+            self.sync_preset();
+        }
         self.invalidate();
     }
 

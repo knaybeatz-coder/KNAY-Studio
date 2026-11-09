@@ -37,6 +37,8 @@ pub struct Hosted {
     pub ara_dirty: bool,
     pub ara_source: Option<String>,
     pub plugin: SharedPlugin,
+    /// Last program selected through the host, for the preset label and stepping.
+    pub preset_program: Option<(u32, u32, String)>,
     /// Processing time and voices, read without locking the instance (spec: ui/plugin-performance.md §3,
     /// audio/voices.md §5).
     pub meter: Option<Arc<os_host::Meter>>,
@@ -44,8 +46,8 @@ pub struct Hosted {
     pub name: String,
     #[cfg(plugin_windows)]
     pub window: Option<FrameWindow>,
-    #[cfg(windows)] pub rack_editor:Option<crate::strip_editor::Editor>,
-    #[cfg(windows)] pub rack_error:Option<String>,
+    #[cfg(any(windows,target_os="macos"))] pub rack_editor:Option<crate::strip_editor::Editor>,
+    #[cfg(any(windows,target_os="macos"))] pub rack_error:Option<String>,
     /// Set while the open editor belongs to a Lemon plugin that joined the strip (host link).
     #[cfg(plugin_windows)]
     pub link: Option<os_hostlink::Link>,
@@ -57,6 +59,7 @@ pub struct Hosted {
     /// A native instance started from a project's state that it did not give back byte for byte: a save keeps the
     /// file's bytes instead of this instance's state (spec: plugins/fruity-abi.md "Saved state").
     pub keep_file_state: bool,
+    pub native_import_edited: bool,
     /// A copy in another format standing in for the wrapped plugin a project names (`project_plugins::switched_format`),
     /// not edited by the user yet: a save leaves the channel's or slot's wrapper bytes as the file had them, so the named
     /// plugin and its settings stay in the project. Playback and automation moving its parameters are not edits; the
@@ -105,18 +108,20 @@ impl Hosted {
             ara_dirty: false,
             ara_source: None,
             plugin,
+            preset_program: None,
             meter,
             name,
             #[cfg(plugin_windows)]
             window: None,
-            #[cfg(windows)] rack_editor:None,
-            #[cfg(windows)] rack_error:None,
+            #[cfg(any(windows,target_os="macos"))] rack_editor:None,
+            #[cfg(any(windows,target_os="macos"))] rack_error:None,
             #[cfg(plugin_windows)]
             link: None,
             #[cfg(plugin_windows)]
             pending_editor_resize: None,
             stop_told: false,
             keep_file_state: false,
+            native_import_edited: false,
             stand_in: false,
             attention,
             seen: Look::never(),
@@ -139,7 +144,7 @@ impl Hosted {
         let count = a.count();
         #[cfg(plugin_windows)]
         let editor = self.window.is_some();
-        #[cfg(windows)] let editor=editor||self.rack_editor.is_some();
+        #[cfg(any(windows,target_os="macos"))] let editor=editor||self.rack_editor.is_some();
         #[cfg(not(plugin_windows))]
         let editor = false;
         (count != last.count || editor || now.duration_since(last.at) >= LOOK_EVERY).then_some(Look { count, at: now })
@@ -160,8 +165,10 @@ impl Hosted {
 /// What a plugin window asks of the app.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Request {
+    SampleFit(usize,isize),
     AraPlayback(usize,os_host::PlaybackRequest),
     BrowseSample(usize),
+    LocateSample(usize),
     Close(usize),
     ToggleOn(usize),
     Volume(usize, f64),
@@ -171,6 +178,10 @@ pub enum Request {
     PitchRange(usize, i32),
     Track(usize, u16),
     ShowTrack(usize),
+    #[cfg(target_os="linux")] Undo(bool),
+    WaveZoom(usize,u16),
+    TrackHoverEnd,
+    TrackHover(i32,i32),
     TrackDrop(usize,i32,i32),
     PickTrack(usize),
     /// A preview note from a Lemon plugin's own keyboard (host link): row, key, velocity, on.
@@ -186,6 +197,7 @@ pub enum Request {
     Raise(usize),
     /// The menu arrow was clicked: open the window menu at this screen point.
     Menu(usize, i32, i32),
+    SidechainMenu(usize,i32,i32),
     /// The title-bar Presets box was clicked: open the preset list at this screen point (spec: plugins/presets.md).
     Presets(usize, i32, i32),
     /// The Presets box arrows: next (+1) / previous (-1) preset.
@@ -195,6 +207,7 @@ pub enum Request {
     DropFile(usize, PathBuf),
     /// A Misc tab value changed (spec: ui/plugin-window.md "Misc tab").
     Misc(usize, crate::misc_page::M, f32),
+    CutSelf(usize),
     /// A Misc tab list asks for its menu at this screen point.
     MiscMenu(usize, crate::misc_page::M, i32, i32),
     /// A strip knob of channel row `.0` asks for its menu at this screen point.
@@ -224,6 +237,17 @@ fn earliest_over(open: impl Iterator<Item = (usize, u64)>, max: usize) -> Option
 }
 
 /// The `hosted` key of mixer track `track`'s slot `slot`.
+#[cfg(plugin_windows)]
+pub(crate) fn wave_zoom()->f32 {crate::prefs::text("wave_editor_percent").and_then(|s|s.parse::<u16>().ok()).unwrap_or(75).clamp(40,125) as f32/100.}
+#[cfg(windows)]
+impl Plugins {
+    pub(crate) fn wave_size(&mut self,row:usize,pct:u16){
+        if self.hosted.get(&row).is_some_and(|h|h.name=="Lemon Wave"){
+            crate::prefs::set_text("wave_editor_percent",&pct.to_string());
+            self.pending_scales.insert(row,self.scale);
+        }
+    }
+}
 pub fn fx_key(track: u16, slot: u8) -> usize {
     FX_KEY + usize::from(track) * 64 + usize::from(slot)
 }
@@ -236,6 +260,7 @@ pub fn fx_of(key: usize) -> Option<(u16, u8)> {
 #[derive(Default)]
 pub struct Plugins {
     pub defer_editor_scale:bool,
+    #[cfg(windows)] chop_workspace:Option<[i32;4]>,
     pending_scales:BTreeMap<usize,f32>,
     pub edit_revision: u64,
     #[cfg(test)] pub state_fail: std::collections::BTreeSet<usize>,
@@ -253,6 +278,7 @@ pub struct Plugins {
     /// The preset file each instance last loaded or saved (spec: plugins/presets.md), by `hosted` key.
     pub presets: BTreeMap<usize, PathBuf>,
     /// Presets dropped where a new instance is being made: they load once it is hosted (`presets::pending_tick`).
+    pub preview_jobs: Vec<crate::presets::PreviewJob>,
     pub preset_waits: Vec<(usize, PathBuf, std::time::Instant)>,
     /// Plugins (uids) whose file the last scan no longer found: not listed, kept so indices stay valid.
     pub missing: HashSet<String>,
@@ -344,7 +370,11 @@ pub fn load_file(path: &Path, format: os_host::Format) -> Result<Arc<dyn Library
 /// interop path (spec plugins/fruity-abi.md), so they stay off by default. Each is tried in a child process before
 /// its first load here (`Plugins::native_check`).
 pub fn native_files() -> Vec<PathBuf> {
-    if os_native::enabled() { os_native::dll_files() } else { Vec::new() }
+    if !os_native::enabled(){return Vec::new();}
+    if let Some(chosen)=crate::factory_folder::chosen().filter(|p|p.join("Plugins/Fruity").is_dir()){
+        return os_native::dll_files_in(&chosen);
+    }
+    os_native::dll_files()
 }
 
 /// A plugin file known from the scan cache: lists the cached plugins without loading the file, and loads it the first
@@ -353,7 +383,7 @@ struct LazyLibrary {
     path: PathBuf,
     format: os_host::Format,
     plugins: Vec<Descriptor>,
-    real: OnceLock<Result<Arc<dyn Library>, String>>,
+    real: OnceLock<Arc<dyn Library>>,
 }
 
 impl Library for LazyLibrary {
@@ -366,7 +396,14 @@ impl Library for LazyLibrary {
     }
 
     fn create(self: Arc<Self>, id: &str) -> Result<SharedPlugin, String> {
-        let real = self.real.get_or_init(|| load_file(&self.path, self.format)).clone()?;
+        // A missing dependency can become available after a rescan. Cache successful loads only.
+        let real = match self.real.get() {
+            Some(lib) => lib.clone(),
+            None => {
+                let lib = load_file(&self.path, self.format)?;
+                self.real.get_or_init(|| lib).clone()
+            }
+        };
         if !real.plugins().iter().any(|d| d.id == id) {
             return Err(format!("{} no longer offers this plugin: scan for plugins again", self.path.display()));
         }
@@ -551,9 +588,19 @@ impl Plugins {
         self.create_effect_inner(track,slot,index,state,true)
     }
     fn create_effect_inner(&mut self, track:u16,slot:u8,index:usize,state:Option<&[u8]>,strict:bool)->Result<String,String> {
-        let a = self.effects.get(index).ok_or("no such effect")?.clone();
         let key = fx_key(track, slot);
+        if self.effects.get(index).is_none() {
+            return Err("no such effect".into());
+        }
         self.drop_key(key);
+        let hosted = self.prepare_effect(index, state, strict)?;
+        let name = hosted.name.clone();
+        self.hosted.insert(key, hosted);
+        Ok(name)
+    }
+
+    pub(crate) fn prepare_effect(&mut self, index: usize, state: Option<&[u8]>, strict: bool) -> Result<Hosted, String> {
+        let a = self.effects.get(index).ok_or("no such effect")?.clone();
         self.native_check(&a.desc)?;
         let plugin = a.lib.clone().create(&a.desc.id)?;
         let mut p = plugin.lock().map_err(|_| "plugin busy")?;
@@ -567,8 +614,7 @@ impl Plugins {
             return Err(format!("{} could not start", a.desc.name));
         }
         drop(p);
-        self.hosted.insert(key, Hosted::new(plugin));
-        Ok(a.desc.name)
+        Ok(Hosted::new(plugin))
     }
 
     /// The user just added the instance under `key` (a new channel's plugin, a new effect in a slot): its window opens
@@ -592,6 +638,9 @@ impl Plugins {
 
     /// Remembers the preset the instance under `key` holds and shows its name in the window's Presets box.
     pub fn set_preset(&mut self, key: usize, path: Option<PathBuf>) {
+        if let Some(hosted) = self.hosted.get_mut(&key) {
+            hosted.preset_program = None;
+        }
         match path {
             Some(p) => self.presets.insert(key, p),
             None => self.presets.remove(&key),
@@ -605,6 +654,7 @@ impl Plugins {
     /// The name of the preset the instance under `key` holds.
     pub fn preset_name(&self, key: usize) -> Option<String> {
         self.presets.get(&key).map(|p| crate::presets::shown_name(p))
+            .or_else(|| self.hosted.get(&key)?.preset_program.as_ref().map(|(_, _, name)| name.clone()))
     }
 
     /// Moves mixer slot instances: `m(track, slot)` gives the new place, `None` drops the instance.
@@ -684,6 +734,7 @@ impl Plugins {
     pub fn mark_edited(&mut self, key: usize) {
         if let Some(h) = self.hosted.get_mut(&key) {
             h.stand_in = false;
+            if h.keep_file_state {h.keep_file_state=false;h.native_import_edited=true;}
             self.edit_revision = self.edit_revision.wrapping_add(1);
         }
     }
@@ -720,6 +771,10 @@ impl Plugins {
     /// listed names the plugin does not have; `None` when nothing is hosted under `key`.
     pub fn apply_params(&self, key: usize, list: &[(String, f64)]) -> Option<Vec<String>> {
         let mut p = self.hosted.get(&key)?.plugin.lock().ok()?;
+        Some(Self::apply_plugin_params(&mut *p, list))
+    }
+
+    pub(crate) fn apply_plugin_params(p: &mut dyn os_host::Plugin, list: &[(String, f64)]) -> Vec<String> {
         let infos: Vec<os_host::ParamInfo> = (0..p.param_count()).filter_map(|i| p.param_info(i)).collect();
         for i in infos.iter().filter(|i| !i.read_only && !i.bypass) {
             p.set_param(i.id, i.default);
@@ -735,7 +790,7 @@ impl Plugins {
                 None => missing.push(name.clone()),
             }
         }
-        Some(missing)
+        missing
     }
 
     /// The project-file state of the Lemon Parametric EQ in mixer slot `key` (its plugin state converted back),
@@ -875,6 +930,19 @@ impl Plugins {
         self.load_chop_sample(row, path) || (sampler && self.load_sample(row, path))
     }
 
+    pub(crate) fn browser_sample_to_plugin(&mut self,row:usize,path:&str)->bool {
+        if self.load_chop_sample(row,path) {return true;}
+        #[cfg(windows)]
+        if let Some((hwnd,_))=self.window_of(row) {
+            use windows_sys::Win32::{Foundation::RECT,UI::WindowsAndMessaging::GetWindowRect};
+            let mut r:RECT=unsafe {std::mem::zeroed()};
+            if unsafe {GetWindowRect(hwnd as _,&mut r)}!=0 {
+                return self.drop_file(row,(r.left+r.right)/2,(r.top+r.bottom)/2,path,false);
+            }
+        }
+        false
+    }
+
     /// Closes every window and drops every instance (a new or opened project).
     pub fn clear(&mut self) {
         self.pending_scales.clear();
@@ -942,7 +1010,7 @@ impl Plugins {
     /// its own (Tesla plays its sample) or show what it hears.
     pub fn editor_open(&self) -> bool {
         #[cfg(plugin_windows)]
-        return self.hosted.values().any(|h| {let open=h.window.is_some();#[cfg(windows)] let open=open||h.rack_editor.is_some();open});
+        return self.hosted.values().any(|h| {let open=h.window.is_some();#[cfg(any(windows,target_os="macos"))] let open=open||h.rack_editor.is_some();open});
         #[cfg(not(plugin_windows))]
         false
     }
@@ -950,7 +1018,7 @@ impl Plugins {
     /// Opens (or raises) row `row`'s plugin window.
     #[cfg(plugin_windows)]
     pub fn open_window(&mut self, row: usize, info: ChannelInfo) -> Result<(), String> {
-        #[cfg(windows)] self.close_rack(row);
+        #[cfg(any(windows,target_os="macos"))] self.close_rack(row);
         let (owner, scale) = (self.owner, self.scale);
         let h = self.hosted.get(&row).ok_or("not a plugin channel")?;
         if let Some(w) = &h.window {
@@ -971,12 +1039,21 @@ impl Plugins {
             (true, None) => crate::plugin_window::first_position(owner, scale, crate::prefs::check(&crate::prefs::DETACHED_WITH_MAIN)),
             (false, _) => crate::plugin_window::default_position(owner, scale),
         };
+        #[cfg(windows)]
+        let scale=if h.name=="Lemon Wave" {scale*wave_zoom()} else {scale};
         // Create the frame at a provisional size, embed the editor, then fit the frame to the editor's real size.
+        #[cfg(windows)]
+        let (scale,pos)=if h.plugin.lock().is_ok_and(|p|p.desc().name=="Lemon Chop" && crate::project_plugins::is_builtin(p.desc())){
+            crate::plugin_window::chop_placement(owner,pos,scale,h.detached,self.chop_workspace)
+        }else{(scale,pos)};
+        #[cfg(target_os="linux")]
+        let w=FrameWindow::with_zoom(owner,info,(560.,437.),pos,h.detached,if h.name=="Lemon Wave"{wave_zoom()}else{1.})?;
+        #[cfg(not(target_os="linux"))]
         let w = FrameWindow::new(owner, info, (560.0, 437.0), scale, pos, h.detached)?;
-        // Mixer effects have no channel strip (spec: ui/mixer.md §7).
-        if row >= FX_KEY {
-            w.set_strip(false);
-        }
+        #[cfg(target_os="macos")]
+        if h.name=="Lemon Wave" {w.set_editor_zoom(wave_zoom());}
+        // Keep the mixer routing target visible when opening a sample.
+        w.set_strip(row < FX_KEY && h.name == LEMON_SAMPLER);
         // The editor takes the frame's scale (on Linux the X server's, not the main window's).
         let k = w.scale();
         // The instance is locked only while its editor opens: the audio thread skips an instance it cannot lock, so
@@ -991,6 +1068,7 @@ impl Plugins {
             let size=result?;crate::rack_mixer::observe_editor(p.desc(),size,k);size
         };
         h.link = fit_editor(&w, size, k);
+        if h.name=="Lemon Wave" {w.enable_wave_zoom();}
         // On top: the app stacks it above its other windows (`State::raise`), and a new child window starts below
         // the open ones.
         w.raise();
@@ -1002,6 +1080,16 @@ impl Plugins {
             w.set_preset(name);
         }
         Ok(())
+    }
+
+    #[cfg(windows)]
+    pub(crate) fn update_chop_workspace(&mut self,work:[i32;4]){
+        if self.chop_workspace.replace(work)==Some(work){return;}
+        for (&row,h) in &self.hosted {
+            if !h.detached && h.window.is_some() && h.plugin.try_lock().is_ok_and(|p|p.desc().name=="Lemon Chop" && crate::project_plugins::is_builtin(p.desc())){
+                self.pending_scales.insert(row,self.scale);
+            }
+        }
     }
 
     /// The main window's DPI scale changed: docked windows follow it (detached ones follow their own monitor,
@@ -1021,11 +1109,18 @@ impl Plugins {
     /// scale when the editor opens (on macOS its sizes are measured at it). The plugin's page is kept.
     #[cfg(any(windows, target_os = "macos"))]
     fn rescale_window(&mut self, row: usize, scale: f32) {
+        let requested_scale=scale;
+        #[cfg(windows)]
+        let scale=if self.hosted.get(&row).is_some_and(|h|h.name=="Lemon Wave"){scale*wave_zoom()}else{scale};
         let Some(Hosted { plugin, window: Some(w), link, .. }) = self.hosted.get_mut(&row) else { return };
+        #[cfg(windows)]
+        let scale=if plugin.try_lock().is_ok_and(|p|p.desc().name=="Lemon Chop" && crate::project_plugins::is_builtin(p.desc())){
+            crate::plugin_window::chop_placement(self.owner,w.position().unwrap_or_default(),scale,w.detached(),self.chop_workspace).0
+        }else{scale};
         if w.scale() == scale {
             return;
         }
-        let Ok(mut p) = plugin.try_lock() else { self.pending_scales.insert(row,scale);return };
+        let Ok(mut p) = plugin.try_lock() else { self.pending_scales.insert(row,requested_scale);return };
         let page = link.as_ref().map(|l| l.page_now());
         p.close_editor();
         w.set_scale(scale);
@@ -1036,6 +1131,8 @@ impl Plugins {
                 None
             }
         };
+        #[cfg(windows)]
+        if p.desc().name=="Lemon Chop" && crate::project_plugins::is_builtin(p.desc()){w.move_into_workspace();}
         if let (Some(l), Some(page)) = (link.as_mut(), page) {
             l.set_page(page);
             w.set_page(l.page_now());
@@ -1045,7 +1142,7 @@ impl Plugins {
     #[cfg(plugin_windows)]
     pub(crate) fn close_window(&mut self, row: usize) {
         self.pending_scales.remove(&row);
-        #[cfg(windows)] self.close_rack(row);
+        #[cfg(any(windows,target_os="macos"))] self.close_rack(row);
         if let Some(h) = self.hosted.get_mut(&row) {
             h.pending_editor_resize = None;
             // The mode and place it reopens in (spec: ui/settings-choices.md "Miscellaneous: naming, detached plugins
@@ -1164,7 +1261,9 @@ impl Plugins {
         for (area, m) in crate::plugin_window::take_link() {
             let row = self.hosted.iter().find(|(_, h)| h.window.as_ref().is_some_and(|w| w.area() as isize == area)).map(|(&r, _)| r);
             match (row, m) {
+                (Some(row), crate::plugin_window::LinkMsg::SampleFit(code)) => out.push(Request::SampleFit(row,code)),
                 (Some(row), crate::plugin_window::LinkMsg::Note(k, v, on)) => out.push(Request::Note(row, k, v, on)),
+                (Some(row), crate::plugin_window::LinkMsg::LocateSample) => out.push(Request::LocateSample(row)),
                 (Some(row), crate::plugin_window::LinkMsg::BrowseSample) => out.push(Request::BrowseSample(row)),
                 (Some(row), crate::plugin_window::LinkMsg::Automate(i)) => out.push(Request::Automate(row, i)),
                 (_, crate::plugin_window::LinkMsg::Audio(_)) => out.extend(os_hostlink::take_audio().into_iter().map(|(p, ch)| Request::Audio(p, ch))),
@@ -1175,7 +1274,7 @@ impl Plugins {
             let look = h.due(h.seen);
             let mut menu: Option<(os_host::Menu, (i32, i32))> = None;
             #[cfg(plugin_windows)] let mut editor_layout = None;
-            #[cfg(windows)] let mut embedded_size = None;
+            #[cfg(any(windows,target_os="macos"))] let mut embedded_size = None;
             if let Some(mut p) = look.and_then(|_| h.plugin.try_lock().ok()) {
                 h.seen = look.unwrap_or(h.seen);
                 // A crash stopped it (spec: plugins/plugin-formats.md, "Crash containment"): said once, window closed.
@@ -1186,7 +1285,7 @@ impl Plugins {
                 }
                 p.idle();
                 out.extend(p.take_playback_requests().into_iter().map(|request|Request::AraPlayback(row,request)));
-                #[cfg(windows)] if let (Some(_),Some(size))=(&h.rack_editor,p.editor_size()){
+                #[cfg(any(windows,target_os="macos"))] if let (Some(_),Some(size))=(&h.rack_editor,p.editor_size()){
                     if !crate::rack_mixer::vertical_shape(size){p.close_editor();h.rack_editor=None;h.rack_error=Some("This plugin reported an invalid editor size.".into());}
                     else {embedded_size=Some(size);}
                 }
@@ -1198,7 +1297,7 @@ impl Plugins {
                         let k = w.scale();
                         w.editor_to_screen(m.at.0 as f32 / k, m.at.1 as f32 / k)
                     });
-                    #[cfg(windows)] let at=at.or_else(||h.rack_editor.as_ref().map(|e|e.screen_point((m.at.0,m.at.1))));
+                    #[cfg(any(windows,target_os="macos"))] let at=at.or_else(||h.rack_editor.as_ref().map(|e|e.screen_point((m.at.0,m.at.1))));
                     #[cfg(not(plugin_windows))]
                     let at: Option<(i32, i32)> = None;
                     match at {
@@ -1221,7 +1320,7 @@ impl Plugins {
             }
             // Native window moves/repaints may block in the OS. Do them after
             // releasing the audio plugin instance, not inside its processing lock.
-            #[cfg(windows)] if let Some(e)=&mut h.rack_editor {if let Some(size)=embedded_size {e.accept_size(size);}e.animate();}
+            #[cfg(any(windows,target_os="macos"))] if let Some(e)=&mut h.rack_editor {if let Some(size)=embedded_size {e.accept_size(size);}e.animate();}
             #[cfg(plugin_windows)]
             if let Some(w) = &h.window {
                 if let Some((resizable,size))=editor_layout {w.set_resizable(resizable);w.set_editor_size(size);}
@@ -1237,7 +1336,13 @@ impl Plugins {
                     // A resizable Lemon plugin (Tesla): the frame's edges resize it.
                     w.set_resizable(l.resizable().map(|(mw, mh)| (mw as f32, mh as f32)));
                 }
+                let wave=h.name=="Lemon Wave";
                 for e in w.take_events() {
+                    if let FrameEvent::ResizeFinished(ratio)=e {
+                        if wave {out.push(Request::WaveZoom(row,(wave_zoom()*ratio*100.).round().clamp(40.,125.) as u16));}
+                        continue;
+                    }
+                    if wave && matches!(e,FrameEvent::Resize(..)){continue;}
                     match (&e, &mut h.link) {
                         (FrameEvent::Page(n), Some(l)) => {
                             l.set_page(*n);
@@ -1255,7 +1360,7 @@ impl Plugins {
                         _ => {}
                     }
                     out.push(match e {
-                        FrameEvent::Page(_) | FrameEvent::Resize(..) => continue,
+                        FrameEvent::Page(_) | FrameEvent::Resize(..) | FrameEvent::ResizeFinished(_) => continue,
                         FrameEvent::Close => {
                             close.push(row);
                             Request::Close(row)
@@ -1267,13 +1372,18 @@ impl Plugins {
                         FrameEvent::PitchRange(r) => Request::PitchRange(row, r),
                         FrameEvent::Track(t) => Request::Track(row, t),
                         FrameEvent::ShowTrack => Request::ShowTrack(row),
+                        FrameEvent::TrackHoverEnd=>Request::TrackHoverEnd,
+                        FrameEvent::TrackHover(x,y)=>Request::TrackHover(x,y),
                         FrameEvent::TrackDrop(x,y) => Request::TrackDrop(row,x,y),
+                        #[cfg(target_os="linux")] FrameEvent::Undo(redo)=>Request::Undo(redo),
                         FrameEvent::PickTrack => Request::PickTrack(row),
                         FrameEvent::Raise => Request::Raise(row),
+                        FrameEvent::SidechainMenu(x,y)=>Request::SidechainMenu(row,x,y),
                         FrameEvent::Menu(x, y) => Request::Menu(row, x, y),
                         FrameEvent::Presets(x, y) => Request::Presets(row, x, y),
                         FrameEvent::PresetStep(d) => Request::PresetStep(row, d),
                         FrameEvent::DropFile(p) => Request::DropFile(row, p),
+                        FrameEvent::CutSelf => Request::CutSelf(row),
                         FrameEvent::Misc(m, v) => Request::Misc(row, m, v),
                         FrameEvent::MiscMenu(m, x, y) => Request::MiscMenu(row, m, x, y),
                         FrameEvent::KnobMenu(k, x, y) => {
@@ -1351,7 +1461,7 @@ impl Drop for Hosted {
     /// window with it, and the plugin's own close then crashed at exit). The instance itself is retired, not
     /// destroyed here: see [`sweep_retired`].
     fn drop(&mut self) {
-        #[cfg(windows)] if self.rack_editor.is_some(){if let Ok(mut p)=self.plugin.lock(){p.close_editor();}self.rack_editor=None;}
+        #[cfg(any(windows,target_os="macos"))] if self.rack_editor.is_some(){if let Ok(mut p)=self.plugin.lock(){p.close_editor();}self.rack_editor=None;}
         #[cfg(plugin_windows)]
         if self.window.is_some() {
             if let Ok(mut p) = self.plugin.lock() {
@@ -4163,8 +4273,19 @@ mod chop_drop_tests {
         let state=app.plugins.state(row).unwrap();let state:serde_json::Value=serde_json::from_slice(&state[8..]).unwrap();
         let doc:Document=serde_json::from_str(state["fields"]["chop-document"].as_str().unwrap()).unwrap();
         assert_eq!(doc.path,second.to_string_lossy());assert!(doc.cues.iter().all(|c|!c.enabled));assert!(doc.stems.iter().all(String::is_empty));
+        // Imported files start without pads. Map a cue before playing a MIDI pad.
+        let mut mapped = doc;
+        mapped.cues[0] = lemon_chop::params::Cue {
+            start: 0., end: 0.08, enabled: true, ..Default::default()
+        };
+        let mut state = state;
+        state["fields"]["chop-document"] = serde_json::json!(serde_json::to_string(&mapped).unwrap());
+        let payload = serde_json::to_vec(&state).unwrap();
+        let mut bytes = (payload.len() as u64).to_le_bytes().to_vec();
+        bytes.extend(payload);
+        app.plugins.create_with(row, app.plugins.index_of("Lemon Chop").unwrap(), Some(&bytes)).unwrap();
         let instrument=app.plugins.hosted[&row].plugin.clone();let until=std::time::Instant::now()+std::time::Duration::from_secs(5);let mut peak=0f32;
-        while std::time::Instant::now()<until {std::thread::sleep(std::time::Duration::from_millis(40));let mut i=instrument.lock().unwrap();i.note_on(0,127,1.);let(mut l,mut r)=([0.;512],[0.;512]);i.process(48000,&mut l,&mut r);peak=l.iter().fold(peak,|a,b|a.max(b.abs()));if peak>0.01{break;}}
+        while std::time::Instant::now()<until {std::thread::sleep(std::time::Duration::from_millis(40));let mut i=instrument.lock().unwrap();i.note_on(0,36,1.);let(mut l,mut r)=([0.;512],[0.;512]);i.process(48000,&mut l,&mut r);peak=l.iter().fold(peak,|a,b|a.max(b.abs()));if peak>0.01{break;}}
         assert!(peak>0.01,"dropped source is decoded and audible, not just saved as a path");
         app.plugins.clear();drop(instrument);let _=std::fs::remove_file(file);let _=std::fs::remove_file(second);let _=std::fs::remove_dir(dir);
     }

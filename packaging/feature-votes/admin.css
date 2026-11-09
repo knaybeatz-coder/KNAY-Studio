@@ -7,3 +7,22 @@
 #forum-review{margin-top:16px}.forum-body{white-space:pre-wrap;overflow-wrap:anywhere}#forum-review canvas{display:block;border-radius:6px;margin-top:8px}
 
 #forum-desk{margin-bottom:32px}#forum-desk label{display:grid;gap:6px;margin:12px 0}#forum-desk input:not([type=file]),#forum-desk textarea{width:100%;box-sizing:border-box}.owner-profile{display:flex;align-items:center;gap:20px;flex-wrap:wrap}.owner-profile canvas{width:48px;height:48px;border-radius:8px}.owner-profile label{flex:1;min-width:180px}
+
+/* Workspace sections stay compact when closed, with the same control on every row. */
+.desk-title{font-size:clamp(26px,4vw,38px);letter-spacing:-1px;margin:24px 0 12px}
+.desk-tools{display:flex;justify-content:flex-end;margin-bottom:10px}
+.desk-tools button{font-size:13px;padding:6px 12px}
+.desk-panel,#forum-desk{margin:0 0 10px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.desk-panel>summary{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;list-style:none;font-size:18px;border-radius:12px}
+.desk-panel>summary::-webkit-details-marker{display:none}
+.desk-panel>summary::after{content:"";width:8px;height:8px;border:solid var(--lime);border-width:0 2px 2px 0;transform:rotate(45deg);margin-right:4px}
+.desk-panel[open]>summary::after{transform:rotate(225deg)}
+.desk-panel>summary:hover{background:#253428}
+.desk-content{border-top:1px solid var(--line);padding:16px 18px}
+.desk-content .stats{margin-bottom:16px}
+.desk-content a{color:var(--lime)}
+#announcements label,#feedback-detail label:not(:has(input[type=checkbox])){display:grid;gap:4px;margin:12px 0 4px}
+#announcements input,#feedback-detail textarea,#feedback-detail input:not([type=checkbox]){width:100%}
+#feedback-detail textarea{font:inherit;color:var(--ink);background:var(--bg);padding:10px;border:1px solid var(--line);border-radius:9px;resize:vertical}
+#feedback-results{margin:14px 0}
+@media(max-width:700px){.desk-content{padding:12px}.desk-content select{max-width:100%}.desk-content .panel{padding:14px}}

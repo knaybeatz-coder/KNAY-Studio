@@ -36,6 +36,8 @@ fn convert(i: usize) -> Rect {
 }
 #[derive(Clone)]
 struct Snapshot {
+    name:String,
+    preview:f32,
     source: Source,
     selected: usize,
 }
@@ -52,9 +54,11 @@ pub struct Workbench {
     pub dirty: bool,
     pub selected: usize,
     sample: Option<crate::sample::Sample>,
+    morph: crate::morph_panel::Panel,
     selection: (f32, f32),
     count: usize,
     preview: f32,
+    last_scrub:Option<std::time::Instant>,
     undo: Vec<Snapshot>,
     redo: Vec<Snapshot>,
     drag: Option<Drag>,
@@ -73,9 +77,11 @@ impl Default for Workbench {
             dirty: false,
             selected: 0,
             sample: None,
+            morph:Default::default(),
             selection: (0.1, 0.5),
             count: 16,
             preview: 0.,
+            last_scrub:None,
             undo: vec![],
             redo: vec![],
             drag: None,
@@ -93,6 +99,7 @@ impl Workbench {
         let sources = p.sources();
         self.oscillator = o;
         self.sample = sources.samples[o].clone();
+        p.audition.stop(); self.morph.attach(self.sample.as_ref());
         self.source = if let Some(s) = sources.oscillators[o].clone() {
             s
         } else if p.base.v(if o == 0 {
@@ -128,6 +135,8 @@ impl Workbench {
             self.undo.remove(0);
         }
         self.undo.push(Snapshot {
+            name:self.name.clone(),
+            preview:self.preview,
             source: self.source.clone(),
             selected: self.selected,
         });
@@ -142,6 +151,8 @@ impl Workbench {
         };
         if let Some(s) = item {
             let current = Snapshot {
+                name:self.name.clone(),
+                preview:self.preview,
                 source: self.source.clone(),
                 selected: self.selected,
             };
@@ -150,13 +161,15 @@ impl Workbench {
             } else {
                 self.redo.push(current)
             }
+            self.name=s.name;
+            self.preview=s.preview;
             self.source = s.source;
             self.selected = s.selected;
             self.dirty = true;
         }
     }
     pub fn dragging(&self) -> bool {
-        self.drag.is_some()
+        self.drag.is_some() || self.morph.dragging()
     }
     fn point(x: f32, y: f32) -> (f32, f32) {
         (
@@ -165,6 +178,7 @@ impl Workbench {
         )
     }
     pub fn moved(&mut self, x: f32, y: f32) -> bool {
+        if self.morph.moved(x){return true;}
         match self.drag {
             Some(Drag::Wave(last)) => {
                 let next = Self::point(x, y);
@@ -186,6 +200,29 @@ impl Workbench {
             None => return false,
         }
         true
+    }
+    fn hear_position(&mut self, p: &WaveParams) {
+        let frame=self.preview*(self.source.frames()-1) as f32;
+        let left=frame as usize;
+        let right=(left+1).min(self.source.frames()-1);
+        let cycle:Vec<_>=(0..SIZE).map(|i|{
+            let a=self.source.samples[left*SIZE+i];
+            a+(self.source.samples[right*SIZE+i]-a)*frame.fract()
+        }).collect();
+        p.audition.play(crate::morph::audition(&cycle,false));
+        self.last_scrub=Some(std::time::Instant::now());
+    }
+    pub fn move_input(&mut self,x:f32,y:f32,p:&WaveParams)->bool{
+        let handled=self.moved(x,y);
+        if matches!(self.drag,Some(Drag::Preview)) && self.last_scrub.is_none_or(|last|last.elapsed().as_millis()>=40){
+            self.hear_position(p);
+        }
+        handled
+    }
+    pub fn cancel_drag(&mut self){self.drag=None;self.morph.cancel_drag();}
+    pub fn release_input(&mut self,p:&WaveParams)->bool{
+        if matches!(self.drag,Some(Drag::Preview)){self.hear_position(p);}
+        self.morph.release(self.sample.as_ref(),&p.audition)||self.release()
     }
     pub fn release(&mut self) -> bool {
         self.drag.take().is_some()
@@ -228,8 +265,26 @@ impl Workbench {
         }
         true
     }
+    pub fn import_recording(&mut self,path:&std::path::Path,p:&WaveParams){
+        match crate::sample::Sample::import(path,60.){
+            Ok(sample)=>{p.audition.stop();self.morph.attach(Some(&sample));self.sample=Some(sample);self.selection=(0.,1.);}
+            Err(error)=>self.morph.error(error),
+        }
+    }
     /// Returns a validated source only for an explicit Apply click.
     pub fn click(&mut self, x: f32, y: f32, p: &WaveParams) -> Option<Source> {
+        if y>=824. {
+            self.text=None;
+            if crate::morph_panel::LOAD.contains(x,y){
+                if let Some(path)=rfd::FileDialog::new().set_title("Open recording for Sample Morph").add_filter("WAV",&["wav"]).pick_file(){
+                    self.import_recording(&path,p);
+                }
+            }else if let Some(source)=self.morph.click(x,y,self.sample.as_ref(),&p.audition){
+                self.checkpoint();self.source=source;self.name=tools::suggested_name(&self.source.name);self.selected=0;self.preview=0.;
+                self.status="Morph is ready. Use Apply to Oscillator or Save to User Bank.".into();
+            }
+            return None;
+        }
         if BANK.contains(x, y) || NAME.contains(x, y) {
             let bank = BANK.contains(x, y);
             self.text = Some(bank);
@@ -262,13 +317,14 @@ impl Workbench {
                         } else if let Err(e) = self.source.validate() {
                             self.status = e;
                         } else {
+                            p.audition.stop();
                             self.dirty = false;
                             self.status="Applied. Synth Position scans these frames. Edits restart held notes.".into();
                             return Some(self.source.clone());
                         }
                     }
-                    4 => self.selected = self.selected.saturating_sub(1),
-                    5 => self.selected = (self.selected + 1).min(self.source.frames() - 1),
+                    4 => {self.selected = self.selected.saturating_sub(1);p.audition.play(crate::morph::audition(self.frame(),false));},
+                    5 => {self.selected = (self.selected + 1).min(self.source.frames() - 1);p.audition.play(crate::morph::audition(self.frame(),false));},
                     _ => {}
                 }
                 return None;
@@ -297,6 +353,7 @@ impl Workbench {
         if PREVIEW.contains(x, y) {
             self.drag = Some(Drag::Preview);
             self.moved(x, y);
+            self.hear_position(p);
             return None;
         }
         for i in 0..10 {
@@ -364,6 +421,7 @@ impl Workbench {
                 let frame = self.selected / 16 * 16 + i;
                 if frame < self.source.frames() {
                     self.selected = frame;
+                    p.audition.play(crate::morph::audition(self.frame(),false));
                 }
                 return None;
             }
@@ -414,7 +472,8 @@ impl Workbench {
                     }
                     5 => {
                         self.preview = 0.5;
-                        self.status="Draft morph preview centered. Apply, then use Position on Synth to hear it.".into();
+                        self.hear_position(p);
+                        self.status="Auditioning the center of the draft.".into();
                     }
                     _ => {}
                 }
@@ -738,6 +797,7 @@ impl Workbench {
             );
         }
         c.text_clip(f, 20., 800., 1140., dim, &self.status);
+        self.morph.paint(c,self.sample.as_ref());
     }
 }
 

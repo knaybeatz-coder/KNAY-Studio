@@ -27,6 +27,16 @@ fn main() {
         l.vals.edit_plain(&order_id(6), 1.0);
         l.vals.edit_plain(&freq_id(6), 0.93);
     }
+    l.vals.edit_plain(&params::dynamic_id(12),-6.);
+    l.vals.edit_plain(&params::dynamic_id(28),3.);
+    l.view.selected=3;
+    l.view.show_dynamics=true;
+    l.view.selection=1<<3;
+    l.vals.edit_plain(&params::dynamic_id(33),1.);
+    if arg(5)==Some("regular"){l.vals.edit_plain(&params::dynamic_id(12),0.);}
+    if arg(5)==Some("manual"){l.vals.edit_plain(&params::dynamic_id(33),0.);}
+    if arg(5)==Some("spectral"){l.vals.edit_plain(&params::dynamic_id(43),1.);}
+    if arg(5)==Some("harsh"){l.view.harsh_open=true;}
     let mode = arg(4).unwrap_or("");
     let mut spectrum = None;
     if mode == "spectrum" || mode == "heatmap" {
@@ -54,9 +64,13 @@ fn main() {
     // `OS_SHOT_SCALE=3` renders at that display scale (the picker's high-resolution tiles).
     let k: f32 = std::env::var("OS_SHOT_SCALE").ok().and_then(|v| v.parse().ok()).filter(|k: &f32| *k > 0.0).unwrap_or(1.0);
     let s = |v: u32| (v as f32 * k).round() as u32;
-    let mut c = os_ui::Canvas::new(s(view::W), s(view::H), k).unwrap();
+    let width=arg(6).and_then(|v|v.parse().ok()).unwrap_or(view::W);
+    let height=arg(7).and_then(|v|v.parse().ok()).unwrap_or(view::H);
+    l.view.size=(width as f32,height as f32);
+    l.view.ui_scale=arg(8).and_then(|v|v.parse().ok()).unwrap_or(1.);
+    let mut c = os_ui::Canvas::new(s(width), s(height), k).unwrap();
     let paint = |l: &mut Logic, c: &mut os_ui::Canvas| {
-        let extra = l.params.extra_copy();
+        let extra = l.shown_extra();
         let look = Look { s: l.shown(), extra: &extra, spectrum: spectrum.as_deref(), rate: 44100.0 };
         l.hits = view::paint(c, &look, &l.view);
     };
@@ -76,9 +90,9 @@ fn main() {
         }
         eprintln!("paint {:.2} ms", t.elapsed().as_secs_f64() * 1000.0 / 50.0);
     }
-    let mut buf = vec![0u32; (s(view::W) * s(view::H)) as usize];
+    let mut buf = vec![0u32; (s(width) * s(height)) as usize];
     c.copy_to_xrgb(&mut buf);
-    let mut pm = tiny_skia::Pixmap::new(s(view::W), s(view::H)).unwrap();
+    let mut pm = tiny_skia::Pixmap::new(s(width), s(height)).unwrap();
     for (px, v) in pm.pixels_mut().iter_mut().zip(&buf) {
         *px = tiny_skia::PremultipliedColorU8::from_rgba((v >> 16) as u8, (v >> 8) as u8, *v as u8, 255).unwrap();
     }

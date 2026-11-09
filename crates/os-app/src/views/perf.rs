@@ -120,7 +120,12 @@ pub fn paint(ui: &mut Ui, s: &State, _f: &FrameInfo) {
     }
     let hf = Font::new(13);
     let hy = (header.cy() - ui.c.line_height(hf) / 2.0).round();
+    if s.cpu.load_bars {
+        let load=s.cpu.now.load;let dropouts=s.cpu.now.dropouts;
+        ui.c.text_clip(hf,lx+6.,hy,header.w-12.,t.text,&format!("Audio load  {load}%     •     Dropouts  {dropouts}     •     {} hosted plugins",p.rows.len()));
+    }
     for (c, cx, cw) in COLS {
+        if s.cpu.load_bars{break;}
         let r = Rect::new(lx + cx, header.y, cw, ROW_H);
         let hov = ui.hit(r, Action::Perf(PerfAct::Sort(c)), format!("Sort by {} (click again to reverse)", c.title()));
         let sorted = p.sort == c;
@@ -156,6 +161,16 @@ pub fn paint(ui: &mut Ui, s: &State, _f: &FrameInfo) {
             kit::row_highlight(ui.c, t, r);
         }
         let ty = (r.cy() - lh / 2.0).round();
+        if s.cpu.load_bars{
+            let name_w=r.w*0.37;
+            ui.c.text_clip(f,r.x+6.,ty,name_w-12.,t.text,&row.title());
+            let bar=Rect::new(r.x+name_w,r.y+4.,r.w*0.37,ROW_H-8.);
+            ui.c.fill_rrect(bar,2.,t.window_body);
+            let share=row.share().max(0.);
+            ui.c.fill_rrect(Rect::new(bar.x,bar.y,bar.w*(share/100.).min(1.) as f32,bar.h),2.,if share>=80.{t.meter_clip}else{t.accent});
+            ui.c.text_right(f,r.right()-8.,ty,t.text,&format!("{share:.2}%   {}",fmt_us(row.time)));
+            continue;
+        }
         // Plugin: name - patch, then the place (dimmed), "(stopped)" after a crash.
         let pc = COLS[0];
         let title = row.title();

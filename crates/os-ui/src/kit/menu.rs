@@ -105,6 +105,28 @@ pub fn metrics(scale: f32) -> Metrics {
     Metrics { row: (em + 7.0) / k, head: (em + 4.0) / k, sep: (2.0 * gap + 1.0) / k, sep_line: gap / k, line: 1.0 / k, border: 2.0 / k }
 }
 
+/// App menu lettering, shared by dropdowns and context menus.
+pub fn app_font(t: &Palette, size: u16) -> Font {
+    if t.style.vintage_2005 { Font::vintage(size) } else { Font::new(size + 2) }
+}
+
+/// Raised steel border with square corners and a device-pixel bevel.
+pub fn vintage_frame(c: &mut Canvas, t: &Palette, r: Rect, m: &Metrics) {
+    c.fill_rect(r, t.menu_pop_border);
+    let inner = r.inset(m.line);
+    c.fill_rect(inner, t.menu_pop_head);
+    c.fill_rect(Rect::new(inner.x, inner.y, inner.w, m.line), Color::rgb(0xcad2d1));
+    c.fill_rect(Rect::new(inner.x, inner.y, m.line, inner.h), Color::rgb(0xcad2d1));
+    c.fill_rect(r.inset(m.border), t.menu_pop);
+}
+
+pub fn vintage_highlight(c: &mut Canvas, t: &Palette, r: Rect) {
+    let edge = 1.0 / c.scale;
+    c.fill_rect(r, t.menu_pop_hi);
+    c.fill_rect(Rect::new(r.x, r.y, r.w, edge), Color::rgb(0x687e76));
+    c.fill_rect(Rect::new(r.x, r.bottom() - edge, r.w, edge), Color::rgb(0xd9e4db));
+}
+
 fn font(style: MenuStyle) -> Font {
     match style {
         MenuStyle::Context => Font::new(14),

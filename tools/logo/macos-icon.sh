@@ -16,9 +16,12 @@
 set -eu
 
 root=$(cd "$(dirname "$0")/../.." && pwd)
-ictool="${ICTOOL:-/Applications/Icon Composer.app/Contents/Executables/ictool}"
 # Xcode's tools, whatever `xcode-select` points at (the Command Line Tools have no actool).
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
+ictool="${ICTOOL:-$DEVELOPER_DIR/../Applications/Icon Composer.app/Contents/Executables/ictool}"
+if [ ! -x "$ictool" ] && [ -z "${ICTOOL:-}" ]; then
+    ictool="/Applications/Icon Composer.app/Contents/Executables/ictool"
+fi
 src="$root/crates/os-app/assets/logo/macOS.icon"
 assets="$root/crates/os-app/assets"
 work=$(mktemp -d)

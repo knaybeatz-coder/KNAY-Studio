@@ -4,13 +4,13 @@ use std::{io::{self,BufRead,Write},sync::{Arc,atomic::Ordering}};
 use lemon_small_fx::editor::{Logic,Extension};
 use serde::Deserialize;
 #[derive(Deserialize)]
-struct Request { design:serde_json::Value, page:usize, output:String, #[serde(default)] fx_scroll:usize, #[serde(default)] fx_add:bool, #[serde(default)] values:std::collections::BTreeMap<String,i32> }
+struct Request { design:serde_json::Value, page:usize, output:String, #[serde(default)] fx_scroll:usize, #[serde(default)] fx_add:bool, #[serde(default)] filter_tab:usize, #[serde(default)] details:usize, #[serde(default)] values:std::collections::BTreeMap<String,i32> }
 fn main() {
     let params=Arc::new(lemon_wave::assets::WaveParams::default());
     let editor=Arc::new(lemon_wave::table_editor::TableEditor::new(params.clone()));
     let shared=Arc::new(lemon_small_fx::Shared{extension:Some(editor.clone()),..Default::default()});
     let mut logic=Logic::new(lemon_wave::controls::SPEC,params.base.clone(),shared,None);
-    let mut canvas=os_ui::Canvas::new(1180,820,1.).expect("software canvas");
+    let mut canvas=os_ui::Canvas::new(1584,1056,1.).expect("software canvas");
     for line in io::stdin().lock().lines() {
         let result=(||->Result<serde_json::Value,String>{
             let request:Request=serde_json::from_str(&line.map_err(|e|e.to_string())?).map_err(|e|e.to_string())?;
@@ -25,15 +25,19 @@ fn main() {
             }
             params.base.set_raw(raw);
             for (id,value) in &request.values {logic.vals.edit_plain(id,*value as f32);}
+            params.details.store(request.details,Ordering::Relaxed);
+            params.filter_tab.store(request.filter_tab.min(1),Ordering::Relaxed);
             params.fx_scroll.store(request.fx_scroll,Ordering::Relaxed);
             params.fx_add.store(request.fx_add,Ordering::Relaxed);
             if request.page==2 {let r=lemon_wave::instrument_view::page_button(2);editor.click(r.cx(),r.cy(),None);}
             else {params.page.store(request.page.min(1),Ordering::Relaxed);}
+            let paint_start=std::time::Instant::now();
             logic.paint(&mut canvas,&os_plugkit::palette());
+            let paint_ms=paint_start.elapsed().as_secs_f64()*1000.;
             canvas.pixmap.save_png(&request.output).map_err(|e|e.to_string())?;
             let hits:Vec<_>=logic.hits.iter().map(|h|serde_json::json!({"id":h.t.id(),"rect":[h.r.x,h.r.y,h.r.w,h.r.h],"kind":match h.t {lemon_small_fx::view::Target::Knob(_)=>"knob",_=>"selector"}})).collect();
             let parameters:Vec<_>=lemon_wave::controls::SETTINGS.iter().map(|s|serde_json::json!({"id":s.id,"min":s.range.0,"max":s.range.1,"default":s.start})).collect();
-            Ok(serde_json::json!({"ok":true,"hits":hits,"parameters":parameters,"design":normalized}))
+            Ok(serde_json::json!({"ok":true,"paint_ms":paint_ms,"hits":hits,"parameters":parameters,"design":normalized}))
         })();
         println!("{}",result.unwrap_or_else(|e|serde_json::json!({"ok":false,"error":e})));
         io::stdout().flush().unwrap();

@@ -188,7 +188,10 @@ impl App {
         }
         let s = &mut self.state;
         s.path = None;
-        for m in &mut s.project.mixer { m.slots_enabled = m.is_fx_return(); }
+        // Apply the factory mix defaults only to the original starter, never to a saved user mix.
+        if path.file_stem().is_some_and(|n| n=="Lemon Starter") && std::fs::read(&path).is_ok_and(|b|b==include_bytes!("../assets/templates/Lemon Starter.flp").as_slice()) {
+            for m in &mut s.project.mixer { m.slots_enabled = m.is_fx_return(); }
+        }
         crate::project_info::created(s);
         if s.project.info.title.as_deref().is_none_or(str::is_empty) {
             s.project.info.title = Some(name.to_string());
@@ -246,7 +249,7 @@ mod tests {
         let bytes=source.map(|p|std::fs::read(p).unwrap()).unwrap_or_else(||include_bytes!("../assets/templates/Lemon Starter.flp").to_vec());
         let mut file=os_flp::FlpFile::parse(&bytes).unwrap();
         let mut project=os_flp::project::load(&file).unwrap();
-        for m in &mut project.mixer { m.volume=Some(0.5); m.slots_enabled=true; }
+        for m in &mut project.mixer { m.volume=Some(0.5); m.slots_enabled=m.index==0 || m.is_fx_return(); }
         for c in &mut project.init_controls {
             if matches!(os_model::target::decode(c.target),os_model::target::Target::MixerVolume(_)) { c.value=8000; }
         }
@@ -261,19 +264,19 @@ mod tests {
         assert!(!app.unsaved(),"fresh startup defaults are not unsaved edits");
         for m in &app.state.project.mixer {
             assert_eq!(m.volume,Some(0.8),"{:?} after startup",m.name);
-            assert_eq!(m.slots_enabled,m.is_fx_return(),"only FX returns enabled by default");
+            assert_eq!(m.slots_enabled,m.index==0 || m.is_fx_return(),"saved template master FX and bypassed inserts survive");
             assert!(m.slot_on[10],"dedicated EQ stays independently enabled");
         }
         crate::mixer::hit(&mut app,crate::mixer::MHit::Effects(3));
-        assert!(app.state.project.mixer.iter().all(|m|m.slots_enabled==(m.index==3 || m.is_fx_return())));
+        assert!(app.state.project.mixer.iter().all(|m|m.slots_enabled==(m.index==0 || m.index==3 || m.is_fx_return())));
         crate::mixer::hit(&mut app,crate::mixer::MHit::Effects(3));
         crate::mixer::hit(&mut app,crate::mixer::MHit::AllEffects);
         assert!(app.state.mixer.all_fx_bypassed);
         crate::history::undo(&mut app.state);
         assert!(!app.state.mixer.all_fx_bypassed);
-        assert!(app.state.project.mixer.iter().all(|m|m.slots_enabled==m.is_fx_return()));
+        assert!(app.state.project.mixer.iter().all(|m|m.slots_enabled==(m.index==0 || m.is_fx_return())));
         app.open(path);
-        assert!(app.state.project.mixer.iter().all(|m|m.slots_enabled),"saved effect choices preserved");
+        assert!(app.state.project.mixer.iter().all(|m|m.slots_enabled==(m.index==0 || m.is_fx_return())),"saved effect choices preserved");
         assert!(app.state.project.mixer.iter().all(|m|m.volume==Some(0.5)),"saved projects retain their mix");
     }
 

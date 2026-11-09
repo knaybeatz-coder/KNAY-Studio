@@ -28,7 +28,7 @@ use os_ui::{Canvas, Color, Font, Rect};
 #[cfg(windows)]
 mod win32;
 #[cfg(windows)]
-pub use win32::{prepare_embedded,embedded_exposed,default_position, first_position, focus_main, lift_hide, lift_show, stack, take_exposed, take_keys, take_link, FrameWindow};
+pub use win32::{clicked_strip,chop_placement,prepare_embedded,embedded_exposed,default_position, first_position, focus_main, lift_hide, lift_show, stack, take_exposed, take_keys, take_link, FrameWindow};
 
 #[cfg(target_os = "linux")]
 mod x11;
@@ -41,7 +41,7 @@ pub use x11::{
 #[cfg(target_os = "macos")]
 mod cocoa;
 #[cfg(target_os = "macos")]
-pub use cocoa::{focus_main, default_position, lift_hide, lift_show, pointer, row_window_at, screen_to_main, stack, take_exposed, take_keys, take_lift_input, FrameWindow};
+pub use cocoa::{install_monitor as prepare_embedded,focus_main, default_position, lift_hide, lift_show, pointer, row_window_at, screen_to_main, stack, take_exposed, take_keys, take_lift_input, FrameWindow};
 
 /// Where a detached window opening for the first time goes: where a new window opens. Only Windows places it by
 /// monitor (Settings "Open detached plugins with the main window"; spec: ui/settings-choices.md "Miscellaneous:
@@ -62,7 +62,9 @@ pub fn moved_to(p: (i32, i32), from: [i32; 4], to: [i32; 4], keep: (i32, i32)) -
 /// A message a Lemon plugin's editor sent to its frame (host link, plugin -> host).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LinkMsg {
+    SampleFit(isize),
     BrowseSample,
+    LocateSample,
     /// Hint or page changed: poll the link now.
     Changed,
     /// Preview note from the plugin's keyboard: key, velocity, on.
@@ -98,6 +100,8 @@ pub fn take_link() -> Vec<(isize, LinkMsg)> {
                 }
                 os_hostlink::Cmd::Automate => LinkMsg::Automate(arg.max(0) as usize),
                 os_hostlink::Cmd::Audio => LinkMsg::Audio(arg != 0),
+                os_hostlink::Cmd::SampleFit => LinkMsg::SampleFit(arg),
+                os_hostlink::Cmd::BrowseSample if arg==1 => LinkMsg::LocateSample,
                 os_hostlink::Cmd::BrowseSample => LinkMsg::BrowseSample,
                 _ => LinkMsg::Changed,
             };
@@ -199,6 +203,8 @@ pub enum FrameEvent {
     Track(u16),
     /// The TRACK box was double-clicked: the app shows the mixer at the channel's track.
     ShowTrack,
+    TrackHoverEnd,
+    TrackHover(i32,i32),
     TrackDrop(i32,i32),
     PickTrack,
     /// The window was clicked: it comes to the front of the app's window stack (docked windows, Windows).
@@ -212,8 +218,10 @@ pub enum FrameEvent {
     PresetStep(i32),
     /// A Misc tab value changed (spec: ui/plugin-window.md "Misc tab").
     Misc(crate::misc_page::M, f32),
+    CutSelf,
     /// A Misc tab list (chord list, number box values) or knob menu: the app opens it at this screen point.
     MiscMenu(crate::misc_page::M, i32, i32),
+    SidechainMenu(i32,i32),
     /// A strip knob was right-clicked: the app opens its menu (Reset first) at this screen point.
     KnobMenu(Knob, i32, i32),
     /// A Misc tab keyboard key: key, velocity, pressed.
@@ -230,6 +238,8 @@ pub enum FrameEvent {
     /// The frame's edges were dragged: the plugin's editor should take this content size (logical px). Only for a
     /// plugin that said it may be resized (host link `Resizable`; spec: plugins/host-link.md).
     Resize(u32, u32),
+    ResizeFinished(f32),
+    #[cfg(target_os="linux")] Undo(bool),
 }
 
 /// A frame edge being dragged: which edges, the press (window coordinates, logical px) and the editor size then.
@@ -287,6 +297,7 @@ struct State {
     /// Plugin editor size (logical px).
     editor: (f32, f32),
     /// The editor's smallest size when the frame's edges may resize it (a resizable Lemon plugin, as Tesla).
+    wave_zoom: bool,
     resize_min: Option<(f32, f32)>,
     /// An edge drag in progress.
     sizing: Option<Sizing>,
@@ -330,6 +341,7 @@ impl State {
             preset: None,
             misc_ui: Default::default(),
             editor,
+            wave_zoom: false,
             resize_min: None,
             sizing: None,
             maxed: None,
@@ -400,6 +412,10 @@ impl State {
     /// tab change in FL does), the plugin's editor otherwise.
     fn shown(&self) -> (f32, f32) {
         if self.misc && self.info.misc.is_some() { (crate::misc_page::PAGE_W, crate::misc_page::PAGE_H) } else { self.editor }
+    }
+    // Wave scales through the host even though the native editor reports a fixed size.
+    fn effective_resize_min(&self,native:Option<(f32,f32)>)->Option<(f32,f32)> {
+        if self.wave_zoom {Some((100.,80.))} else {native}
     }
     /// The frame's edges and its maximize button resize the editor: a resizable plugin, its editor showing.
     fn resizable(&self) -> bool {
@@ -494,6 +510,7 @@ fn parts(st: &State) -> Vec<(Rect, Part)> {
     if max_w(st) > 0.0 {
         v.push((Rect::new(w - 42.0, 7.0, 17.0, 17.0), Part::Maximize));
     }
+    if let Some(r)=wave_size_handle(st){v.push((r,Part::Edge{right:true,bottom:true}));}
     if st.resizable() {
         // The corner first (it overlaps both edges); below the title bar, so the close button stays a button.
         v.push((Rect::new(w - CORNER, h - CORNER, CORNER, CORNER), Part::Edge { right: true, bottom: true }));
@@ -526,6 +543,11 @@ fn parts(st: &State) -> Vec<(Rect, Part)> {
     }
     v.push((Rect::new(0.0, 0.0, w, TITLE_H), Part::Caption));
     v
+}
+
+// Keep the zoom control reachable when a docked Wave editor extends beyond the workspace.
+fn wave_size_handle(st:&State)->Option<Rect>{
+    (st.resizable() && st.wave_zoom).then(||Rect::new(48.,5.,75.,20.))
 }
 
 fn part_at(st: &State, x: f32, y: f32) -> Option<Part> {
@@ -568,16 +590,22 @@ fn max_w(st: &State) -> f32 {
     if st.resizable() { 19.0 } else { 0.0 }
 }
 
-fn page_tabler(p: PageIcon) -> &'static tb::TablerIcon {
+fn page_icon(p: PageIcon) -> crate::icons::Icon {
+    use crate::icons::Icon;
     match p {
-        PageIcon::Plugin => &tb::PLUG,
-        PageIcon::Sample => &tb::WAVE_SINE,
-        PageIcon::Envelope => &tb::TIMELINE,
+        PageIcon::Plugin => Icon::Plug,
+        PageIcon::Sample => Icon::Wave,
+        PageIcon::Envelope => Icon::Envelope,
     }
 }
 
-fn icon_at(c: &mut Canvas, t: &tb::TablerIcon, cx: f32, cy: f32, size: f32, col: Color) {
-    c.icon(t, Rect::new(cx - size / 2.0, cy - size / 2.0, size, size), col);
+fn icon_at(c: &mut Canvas, icon: crate::icons::Icon, cx: f32, cy: f32, size: f32, col: Color) {
+    let r = Rect::new(cx - size / 2.0, cy - size / 2.0, size, size);
+    if icon == crate::icons::Icon::Gear {
+        crate::icons::draw_with_default(c, icon, &tb::SETTINGS_FILLED, r, col);
+    } else {
+        crate::icons::draw(c, icon, r, col);
+    }
 }
 
 /// The title bar's text font (FL: 8 px cap height, baseline under row 18).
@@ -585,8 +613,14 @@ fn title_font() -> Font {
     Font::new(13)
 }
 
+fn sidechain_button(st:&State)->Rect {Rect::new(BORDER+8.,st.area_y()+28.,(st.size().0-2.*BORDER-16.).clamp(1.,200.),28.)}
+
 fn paint(c: &mut Canvas, st: &State) {
     let (w, h) = st.size();
+    c.set_icon_pack(os_theme::current().appearance.icon_pack, false);
+    c.set_icon_color(os_theme::current().appearance.icon_color);
+    c.set_icon_overrides(os_theme::current().appearance);
+    c.set_chrome_art(crate::icons::chrome);
     c.begin_frame(None);
     c.clear(c_frame());
     // 1 px outline around the window, a lighter line under its top edge.
@@ -606,7 +640,12 @@ fn paint(c: &mut Canvas, st: &State) {
     if st.misc {
         match &st.info.misc {
             Some(v) => crate::misc_page::paint(c, &os_theme::current(), a.x, a.y, v, &st.misc_ui),
-            None => c.text_center(Font::new(16), a, c_grey(), "No channel settings here"),
+            None => {
+                c.text_clip(Font::new(15),a.x+10.,a.y+5.,a.w-20.,c_text(),"Effect routing");
+                let button=sidechain_button(st);
+                c.fill_rrect(button,5.,c_frame());
+                c.text_center(Font::new(15),button,c_text(),"Sidechain input...");
+            }
         }
     }
 }
@@ -614,7 +653,7 @@ fn paint(c: &mut Canvas, st: &State) {
 /// Title bar, left to right: menu arrow, gear (boxed while the strip is shown), channel name, "(mixer target)", the
 /// plugin's hint; right side: Presets box with previous / next arrows, minimize, close.
 fn title_bar(c: &mut Canvas, st: &State, w: f32) {
-    icon_at(c, &tb::CARET_RIGHT, 14.4, 15.5, 15.4, c_arrow());
+    icon_at(c, crate::icons::Icon::ArrowRight, 14.4, 15.5, 15.4, c_arrow());
     let g = GEAR_RECT;
     let lemon = os_ui::kit::lemon::on(&os_theme::current());
     if st.strip && lemon {
@@ -624,11 +663,15 @@ fn title_bar(c: &mut Canvas, st: &State, w: f32) {
         c.stroke_rrect(Rect::new(g.x + 1.0, g.y + 1.0, g.w - 2.0, g.h - 2.0), 3.5, 2.0, c_gear_on());
     }
     let gear = if st.strip && lemon { os_ui::kit::lemon::ink_on_lemon() } else if st.strip { c_gear_on() } else { c_icon() };
-    icon_at(c, &tb::SETTINGS_FILLED, g.cx(), g.cy(), 18.4, gear);
+    icon_at(c, crate::icons::Icon::Gear, g.cx(), g.cy(), 18.4, gear);
     let p = presets_rect(st);
     let f = title_font();
     let ty = (19.0 - c.ascent(f)).round();
-    let nx = 48.0;
+    let nx = if let Some(r)=wave_size_handle(st){
+        c.fill_rrect(r,4.,c_body());
+        c.text_center(Font::new(12),r,c_text(),"Drag to size");
+        r.right()+6.
+    }else{48.};
     let room = (p.x - 8.0 - nx).max(0.0);
     let nw = c.text_width(f, &st.info.name).min(room);
     c.text_clip(f, nx, ty, room, c_text(), &st.info.name);
@@ -655,14 +698,22 @@ fn title_bar(c: &mut Canvas, st: &State, w: f32) {
     // Presets box: the loaded preset's name, or "Presets" (spec: plugins/presets.md).
     c.fill_rrect(p, if lemon { 6.0 } else { 3.0 }, c_presets());
     c.text_clip(f, p.x + 9.0, ty, p.w - 9.0 - 31.0, c_text(), st.preset.as_deref().unwrap_or("Presets"));
-    icon_at(c, &tb::CARET_LEFT, p.right() - 22.2, 15.5, 18.9, c_icon());
-    icon_at(c, &tb::CARET_RIGHT, p.right() - 7.8, 15.5, 18.9, c_icon());
+    icon_at(c, crate::icons::Icon::ArrowLeft, p.right() - 22.2, 15.5, 18.9, c_icon());
+    icon_at(c, crate::icons::Icon::ArrowRight, p.right() - 7.8, 15.5, 18.9, c_icon());
     let mw = max_w(st);
-    c.icon_stroke(&tb::MINUS, Rect::new(w - 39.5 - mw, 7.0, 12.0, 12.0), c_icon(), 2.0);
-    if mw > 0.0 {
-        c.icon(&tb::SQUARES, Rect::new(w - 40.0, 9.0, 13.0, 13.0), c_icon());
+    if c.icon_pack() == 0 {
+        c.icon_stroke(&tb::MINUS, Rect::new(w - 39.5 - mw, 7.0, 12.0, 12.0), c_icon(), 2.0);
+    } else {
+        crate::icons::draw(c, crate::icons::Icon::Minimize, Rect::new(w - 39.5 - mw, 7.0, 12.0, 12.0), c_icon());
     }
-    c.icon_stroke(&tb::X, Rect::new(w - 22.25, 7.75, 15.5, 15.5), c_icon(), 1.6);
+    if mw > 0.0 {
+        crate::icons::draw(c, crate::icons::Icon::Restore, Rect::new(w - 40.0, 9.0, 13.0, 13.0), c_icon());
+    }
+    if c.icon_pack() == 0 {
+        c.icon_stroke(&tb::X, Rect::new(w - 22.25, 7.75, 15.5, 15.5), c_icon(), 1.6);
+    } else {
+        crate::icons::draw(c, crate::icons::Icon::Close, Rect::new(w - 22.25, 7.75, 15.5, 15.5), c_icon());
+    }
 }
 
 fn strip(c: &mut Canvas, st: &State, w: f32) {
@@ -681,7 +732,7 @@ fn strip(c: &mut Canvas, st: &State, w: f32) {
             c.fill_rect(cell, c_body());
         }
         let col = if active { os_theme::current().a(0x49f1b1) } else { c_icon() };
-        let t = if i == n { &tb::TOOL } else { page_tabler(st.pages[i]) };
+        let t = if i == n { crate::icons::Icon::Wrench } else { page_icon(st.pages[i]) };
         icon_at(c, t, cell.cx(), cell.cy(), 26.0, col);
     }
     // ON LED.
@@ -768,7 +819,7 @@ fn subtract(rect: [i32; 4], cut: [i32; 4]) -> Vec<[i32; 4]> {
 
 /// The parts of window rect `me` inside `work` and outside every cover (a docked frame's clip, off Windows).
 #[cfg(not(windows))]
-fn visible(me: [i32; 4], work: [i32; 4], covers: &[[i32; 4]]) -> Vec<[i32; 4]> {
+pub(crate) fn visible(me: [i32; 4], work: [i32; 4], covers: &[[i32; 4]]) -> Vec<[i32; 4]> {
     let start = [me[0].max(work[0]), me[1].max(work[1]), me[2].min(work[2]), me[3].min(work[3])];
     if start[0] >= start[2] || start[1] >= start[3] {
         return Vec::new();
@@ -842,6 +893,10 @@ impl State {
 
     /// Left button down at (x, y); `double` for the second press of a double click.
     fn left_down(&mut self, x: f32, y: f32, double: bool, screen: ToScreen) -> Reply {
+        if self.misc && self.info.misc.is_none() && sidechain_button(self).contains(x,y){
+            let b=sidechain_button(self);let (sx,sy)=screen(b.x,b.bottom());
+            self.events.push(FrameEvent::SidechainMenu(sx,sy));os_clap::wake();return Reply::None;
+        }
         let part = part_at(self, x, y);
         match part {
             Some(Part::Menu) => {
@@ -999,7 +1054,11 @@ impl State {
             }
             return Reply::None;
         }
-        if let Some((_,_,_,_,x0,y0,moved))=self.track_drag.as_mut() {*moved |= (x-*x0).hypot(y-*y0)>4.;return Reply::None;}
+        if let Some((sx,sy,kx,ky,x0,y0,moved))=self.track_drag.as_mut() {
+            *moved |= (x-*x0).hypot(y-*y0)>4.;
+            if *moved {self.events.push(FrameEvent::TrackHover(*sx+(x * *kx).round() as i32,*sy+(y * *ky).round() as i32));}
+            return Reply::None;
+        }
         let mut hover = false;
         if self.misc {
             if self.misc_ui.bar_drag.is_some() {
@@ -1069,9 +1128,16 @@ impl State {
     fn left_up(&mut self, x: f32, y: f32) -> Reply {
         if let Some((sx,sy,kx,ky,x0,y0,moved))=self.track_drag.take() {
             let (w,h)=self.size();
+            if moved && x>=0. && y>=0. && x<w && y<h {self.events.push(FrameEvent::TrackHoverEnd);}
             if x<0.0 || y<0.0 || x>=w || y>=h {self.events.push(FrameEvent::TrackDrop(sx+(x*kx).round() as i32,sy+(y*ky).round() as i32));}
             else if !moved && (x-x0).hypot(y-y0)<=4. && part_at(self,x,y)==Some(Part::Track) {self.events.push(FrameEvent::PickTrack);}
             os_clap::wake();
+        }
+        if let Some(s)=self.sizing {
+            let rx=s.asked.0 as f32/s.editor.0.max(1.);
+            let ry=s.asked.1 as f32/s.editor.1.max(1.);
+            let ratio=if (rx-1.).abs()>(ry-1.).abs(){rx}else{ry};
+            if (ratio-1.).abs()>0.001{self.events.push(FrameEvent::ResizeFinished(ratio));os_clap::wake();}
         }
         let armed = self.armed.take();
         let over = armed.is_some() && part_at(self, x, y) == armed;
@@ -1091,7 +1157,7 @@ impl State {
     /// The button was released (or the mouse lost otherwise): drags end, a held Misc key is let go, an armed title-bar
     /// button is let go without acting.
     fn release(&mut self) {
-        self.track_drag=None;
+        if self.track_drag.take().is_some_and(|d|d.6){self.events.push(FrameEvent::TrackHoverEnd);}
         self.armed = None;
         self.drag = None;
         self.sizing = None;
@@ -1175,12 +1241,7 @@ impl State {
             }
             (Btn::Left, Hit::ArpDir(i)) => misc_set(self, M::ArpDir, f32::from(i)),
             (Btn::Left, Hit::TrackTab(k)) => self.misc_ui.track_key = k,
-            (Btn::Left, Hit::CutSelf) => {
-                // The channel cuts itself: cut and cut-by the same group (spec: ui/plugin-window.md "Misc tab").
-                let g = if vals.get(M::Cut) >= 1.0 { vals.get(M::Cut) } else { 1.0 };
-                misc_set(self, M::Cut, g);
-                misc_set(self, M::CutBy, g);
-            }
+            (Btn::Left, Hit::CutSelf) => self.events.push(FrameEvent::CutSelf),
             (Btn::Left, Hit::Reset) => {
                 misc_set(self, M::Root, 60.0);
                 misc_set(self, M::Fine, 0.0);
@@ -1266,6 +1327,15 @@ mod tests {
         State { strip, ..State::new(info, (480.0, 270.0), false) }
     }
 
+    #[test]
+    fn effect_wrench_opens_sidechain_selector() {
+        let mut st=state(true,"Insert 6");
+        st.info.misc=None;st.misc=true;
+        let r=sidechain_button(&st);
+        st.left_down(r.cx(),r.cy(),false,&|x,y|(x as i32,y as i32));
+        assert_eq!(st.events,[FrameEvent::SidechainMenu(r.x as i32,r.bottom() as i32)]);
+    }
+
     /// "Open detached plugins with the main window": a detached window opening for the first time keeps its place
     /// relative to the monitor it would open on, moved to the chosen monitor and kept on it (spec:
     /// ui/settings-choices.md "Miscellaneous: naming, detached plugins and startup").
@@ -1280,6 +1350,31 @@ mod tests {
 
     /// A resizable plugin's frame (Tesla): its right and bottom edges and their corner drag the editor's size, never
     /// below its smallest; a fixed-size plugin's frame has no edges to drag (spec: plugins/host-link.md `Resizable`).
+    #[test]
+    fn wave_corner_reports_one_proportional_resize_when_released(){
+        let mut st=state(true,"Insert 1");
+        st.resize_min=Some((100.,80.));
+        let (w,h)=st.size();let editor=st.editor;
+        let at=|x:f32,y:f32|(x as i32,y as i32);
+        st.left_down(w-1.,h-1.,false,&at);
+        st.motion(w-1.-editor.0/4.,h-1.-editor.1/4.,false);
+        st.left_up(w-1.-editor.0/4.,h-1.-editor.1/4.);
+        assert!(matches!(st.events.last(),Some(FrameEvent::ResizeFinished(v)) if (*v-0.75).abs()<0.01));
+    }
+
+    #[test]
+    fn wave_title_handle_resizes_with_the_corner_outside_the_workspace(){
+        let mut st=state(true,"Master");
+        st.wave_zoom=true;
+        st.resize_min=st.effective_resize_min(None);
+        let handle=wave_size_handle(&st).unwrap();
+        let x=handle.cx();let y=handle.cy();let dx=st.editor.0*0.25;
+        assert_eq!(st.left_down(x,y,false,&|x,y|(x as i32,y as i32)),Reply::Capture);
+        assert_eq!(st.effective_resize_min(None),st.resize_min,"an idle refresh must preserve the drag");
+        st.motion(x+dx,y,false);st.left_up(x+dx,y);
+        assert!(matches!(st.events.last(),Some(FrameEvent::ResizeFinished(r)) if (*r-1.25).abs()<0.01));
+    }
+
     #[test]
     fn frame_edges_resize_a_resizable_editor() {
         let mut st = state(true, "Master");
@@ -1460,9 +1555,9 @@ mod tests {
         st.left_down(x,y,false,&screen);st.motion(x+1.,y+1.,false);st.left_up(x+1.,y+1.);
         assert_eq!(st.events,vec![FrameEvent::PickTrack]);st.events.clear();
         st.left_down(x,y,false,&screen);st.motion(x+20.,y,false);st.motion(x,y,false);st.left_up(x,y);
-        assert!(st.events.is_empty(),"a drag returning to its start is not a click");
+        assert!(st.events.iter().all(|e|matches!(e,FrameEvent::TrackHover(..)|FrameEvent::TrackHoverEnd)),"a drag returning to its start is not a click");st.events.clear();
         st.left_down(x,y,false,&screen);st.motion(x,-100.,false);st.left_up(x,-100.);
-        assert_eq!(st.events,vec![FrameEvent::TrackDrop(x as i32,-100)]);st.events.clear();
+        assert_eq!(st.events.last(),Some(&FrameEvent::TrackDrop(x as i32,-100)));st.events.clear();
         st.left_down(x,y,false,&screen);st.release();st.left_up(x,y);assert!(st.events.is_empty());
         st.left_down(x,y,true,&screen);st.left_up(x,y);assert_eq!(st.events,vec![FrameEvent::ShowTrack]);
         range_and_track_boxes_edit_the_channel();

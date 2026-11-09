@@ -46,6 +46,7 @@ use clap_sys::version::{clap_version_is_compatible, CLAP_VERSION};
 use os_engine::voices::VoiceLedger;
 
 mod context_menu;
+mod preset_discovery;
 mod params;
 
 /// A plugin a library offers (the hosting layer's descriptor, format `Clap`).
@@ -548,6 +549,7 @@ const NAMED_VOICES: usize = 512;
 /// mod Y as per-note modulation of these parameters (id, the span of its range) where it has them.
 #[derive(Clone, Copy, Default)]
 struct NoteParams {
+    drive:Option<u32>,
     mods: [Option<(u32, f64)>; 2],
 }
 
@@ -691,6 +693,7 @@ pub struct Plugin {
     pvals: Vec<clap_event_param_value>,
     /// Changes the plugin reported (its editor): gesture begin / end and values, plain.
     param_out: Vec<OutEv>,
+    program_bank: std::sync::OnceLock<Vec<preset_discovery::Preset>>,
     _lib: Arc<Library>,
 }
 
@@ -911,6 +914,7 @@ impl Plugin {
                 processed: false,
                 pvals: Vec::with_capacity(params::MAX_AUTO + 64),
                 param_out: Vec::new(),
+                program_bank: Default::default(),
                 _lib: lib.clone(),
             })
         }
@@ -1166,6 +1170,7 @@ impl Plugin {
                         continue;
                     }
                     let n = CStr::from_ptr(info.name.as_ptr()).to_string_lossy();
+                    if n=="Per-note drive"{np.drive=Some(info.id);continue;}
                     let k = if n == os_host::NOTE_MOD_X {
                         0
                     } else if n == os_host::NOTE_MOD_Y {
@@ -1510,6 +1515,10 @@ impl Plugin {
                         });
                         seq.push(Seq::Expr(self.exprs.len() - 1));
                     }
+                    if let Some(param)=np.drive && e.levels.drive>0.{
+                        self.mods.push(param_mod(e.time,param,id,e.key,f64::from(e.levels.drive)));
+                        seq.push(Seq::Mod(self.mods.len()-1));
+                    }
                     let own = [e.levels.mod_x, e.levels.mod_y];
                     let mut sent = [0.0; 2];
                     for k in 0..2 {
@@ -1681,6 +1690,14 @@ impl Plugin {
 
 // The hosting layer's view of a CLAP instance (the inherent methods above do the work).
 impl os_host::Plugin for Plugin {
+    fn programs(&self) -> Vec<(u32, u32, String)> {
+        self.program_bank.get_or_init(|| preset_discovery::discover(self)).iter().enumerate()
+            .map(|(i, preset)| (0, i as u32, preset.name.clone())).collect()
+    }
+    fn select_program(&mut self, _:u32, index:u32) -> bool {
+        self.program_bank.get().and_then(|bank| bank.get(index as usize))
+            .is_some_and(|preset| preset_discovery::load(self, preset))
+    }
     fn mpe_support(&self)->u8{if self.bend.is_none(){2}else{1}}
     fn desc(&self) -> &Descriptor {
         &self.desc
@@ -2229,6 +2246,72 @@ mod tests {
         None
     }
 
+    /// Exercise the real CLAP process/restart lifecycle, not just the EQ filter.
+    #[test]
+    fn lemon_eq_spectral_live_enable_keeps_audio_after_host_restart() {
+        use os_engine::HostedEffect as _;
+        use os_host::Plugin as _;
+        let entry = &lemon_parametric_eq_2::LINKED_CLAP_ENTRY as *const _ as *const std::ffi::c_void;
+        let lib = unsafe { Library::from_entry(entry, Path::new("Lemon Parametric EQ.clap")) }.unwrap();
+        for (rate, frames, harsh) in [(44100,64,false),(48000,64,false),(48000,512,false),(96000,128,false),(192000,512,false),(48000,64,true)] {
+            let mut p = Plugin::new(&lib, &lib.plugins[0].id).unwrap();
+            assert!(p.activate(rate));
+            assert_eq!(p.latency_now, 0, "ordinary EQ keeps its original latency");
+            let set = |p: &mut Plugin, name: &str, value: f64| {
+                let info = (0..p.param_count()).filter_map(|i|p.param_info(i)).find(|i|i.name==name).unwrap_or_else(||panic!("missing {name}"));
+                assert!(p.set_param(info.id, (value-info.min)/(info.max-info.min)));
+            };
+            let enable = |p: &mut Plugin, on: bool| {
+                if harsh {set(p,"De-harsh",if on {4.} else {0.});}
+                else {set(p,"Band 4 Range",-6.);set(p,"Band 4 auto dynamics",1.);set(p,"Band 4 spectral",f64::from(on));}
+                p.idle();
+            };
+            let mut sample = 0usize;
+            let (mut restarts,mut quiet,mut peak) = (0,0,0f32);
+            let (mut l,mut r) = (vec![0f32;frames],vec![0f32;frames]);
+            for block in 0..500 {
+                if block==40 || block==260 {enable(&mut p,true);}
+                if block==220 {enable(&mut p,false);}
+                for x in &mut l {
+                    *x=0.25*(std::f64::consts::TAU*220.*sample as f64/f64::from(rate)).sin() as f32
+                      +0.1*(std::f64::consts::TAU*4100.*sample as f64/f64::from(rate)).sin() as f32;
+                    sample+=1;
+                }
+                r.copy_from_slice(&l);
+                p.process_fx(rate,&mut l,&mut r);
+                p.idle();
+                restarts+=usize::from(!p.processing);
+                if block>100 {
+                    let rms=(l.iter().map(|v|v*v).sum::<f32>()/frames as f32).sqrt();
+                    if rms<0.01 {quiet+=1;}
+                    for &x in &l {assert!(x.is_finite());peak=peak.max(x.abs());}
+                }
+            }
+            let delay=if rate>=176400 {4096} else if rate>=88200 {2048} else {1024};
+            eprintln!("{rate}Hz/{frames}, deharsh={harsh}: restarts={restarts}, quiet={quiet}, peak={peak}, latency={}",p.latency_now);
+            assert_eq!(quiet,0,"repeating spectral silence at {rate}/{frames}");
+            assert!(restarts<=1,"spectral restart loop: {restarts}");
+            assert!(peak>0.1&&peak<0.6);
+            assert_eq!(p.latency_now,delay);
+            // A saved spectral/de-harsh project must report the correct delay on activation,
+            // before its first audio block, then keep it through stop/reset/reactivation.
+            let state=p.save_state().unwrap();
+            let mut recalled=Plugin::new(&lib,&lib.plugins[0].id).unwrap();
+            assert!(recalled.load_state(&state));
+            assert!(recalled.activate(rate));
+            assert_eq!(recalled.latency_now,delay);
+            for _ in 0..2 {
+                for block in 0..100 {
+                    l.fill(0.2);r.fill(-0.2);
+                    recalled.process_fx(rate,&mut l,&mut r);recalled.idle();
+                    assert!(recalled.processing,"saved EQ restarted repeatedly");
+                    if block*frames>delay as usize*2 {assert!(l.iter().all(|x|x.is_finite()&&x.abs()>0.15&&x.abs()<0.3));}
+                }
+                recalled.deactivate();assert!(recalled.activate(rate));assert_eq!(recalled.latency_now,delay);
+            }
+        }
+    }
+
     /// The built-in Lemon Parametric EQ, linked into the test binary.
     fn lemon_eq() -> os_host::SharedPlugin {
         let entry = &lemon_parametric_eq_2::LINKED_CLAP_ENTRY as *const _ as *const std::ffi::c_void;
@@ -2247,7 +2330,7 @@ mod tests {
         let mut p = Plugin::new(&lib, &lib.plugins[0].id).unwrap();
         assert!(os_host::Plugin::activate(&mut p, 48000));
         let (mut l, mut r) = (vec![0.0f32; 64], vec![0.0f32; 64]);
-        let own = os_engine::NoteLevels { pan: 0.5, mod_x: 0.25, mod_y: -0.5 };
+        let own = os_engine::NoteLevels { drive:0., pan: 0.5, mod_x: 0.25, mod_y: -0.5 };
         // Off: a plain note.
         p.note_start(3, 60, 0.8, 0.0, own);
         p.process_fx(48000, &mut l, &mut r);
@@ -2256,7 +2339,7 @@ mod tests {
         assert!(p.use_note_levels());
         assert!(p.note_levels.is_some_and(|n| n.mods == [None, None]));
         let param = os_host::Plugin::param_info(&p, 0).unwrap().id;
-        p.note_levels = Some(NoteParams { mods: [Some((param, 2.0)), None] });
+        p.note_levels = Some(NoteParams { drive:None, mods: [Some((param, 2.0)), None] });
         p.channel_levels(os_engine::ChannelLevels { mod_x: 0.25, ..Default::default() });
         p.note_start(5, 61, 0.8, 0.0, own);
         p.process_fx(48000, &mut l, &mut r);

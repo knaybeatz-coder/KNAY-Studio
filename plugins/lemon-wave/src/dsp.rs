@@ -242,6 +242,7 @@ impl Filter {
 }
 #[derive(Clone, Copy, Default)]
 struct Voice {
+    owner: u64,
     note: u8,
     channel: u8,
     id: Option<i32>,
@@ -252,6 +253,10 @@ struct Voice {
     phase: [[f32; 7]; 2],
     sample_cursor: [[f64; 7]; 2],
     sub: f32,
+    noise_cursor:f64,
+    dual_filter:[[[Filter;2];2];4],
+    dual_recovered:[[[crate::reference_filter::Oversampled;2];2];4],
+    dual_model:[usize;2],
     lfo: f32,
     lfo_extra: [f32; 3],
     amp: Env,
@@ -259,8 +264,8 @@ struct Voice {
     filter: [Filter; 2],
     recovered_filter: [crate::reference_filter::Oversampled; 2],
     filter_model: usize,
-    lane_filter: [[Filter; 2]; 3],
-    lane_recovered: [[crate::reference_filter::Oversampled; 2]; 3],
+    lane_filter: [[Filter; 2]; 4],
+    lane_recovered: [[crate::reference_filter::Oversampled; 2]; 4],
 }
 pub struct Engine {
     pub curves: crate::modulation::Curves,
@@ -292,6 +297,7 @@ pub struct Engine {
 impl Engine {
     pub fn new(rate: f32) -> Self {
         static TABLES: OnceLock<Arc<Tables>> = OnceLock::new();
+        let _=crate::sources::library();
         let reference_table = Arc::new(crate::reference_oscillator::Table::init_saw());
         Self {
             curves: Default::default(),
@@ -342,7 +348,7 @@ impl Engine {
         self.ch_phase = 0.;
         for rack in &mut self.racks {rack.reset();}
         for rack in &mut self.modular {rack.reset();}
-        self.rack_blend=if self.target[RACK_MODE]>0.5 || crate::effects::needs_lanes(&self.target) {1.} else {0.};
+        self.rack_blend=if self.target[DUAL_FILTER]>0.5 || self.target[RACK_MODE]>0.5 || crate::effects::needs_lanes(&self.target) {1.} else {0.};
         self.current = self.target;
         self.tail = 0;
         self.ended.clear();
@@ -357,6 +363,9 @@ impl Engine {
         });
     }
     pub fn on(&mut self, note: u8, velocity: f32, channel: u8, id: Option<i32>) {
+        self.start_voice(note, velocity, channel, id, 0);
+    }
+    pub(crate) fn start_voice(&mut self, note:u8, velocity:f32, channel:u8, id:Option<i32>, owner:u64) {
         if channel >= 16 || note > 127 {
             return;
         }
@@ -378,10 +387,11 @@ impl Engine {
                     .0
             });
         let old = self.voices[index];
-        if old.amp.stage != 0 && self.ended.len() < 256 {
+        if old.owner == 0 && old.amp.stage != 0 && self.ended.len() < 256 {
             self.ended.push((old.note, old.channel, old.id));
         }
         let mut v = Voice {
+            owner,
             note,
             channel,
             id,
@@ -395,6 +405,8 @@ impl Engine {
                 v.phase[o][u] = ((u * 37 + o * 13) as f32 / 101.).fract();
             }
         }
+        let noise_length=if self.target[NOISE_TYPE]>7.5 {self.custom.noise.as_ref().map(|p|p.source.samples.len()).unwrap_or(44100)}else{44100};
+        v.noise_cursor=if self.target[NOISE_RANDOM]>0.5 && self.target[NOISE_ONESHOT]<0.5 {(self.age.wrapping_mul(7919)%noise_length as u64) as f64}else{0.};
         v.amp.start();
         v.env.start();
         if self.target[ENV_ENGINE] > 0.5 {
@@ -439,7 +451,7 @@ impl Engine {
     }
     pub fn off(&mut self, note: u8, channel: u8, id: Option<i32>) {
         for v in &mut self.voices {
-            if v.note == note && v.channel == channel && id.is_none_or(|id| v.id == Some(id)) {
+            if v.owner == 0 && v.note == note && v.channel == channel && id.is_none_or(|id| v.id == Some(id)) {
                 v.held = false;
                 if !self.pedal[channel.min(15) as usize] {
                     v.amp.off(seconds(self.target[RELEASE]), self.rate);
@@ -447,6 +459,27 @@ impl Engine {
                 }
             }
         }
+    }
+    pub(crate) fn release_owner(&mut self, owner:u64, hard:bool) {
+        debug_assert!(owner != 0);
+        for voice in &mut self.voices {
+            if voice.owner != owner { continue; }
+            if hard { *voice=Voice::default(); }
+            else if voice.held {
+                voice.held=false;
+                voice.amp.off(seconds(self.target[RELEASE]),self.rate);
+                voice.env.off(seconds(self.target[ENV_RELEASE]),self.rate);
+            }
+        }
+    }
+    pub(crate) fn tune_owner(&mut self, owner:u64, value:f32) {
+        for voice in &mut self.voices {if voice.owner==owner {voice.tune=value.clamp(-96.,96.);}}
+    }
+    pub(crate) fn owner_alive(&self,owner:u64)->bool {self.voices.iter().any(|v|v.owner==owner && v.amp.stage!=0)}
+    pub(crate) fn lit_keys(&self)->[u64;2] {
+        let mut keys=[0;2];
+        for v in &self.voices {if v.held && v.amp.stage!=0 {keys[v.note as usize/64]|=1u64<<(v.note%64);}}
+        keys
     }
     pub fn sustain(&mut self, channel: u8, on: bool) {
         if channel >= 16 {
@@ -470,7 +503,7 @@ impl Engine {
     pub fn tune(&mut self, note: u8, channel: u8, id: Option<i32>, value: f32) {
         if value.is_finite() {
             for v in &mut self.voices {
-                if v.note == note && v.channel == channel && id.is_none_or(|i| v.id == Some(i)) {
+                if v.owner == 0 && v.note == note && v.channel == channel && id.is_none_or(|i| v.id == Some(i)) {
                     v.tune = value.clamp(-96., 96.);
                 }
             }
@@ -478,7 +511,7 @@ impl Engine {
     }
     pub fn choke(&mut self, note: u8, channel: u8, id: Option<i32>) {
         for v in &mut self.voices {
-            if v.note == note && v.channel == channel && id.is_none_or(|i| v.id == Some(i)) {
+            if v.owner == 0 && v.note == note && v.channel == channel && id.is_none_or(|i| v.id == Some(i)) {
                 if self.ended.len() < 256 {
                     self.ended.push((v.note, v.channel, v.id));
                 }
@@ -538,7 +571,7 @@ impl Engine {
             let mut live = crate::modulation::Live::default();
             let mut newest = 0;
             let mut output = [0.; 2];
-            let mut lanes = [[0.; 2]; 3];
+            let mut lanes = [[0.; 2]; 4];
             let mut sounding = false;
             for (voice_index, v) in self.voices.iter_mut().enumerate() {
                 if v.amp.stage == 0 {
@@ -553,7 +586,7 @@ impl Engine {
                 }
                 let amp = v.amp.tick(attack, decay, p[SUSTAIN] / 1000., self.rate) * v.velocity;
                 let env = v.env.tick(ea, ed, p[ENV_SUSTAIN] / 1000., self.rate);
-                if v.amp.stage == 0 && self.ended.len() < 256 {
+                if v.owner == 0 && v.amp.stage == 0 && self.ended.len() < 256 {
                     self.ended.push((v.note, v.channel, v.id));
                 }
                 let mut phases = [v.lfo, v.lfo_extra[0], v.lfo_extra[1], v.lfo_extra[2]];
@@ -637,7 +670,7 @@ impl Engine {
                     + if target == 2 { lfo * 2. } else { 0. };
                 let base = 440. * 2.0_f32.powf(pitch / 12.);
                 let mut sig = [0.; 2];
-                let mut oscillator = [[0.; 2]; 3];
+                let mut oscillator = [[0.; 2]; 4];
                 for o in 0..2 {
                     let b = o * 8;
                     let source = if o == 0 { A_SOURCE } else { B_SOURCE };
@@ -659,12 +692,25 @@ impl Engine {
                         v.phase[o][u] = (phase + freq / self.rate).fract();
                         // Phase bend is an original two-slope warp; conservative mip selection limits added harmonics.
                         let pivot = 0.5 + p[b + 7] / 200.;
-                        let warped = if phase < pivot {
-                            phase / pivot * 0.5
+                        let fm = p[A_PHASE_FM + o * 2] / 2000.;
+                        let (shaped, fm_slope) = if fm > 0. && self.custom.samples[o].is_none() {
+                            let ratio = discrete[A_FM_RATIO + o * 2].round().clamp(1., 8.);
+                            let fm = fm * (1. - (freq * ratio / self.rate - 0.10) / 0.27).clamp(0., 1.);
+                            if fm > 0. {
+                                ((phase + (phase * ratio * std::f32::consts::TAU).sin() * fm).rem_euclid(1.),
+                                    1. + std::f32::consts::TAU * ratio * fm)
+                            } else {
+                                (phase, 1.)
+                            }
                         } else {
-                            0.5 + (phase - pivot) / (1. - pivot) * 0.5
+                            (phase, 1.)
                         };
-                        let max_slope = 0.5 / pivot.min(1. - pivot);
+                        let warped = if shaped < pivot {
+                            shaped / pivot * 0.5
+                        } else {
+                            0.5 + (shaped - pivot) / (1. - pivot) * 0.5
+                        };
+                        let max_slope = 0.5 / pivot.min(1. - pivot) * fm_slope;
                         let s = if freq < self.rate * 0.45 {
                             if let Some(sample) = &self.custom.samples[o] {
                                 sample.tick(&mut v.sample_cursor[o][u], freq, self.rate)
@@ -716,14 +762,28 @@ impl Engine {
                         oscillator[o][1] += pair[1] * mix;
                     }
                 }
+                for o in 0..2 {for ch in 0..2 {oscillator[o][ch]*=p[if o==0{A_ON}else{B_ON}];}}
+                let ring = p[B_RING] / 1000.;
+                if ring > 0. {
+                    for ch in 0..2 {
+                        let modulator = (oscillator[0][ch] * 2.).clamp(-1., 1.);
+                        oscillator[1][ch] *= 1. - ring + ring * modulator;
+                    }
+                }
                 for ch in 0..2 {sig[ch]=oscillator[0][ch]+oscillator[1][ch];}
-                v.sub = (v.sub + base * 0.5 / self.rate).fract();
-                let sub = (v.sub * TAU).sin() * p[SUB] / 1000.;
-                self.noise ^= self.noise << 13;
-                self.noise ^= self.noise >> 17;
-                self.noise ^= self.noise << 5;
-                let noise =
-                    (self.noise as f32 / u32::MAX as f32 * 2. - 1.) * p[NOISE] / 1000. * 0.3;
+                let sub_base=if discrete[SUB_TRACK]>0.5 {base}else{261.62558};
+                let sub_step=(sub_base*2_f32.powf(p[SUB_OCT])/self.rate).min(0.49);
+                v.sub=(v.sub+sub_step).fract();
+                let sub=crate::sources::sub(v.sub,sub_step,discrete[SUB_SHAPE] as usize)*p[SUB]/1000.*p[SUB_ON];
+                self.noise^=self.noise<<13;self.noise^=self.noise>>17;self.noise^=self.noise<<5;
+                let noise_source=(discrete[NOISE_TYPE] as usize).min(8);
+                let raw_noise=if noise_source==0 && discrete[NOISE_PITCH]==0. && discrete[NOISE_TRACK]<0.5 && discrete[NOISE_ONESHOT]<0.5 && discrete[NOISE_RANDOM]>0.5 {
+                    self.noise as f32/u32::MAX as f32*2.-1.
+                }else{
+                    let playback=if noise_source==8 {self.custom.noise.as_ref()}else{Some(&crate::sources::library()[noise_source])};
+                    playback.map(|sample|{let root=440.*2_f32.powf((sample.source.root-69.)/12.);let pitch=if discrete[NOISE_TRACK]>0.5 {base/261.62558}else{1.};crate::sources::noise_tick(sample,&mut v.noise_cursor,root*pitch*2_f32.powf(p[NOISE_PITCH]/12.),self.rate,discrete[NOISE_ONESHOT]>0.5)}).unwrap_or(0.)
+                };
+                let noise=raw_noise*p[NOISE]/1000.*0.3*p[NOISE_ON];
                 let cv = (p[CUTOFF]
                     + modulation[1] * 1000.
                     + env * p[ENV_AMOUNT]
@@ -757,13 +817,38 @@ impl Engine {
                 } else {
                     None
                 };
-                oscillator[2]=[sub+noise;2];
-                for lane in 0..3 {for ch in 0..2 {
-                    let x=oscillator[lane][ch]*0.3;
-                    let x=if model==0 && p[DRIVE]>0.1 {(x*drive).tanh()/drive.sqrt()} else {x};
-                    let filtered=if let Some(c)=&coeff {v.lane_recovered[lane][ch].tick(x,c)} else {v.lane_filter[lane][ch].tick(x,g,k,discrete[FILTER] as usize)};
-                    lanes[lane][ch]+=filtered*amp*am*(1.+modulation[7]).clamp(0.,2.);
-                }}
+                if discrete[DUAL_FILTER]>0.5 {
+                    for ch in 0..2 {let pan=|v:f32|if ch==0 {1.-v.max(0.)/100.}else{1.+v.min(0.)/100.};oscillator[2][ch]=sub*pan(p[SUB_PAN]);oscillator[3][ch]=noise*pan(p[NOISE_PAN]);}
+                    let keys=[[FILTER,FILTER_MODEL,CUTOFF,RESONANCE,DRIVE,F1_MIX,F1_KEY,F1_PAN,F1_ON],[F2_FILTER,F2_MODEL,F2_CUTOFF,F2_RESONANCE,F2_DRIVE,F2_MIX,F2_KEY,F2_PAN,F2_ON]];
+                    let coeffs=keys.map(|keys|{let cv=if keys[0]==FILTER{cv}else{p[keys[2]]};let hz=(cutoff(cv)*2_f32.powf((v.note as f32-60.)/12.*p[keys[6]]/1000.)).min(self.rate*0.42);
+                        let mode=discrete[keys[0]] as usize;let model=discrete[keys[1]] as usize;
+                        ((PI*hz/self.rate).tan(),2.-1.9*p[keys[3]]/1000.,crate::reference_filter::Coefficients::new(self.rate*2.,hz as f64,(p[keys[3]]/1000.) as f64,p[keys[4]]/1000.,mode,if model==2{4}else{2}))});
+                    for f in 0..2 {let signature=discrete[keys[f][0]] as usize+8*discrete[keys[f][1]] as usize;if v.dual_model[f]!=signature {for lane in 0..4{v.dual_filter[lane][f]=Default::default();v.dual_recovered[lane][f]=Default::default();}v.dual_model[f]=signature;}}
+                    for lane in 0..4 {for ch in 0..2 {let dry=oscillator[lane][ch]*0.3;
+                        let direct=if lane==2{p[SUB_DIRECT]}else if lane==3{p[NOISE_DIRECT]}else{0.};
+                        let mut apply=|f:usize,x:f32|{let ks=keys[f];let amount=p[FILTER_INPUTS[f][lane]]*p[ks[8]];if amount<0.00001{return x;}
+                            let mode=discrete[ks[0]] as usize;let model=discrete[ks[1]] as usize;let drive=1.+p[ks[4]]/100.;
+                            let input=if model==0&&p[ks[4]]>0.1{(x*drive).tanh()/drive.sqrt()}else{x};
+                            let wet=if model>0{v.dual_recovered[lane][f][ch].tick(input,&coeffs[f].2)}else{v.dual_filter[lane][f][ch].tick(input,coeffs[f].0,coeffs[f].1,mode)};
+                            let pan=if ch==0{1.-p[ks[7]].max(0.)/100.}else{1.+p[ks[7]].min(0.)/100.};
+                            x+(wet*pan-x)*p[ks[5]]/1000.*amount
+                        };
+                        let filtered=match discrete[FILTER_TOPOLOGY] as usize {1=>{let x=apply(0,dry);apply(1,x)},2=>{let x=apply(1,dry);apply(0,x)},_=>{
+                            let a=p[FILTER_INPUTS[0][lane]]*p[F1_ON];let b=p[FILTER_INPUTS[1][lane]]*p[F2_ON];
+                            dry+((apply(0,dry)-dry)+(apply(1,dry)-dry))/(a+b).max(1.)
+                        }};
+                        let filtered=filtered+(dry-filtered)*direct;
+                        lanes[lane][ch]+=filtered*amp*am*(1.+modulation[7]).clamp(0.,2.);
+                    }}
+                }else{
+                    oscillator[2]=[sub+noise;2];
+                    for lane in 0..3 {for ch in 0..2 {
+                        let x=oscillator[lane][ch]*0.3;
+                        let x=if model==0 && p[DRIVE]>0.1 {(x*drive).tanh()/drive.sqrt()} else {x};
+                        let filtered=if let Some(c)=&coeff {v.lane_recovered[lane][ch].tick(x,c)} else {v.lane_filter[lane][ch].tick(x,g,k,discrete[FILTER] as usize)};
+                        lanes[lane][ch]+=filtered*amp*am*(1.+modulation[7]).clamp(0.,2.);
+                    }}
+                }
                 for ch in 0..2 {
                     let x = (sig[ch] + sub + noise) * 0.3;
                     let x = if model == 0 && p[DRIVE] > 0.1 {
@@ -819,12 +904,12 @@ impl Engine {
             self.ch_head = (self.ch_head + 1) % self.chorus[0].len();
             // Preserve the original summed filter/chorus/delay sound for existing patches.
             // Independent assignments or a new effect crossfade into isolated oscillator lanes.
-            let independent=modular || crate::effects::needs_lanes(discrete);
+            let independent=discrete[DUAL_FILTER]>0.5 || modular || crate::effects::needs_lanes(discrete);
             self.rack_blend+=((if independent {1.} else {0.})-self.rack_blend)*smooth;
             if self.rack_blend<0.00001 {self.rack_blend=0.;} else if self.rack_blend>0.99999 {self.rack_blend=1.;}
             let (a,b)=if modular {(self.modular[0].tick(lanes[0],p,discrete,0,self.tempo),self.modular[1].tick(lanes[1],p,discrete,1,self.tempo))}
                 else {(self.racks[0].tick(lanes[0],p,0),self.racks[1].tick(lanes[1],p,1))};
-            for ch in 0..2 {output[ch]+=(a[ch]+b[ch]+lanes[2][ch]-output[ch])*self.rack_blend;}
+            for ch in 0..2 {output[ch]+=(a[ch]+b[ch]+lanes[2][ch]+lanes[3][ch]-output[ch])*self.rack_blend;}
             let gain = p[GAIN] / 1000.;
             *out_l = (output[0] * gain).tanh();
             *out_r = (output[1] * gain).tanh();
@@ -852,6 +937,58 @@ fn read_delay(data: &[f32], head: usize, delay: f32) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn phase_fm_ratio_and_ring_modulation_change_audio_with_a_dry_default() {
+        let render = |patch, note| {
+            let mut engine = Engine::new(48000.);
+            engine.set(patch);
+            engine.reset();
+            engine.on(note, 0.8, 0, None);
+            let mut l = vec![0.; 8192];
+            let mut r = l.clone();
+            engine.render(&mut l, &mut r);
+            assert!(l.iter().chain(&r).all(|s| s.is_finite() && s.abs() < 2.));
+            l
+        };
+        let mut p = defaults();
+        p[A_LEVEL] = 650.;
+        p[B_LEVEL] = 550.;
+        p[B_TUNE] = 7.;
+        let dry = render(p, 60);
+        p[A_FM_RATIO] = 4.;
+        assert_eq!(render(p, 60), dry);
+        p[A_PHASE_FM] = 660.;
+        let fm = render(p, 60);
+        assert_ne!(fm, dry);
+        p[A_FM_RATIO] = 2.;
+        assert_ne!(render(p, 60), fm);
+        p[A_PHASE_FM] = 0.;
+        p[B_PHASE_FM] = 660.;
+        assert_ne!(render(p, 60), dry);
+        p[B_PHASE_FM] = 0.;
+        p[B_RING] = 1000.;
+        assert_ne!(render(p, 60), dry);
+        p[A_PHASE_FM] = 1000.;
+        p[B_PHASE_FM] = 1000.;
+        p[A_FM_RATIO] = 8.;
+        p[B_FM_RATIO] = 8.;
+        render(p, 108);
+    }
+    #[test]
+    fn dedicated_sources_power_pitch_pan_and_dual_filter_routes() {
+        let mut engine=Engine::new(48000.);
+        let mut render=|p:Patch,note:u8| {engine.set(p);engine.reset();engine.on(note,0.8,0,None);let mut l=vec![0.;8192];let mut r=l.clone();engine.render(&mut l,&mut r);(l,r)};
+        let energy=|x:&Vec<f32>|x.iter().map(|x|x*x).sum::<f32>();
+        for o in 0..2 {let mut p=defaults();p[A_LEVEL]=if o==0{700.}else{0.};p[B_LEVEL]=if o==1{700.}else{0.};for reference in [0.,1.]{p[if o==0{A_SOURCE}else{B_SOURCE}]=reference;assert!(energy(&render(p,60).0)>0.01);p[if o==0{A_ON}else{B_ON}]=0.;assert_eq!(energy(&render(p,60).0),0.);p[if o==0{A_ON}else{B_ON}]=1.;}}
+        let mut p=defaults();p[A_ON]=0.;p[B_ON]=0.;p[SUB]=700.;p[SUB_OCT]=-1.;p[DUAL_FILTER]=1.;
+        let (l,_)=render(p,69);let crossings=l[1024..].windows(2).filter(|w|w[0]<=0.&&w[1]>0.).count();assert!((crossings as f32-220.*7168./48000.).abs()<2.);
+        p[SUB_PAN]=-100.;let (l,r)=render(p,69);assert!(energy(&l)>0.01);assert_eq!(energy(&r),0.);p[SUB_ON]=0.;assert_eq!(energy(&render(p,69).0),0.);
+        p[SUB]=0.;p[NOISE]=500.;p[NOISE_TYPE]=6.;p[NOISE_RANDOM]=0.;assert!(energy(&render(p,60).0)>0.01);p[NOISE_ON]=0.;assert_eq!(energy(&render(p,60).0),0.);
+        let mut p=defaults();p[DUAL_FILTER]=1.;p[FILTER]=1.;p[CUTOFF]=100.;p[A_BANK]=0.;p[A_POSITION]=1000.;p[F1_A]=0.;p[F1_B]=1.;let dry=render(p,72).0;p[F1_A]=1.;let low=render(p,72).0;assert!(energy(&low)<energy(&dry)*0.6);
+        p[F1_A]=0.;p[F2_ON]=1.;p[F2_A]=1.;p[F2_FILTER]=3.;p[F2_CUTOFF]=950.;let high=render(p,72).0;assert!(energy(&high)<energy(&dry)*0.7);
+        p[F1_A]=1.;p[FILTER_TOPOLOGY]=1.;let serial=render(p,72).0;p[FILTER_TOPOLOGY]=0.;let parallel=render(p,72).0;assert!(serial.iter().zip(parallel).any(|(a,b)|(a-b).abs()>0.00001));
+        p[A_ON]=0.;p[SUB_ON]=1.;p[SUB]=700.;p[SUB_DIRECT]=1.;let direct=render(p,69).0;p[SUB_DIRECT]=0.;assert!(energy(&render(p,69).0)<energy(&direct));
+    }
     #[test]
     fn oscillator_effect_routing_isolates_the_other_audio_lane() {
         for (row,mix) in [DIST_MIX,OTT_MIX,CHORUS_MIX,DELAY_MIX,REVERB_MIX].into_iter().enumerate() {

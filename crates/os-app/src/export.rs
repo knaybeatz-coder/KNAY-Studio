@@ -494,6 +494,13 @@ fn encode(o: &Options, f: usize, path: &Path, audio: &[f32], rate: u32, meta: &M
     std::fs::write(path, bytes).map_err(|e| err(e.to_string()))
 }
 
+#[cfg(any(windows, test))]
+pub(crate) fn pcm16_stereo(sample: &os_engine::Sample) -> Result<Vec<u8>, String> {
+    let audio: Vec<_> = sample.left.iter().zip(&sample.right)
+        .flat_map(|(&left, &right)| [left, right]).collect();
+    wav_bytes(&audio, 2, sample.rate, 16, false, &Meta::default())
+}
+
 /// A WAV file: PCM at 16 or 24 bits (dithered when `dither`), IEEE float at 32; with `cue `, `LIST`/`adtl`, `smpl` and
 /// `acid` chunks for the markers, the loop and the tempo (`Meta`).
 fn wav_bytes(audio: &[f32], ch: u16, rate: u32, bits: u16, dither: bool, meta: &Meta) -> Result<Vec<u8>, String> {

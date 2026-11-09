@@ -53,7 +53,7 @@ pub fn child_main(args: &[String]) -> ! {
         _ => serde_json::json!({ "ok": false, "error": format!("usage: {ARG} clap|vst3|vst2|native <path>") }),
     };
     let mut stdout = std::io::stdout().lock();
-    let _ = writeln!(stdout, "{TAG}{out}");
+    let _ = writeln!(stdout, "\n{TAG}{out}");
     let _ = stdout.flush();
     end_now(0)
 }
@@ -98,9 +98,9 @@ pub fn scan_in_child(path: &Path, format: Format) -> Scanned {
     if let Some(out) = child.stdout.take() {
         // Plugins may print anything while they load: only the tagged line counts.
         std::thread::spawn(move || {
-            for line in BufReader::new(out).lines().map_while(Result::ok) {
-                if let Some(rest) = line.strip_prefix(TAG) {
-                    let _ = tx.send(rest.to_string());
+            for line in BufReader::new(out).split(b'\n').map_while(Result::ok) {
+                if let Some(rest) = line.strip_prefix(TAG.as_bytes()).and_then(|bytes|std::str::from_utf8(bytes).ok()) {
+                    let _ = tx.send(rest.trim_end_matches('\r').to_string());
                     break;
                 }
             }
@@ -218,6 +218,10 @@ impl App {
     /// (no plugin file is loaded), then a background scan starts when "Find new plugins at startup" is on (always
     /// when there is no cache yet).
     pub fn start_plugins(&mut self) {
+        #[cfg(all(windows,target_arch="x86_64"))]
+        if std::env::var_os("OPENSTUDIO_NATIVE").is_none() && crate::prefs::text("host_installed_fl_plugins").as_deref()==Some("1") {
+            os_native::set_enabled(true);
+        }
         let first = !self.load_plugins();
         if first || self.state.plugdb.prefs.startup_scan {
             self.start_scan(Mode::Changed);
@@ -288,10 +292,11 @@ impl App {
     }
 
     /// A scan ended: its results are kept, the lists updated in place, the hint bar says what changed.
-    fn apply_scan(&mut self, cache: Cache) {
+    pub(crate) fn apply_scan(&mut self, cache: Cache) {
         let report = db::compare(&self.state.plugdb.cache, &cache);
         cache.save();
         self.plugins.merge(&cache);
+        self.retry_scanned_wrappers();
         let db = &mut self.state.plugdb;
         db.cache = cache;
         db.progress = None;

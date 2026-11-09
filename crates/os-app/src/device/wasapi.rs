@@ -491,7 +491,11 @@ impl Started {
             let p = self.render.GetBuffer(frames)?;
             // Safety: Windows lends `frames` frames of the stream's format at `p` until `ReleaseBuffer`.
             let out = std::slice::from_raw_parts_mut(p, frames as usize * self.channels * self.format.bytes());
-            write(out, mix.block(frames as usize), self.channels, self.format);
+            // Native WASAPI provides the stream's estimated playback latency rather than a CPAL callback timestamp.
+            let playback_at = self.info.latency.map(|frames| Duration::from_secs_f64(f64::from(frames) / f64::from(self.info.rate)))
+                .filter(|&delay| delay <= Duration::from_secs(1))
+                .and_then(|delay| Instant::now().checked_add(delay));
+            write(out, mix.block_at(frames as usize, playback_at), self.channels, self.format);
             self.render.ReleaseBuffer(frames, 0)
         }
     }

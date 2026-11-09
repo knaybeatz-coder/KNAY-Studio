@@ -100,6 +100,9 @@ pub fn load_shared(path: &Path) -> Result<Arc<Sample>, SampleError> {
     Ok(s)
 }
 
+/// Share freshly generated audio with file-backed samplers without decoding its WAV again.
+pub fn remember_shared(path:&Path,sample:Arc<Sample>){if let (Some(stamp),Ok(mut map))=(stamp(path),live().lock()){map.retain(|_,(w,_)|w.strong_count()>0);map.insert(path.to_owned(),(Arc::downgrade(&sample),stamp));}}
+
 /// Decodes a WAV (PCM or Vorbis-in-WAV) / FLAC / Ogg Vorbis / WavPack / MP3 / AIFF file.
 pub fn load(path: &Path) -> Result<Sample, SampleError> {
     let bytes = std::fs::read(path).map_err(|source| SampleError::Io { path: path.to_owned(), source })?;
@@ -386,20 +389,31 @@ pub fn search_folders() -> Vec<PathBuf> {
     search().read().map(|s| s.clone()).unwrap_or_default()
 }
 
-/// The file of `path`'s name in the first search folder that has one (its name matched without regard to case). A
-/// Windows path's name is found off Windows too, where `\` does not separate folders.
-fn by_name(path: &Path) -> Option<PathBuf> {
-    let name = path.to_str().map_or(path.file_name(), |p| p.rsplit(['\\', '/']).next().map(std::ffi::OsStr::new))?;
-    if name.is_empty() {
-        return None;
-    }
-    search_folders().iter().filter(|d| reachable(d)).find_map(|d| {
-        let p = d.join(name);
-        if p.is_file() {
-            return Some(p);
+/// Candidates at the best available project-relative suffix. Ambiguous basenames never
+/// choose a different sound merely because the search folders happen to be ordered differently.
+pub fn candidates(project_path: &str) -> Vec<PathBuf> {
+    let parts: Vec<_> = project_path.split(['\\','/']).filter(|s|!s.is_empty()).collect();
+    if parts.is_empty() {return Vec::new();}
+    let mut found: std::collections::BTreeMap<PathBuf,(usize,PathBuf)> = std::collections::BTreeMap::new();
+    for dir in search_folders().iter().filter(|d|reachable(d)) {
+        let mut relative=PathBuf::new();
+        for (depth,part) in parts.iter().rev().take(16).enumerate() {
+            if matches!(*part,"."|"..") || part.contains(':') || part.starts_with('%') {break;}
+            relative=Path::new(part).join(relative);
+            let asked=dir.join(&relative);
+            let Some(path)=(if asked.is_file(){Some(asked)}else{match_case(&asked).filter(|p|p.is_file())}) else{continue;};
+            let mut key=path.canonicalize().unwrap_or_else(|_|path.clone());
+            #[cfg(windows)] {key=PathBuf::from(key.to_string_lossy().to_lowercase());}
+            let score=depth+1;
+            let entry=found.entry(key).or_insert((score,path));entry.0=entry.0.max(score);
         }
-        match_case(&p).filter(|p| p.is_file())
-    })
+    }
+    let best=found.values().map(|(score,_)|*score).max().unwrap_or(0);
+    found.into_values().filter(|(score,_)|*score==best).map(|(_,path)|path).collect()
+}
+fn by_name(path: &Path) -> Option<PathBuf> {
+    let mut found=candidates(&path.to_string_lossy());
+    (found.len()==1).then(||found.remove(0))
 }
 
 /// How long the first look at a drive or network share may take before its samples count as missing.
@@ -551,9 +565,9 @@ impl SampleLibrary {
     pub fn resolve(&self, project_path: &str) -> Option<PathBuf> {
         let rel = |rest: &str| rest.trim_start_matches(['\\', '/']).replace(['\\', '/'], std::path::MAIN_SEPARATOR_STR);
         let path = if let Some(rest) = strip_prefix_ignoring_case(project_path, FACTORY) {
-            self.factory_dir.as_ref()?.join(rel(rest))
+            match self.factory_dir.as_ref(){Some(dir)=>dir.join(rel(rest)),None=>return by_name(Path::new(project_path))}
         } else if let Some(rest) = strip_prefix_ignoring_case(project_path, DATA) {
-            self.factory_dir.as_ref()?.join("Data").join(rel(rest))
+            match self.factory_dir.as_ref(){Some(dir)=>dir.join("Data").join(rel(rest)),None=>return by_name(Path::new(project_path))}
         } else {
             Self::local_path(project_path)
         };
@@ -896,4 +910,22 @@ mod tests {
         drop(first);
         let _ = std::fs::remove_dir_all(&root);
     }
+}
+
+#[cfg(test)]mod import_path_tests {
+ use super::*;
+ #[test]fn collected_placeholders_relative_suffixes_and_ambiguous_basenames(){
+  let root=std::env::temp_dir().join(format!("lemon-import-paths-{}",std::process::id()));
+  let a=root.join("a");let b=root.join("b");std::fs::create_dir_all(&a).unwrap();std::fs::create_dir_all(&b).unwrap();
+  std::fs::write(a.join("Kick.wav"),b"a").unwrap();std::fs::write(b.join("Kick.wav"),b"b").unwrap();
+  set_thread_search_folders(vec![a.clone()]);let lib=SampleLibrary::new(None);
+  for prefix in [FACTORY,DATA]{assert_eq!(lib.resolve(&format!("{prefix}/Packs/Kick.wav")),Some(a.join("Kick.wav")));}
+  let missing=root.join("gone/Kick.wav");set_thread_search_folders(vec![a.clone(),b.clone()]);assert_eq!(candidates(&missing.to_string_lossy()).len(),2);assert!(!lib.resolve(&missing.to_string_lossy()).is_some_and(|p|p.is_file()));
+  set_thread_search_folders(vec![b.clone(),a.clone()]);assert!(!lib.resolve(&missing.to_string_lossy()).is_some_and(|p|p.is_file()));
+  let pack=a.join("Packs");std::fs::create_dir_all(&pack).unwrap();std::fs::write(pack.join("Kick.wav"),b"exact").unwrap();
+  assert_eq!(lib.resolve("%FLStudioFactoryData%/Packs/Kick.wav"),Some(pack.join("Kick.wav")));
+  set_thread_search_folders(vec![pack.clone(),a.clone()]);assert_eq!(candidates("Packs/Kick.wav"),vec![pack.join("Kick.wav")]);
+  assert!(root.starts_with(std::env::temp_dir()) && root.file_name().unwrap().to_string_lossy().starts_with("lemon-import-paths-"));
+  std::fs::remove_dir_all(root).unwrap();
+ }
 }

@@ -22,6 +22,7 @@ pub mod fl;
 pub mod presets;
 pub mod waves;
 pub use design::{Design, Style};
+pub mod appearance;
 pub use fl::FlTheme;
 
 /// An sRGB color with alpha.
@@ -157,6 +158,7 @@ macro_rules! tokens {
             pub xf: fl::Xform,
             /// Shape language of the design this palette belongs to (corner radii; spec: ui/lemon-design.md).
             pub style: Style,
+            pub appearance: appearance::Appearance,
             /// The theme's Waves gradient, (position, colour) sorted by position: a `.flstheme`'s `WaveClr0..5` at
             /// `WaveSpc0..5` (spec: ui/flstheme.md §3). Empty without one; colourful waveforms then use
             /// `waves::STOCK`.
@@ -176,13 +178,20 @@ macro_rules! tokens {
 
         impl Default for Palette {
             fn default() -> Self {
-                Palette { $($name: Color::rgb($hex),)* xf: fl::Xform::default(), style: Style::CITRUS, waves: Vec::new(), wallpaper: None, pl_lines: 1.0, pr_lines: 1.0 }
+                Palette { $($name: Color::rgb($hex),)* xf: fl::Xform::default(), style: Style::CITRUS, appearance: Default::default(), waves: Vec::new(), wallpaper: None, pl_lines: 1.0, pr_lines: 1.0 }
             }
         }
 
         impl Palette {
             /// Token names, in declaration order.
             pub const NAMES: &'static [&'static str] = &[$(stringify!($name),)*];
+
+            pub fn description(name: &str) -> &'static str {
+                match name {
+                    $(stringify!($name) => $doc,)*
+                    _ => "",
+                }
+            }
 
             pub fn get_mut(&mut self, name: &str) -> Option<&mut Color> {
                 match name {
@@ -200,7 +209,7 @@ macro_rules! tokens {
 
             fn map(&self, f: impl Fn(Color) -> Color) -> Palette {
                 let (xf, style, waves, wallpaper) = (self.xf.clone(), self.style, self.waves.clone(), self.wallpaper.clone());
-                Palette { $($name: f(self.$name),)* xf, style, waves, wallpaper, pl_lines: self.pl_lines, pr_lines: self.pr_lines }
+                Palette { $($name: f(self.$name),)* xf, style, appearance: self.appearance, waves, wallpaper, pl_lines: self.pl_lines, pr_lines: self.pr_lines }
             }
 
             /// Playlist line colour `c` at the theme's line strength (`line_at` over `grid`; spec: ui/flstheme.md §3,
@@ -353,6 +362,54 @@ tokens! {
     key_black_lit_left = 0x7a4f24, "Piano keyboard: sounding black key (left end).";
     velocity = 0xacdfb3, "Velocity lollipops.";
     velocity_dot = 0x477a4e, "Velocity lollipop disc.";
+    button_pressed = 0x916329, "Custom button face while held down.";
+    button_disabled = 0x282a2c, "Custom disabled button face.";
+    button_border = 0x171a1c, "Custom button border.";
+    indicator_on = 0xecad48, "Custom indicator when lit.";
+    indicator_off = 0x483b28, "Custom indicator when off.";
+    knob_cap = 0x484d50, "Custom dial cap.";
+    knob_pointer = 0xe0e6e9, "Custom dial pointer.";
+    knob_ring = 0xf0a34e, "Custom dial value ring.";
+    mixer_plate = 0x303638, "Themed mixer label and meter surround.";
+    skin_knob_rim = 0x292d2b, "Mixer Skin Designer knob rim.";
+    skin_fader_edge = 0x292d2b, "Mixer Skin Designer fader edge.";
+    skin_fader_stripe = 0xf4e7cf, "Mixer Skin Designer fader stripe.";
+    skin_meter_face = 0xe6d6af, "Mixer Skin Designer meter face.";
+    skin_meter_scale = 0x493e28, "Mixer Skin Designer meter scale and pivot.";
+    skin_meter_needle = 0x971d1b, "Mixer Skin Designer meter needle.";
+    skin_panel_trim = 0x3d4238, "Mixer Skin Designer panel trim.";
+    skin_knob_cap = 0x484d50, "Mixer Skin Designer knob cap.";
+    skin_knob_pointer = 0xe0e6e9, "Mixer Skin Designer knob pointer.";
+    skin_knob_ring = 0xf0a34e, "Mixer Skin Designer knob arc.";
+    skin_fader_cap = 0xada38a, "Mixer Skin Designer fader cap.";
+    skin_button_normal = 0x383b35, "Mixer Skin Designer normal button face.";
+    skin_button_hover = 0x555b4e, "Mixer Skin Designer hovered button face.";
+    skin_button_held = 0x916329, "Mixer Skin Designer held button face.";
+    skin_button_active = 0xeab85e, "Mixer Skin Designer active button face.";
+    skin_button_disabled = 0x282a2c, "Mixer Skin Designer disabled button face.";
+    skin_button_edge = 0x171a1c, "Mixer Skin Designer button edge.";
+    skin_meter_low = 0x6cc04a, "Mixer Skin Designer low meter segment.";
+    skin_meter_high = 0xe8d040, "Mixer Skin Designer high meter segment.";
+    skin_meter_clip = 0xf05040, "Mixer Skin Designer meter clip indication.";
+    skin_panel_face = 0x35382f, "Mixer Skin Designer panel surface.";
+    skin_panel_selected = 0xc9b878, "Mixer Skin Designer selected panel trim.";
+    note_group_01 = 0x9fcf8d, "Piano Roll note group 01.";
+    note_group_02 = 0xdca4b6, "Piano Roll note group 02.";
+    note_group_03 = 0xc5a7dd, "Piano Roll note group 03.";
+    note_group_04 = 0xaba8df, "Piano Roll note group 04.";
+    note_group_05 = 0x95b3dd, "Piano Roll note group 05.";
+    note_group_06 = 0x8bc8d5, "Piano Roll note group 06.";
+    note_group_07 = 0x8bd1bb, "Piano Roll note group 07.";
+    note_group_08 = 0xbed08d, "Piano Roll note group 08.";
+    note_group_09 = 0xd4cb88, "Piano Roll note group 09.";
+    note_group_10 = 0xd8b080, "Piano Roll note group 10.";
+    note_group_11 = 0xd99b88, "Piano Roll note group 11.";
+    note_group_12 = 0xd99b9d, "Piano Roll note group 12.";
+    note_group_13 = 0xc5aaba, "Piano Roll note group 13.";
+    note_group_14 = 0xb2b5c6, "Piano Roll note group 14.";
+    note_group_15 = 0x9bbeb7, "Piano Roll note group 15.";
+    note_group_16 = 0xc8c5a0, "Piano Roll note group 16.";
+
 }
 
 /// Role-mapped literals: widgets that need a measured shade with no token of its own write it as

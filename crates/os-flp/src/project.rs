@@ -844,16 +844,19 @@ pub fn load(file: &FlpFile) -> Result<Project, ProjectError> {
     read_peak_links(file,&mut p);
     read_channel_layouts(file,&mut p);
     read_strip_bypass(file,&mut p);
+    read_mixer_locks(file, &mut p);
+    read_track_folders(file,&mut p);read_track_heights(file,&mut p);
     read_comp_groups(file, &mut p);
     read_frozen_tracks(file, &mut p);
     read_extra_fx(file, &mut p);
     read_audio_warps(file,&mut p);
+    read_vocals(file,&mut p);
     read_rack_strips(file,&mut p);
     read_instrument_lanes(file,&mut p);
     read_pattern_speeds(file,&mut p);
     read_marker_colors(file,&mut p);
     read_clip_fx_owners(file,&mut p);
-    read_mpe(file,&mut p);
+    read_note_drive(file,&mut p);read_mpe(file,&mut p);
     for c in &file.chunks {if c.tag==Tag(*b"LSHK") {if let ChunkBody::Raw(d)=&c.body {if d.len()==4&&d[0]==1&&d[1]<12&&(67..=88).contains(&d[2]) {p.harmony=Some((d[1],d[2],d[3]&31));}}}}
     Ok(p)
 }
@@ -1364,7 +1367,7 @@ fn decode_note(r: &[u8]) -> Note {
     let u16_at = |o: usize| u16::from_le_bytes([r[o], r[o + 1]]);
     let u32_at = |o: usize| u32::from_le_bytes(r[o..o + 4].try_into().unwrap());
     Note {
-        expression:0,
+        drive:0,expression:0,
         position: u32_at(0),
         channel: u16_at(6),
         length: u32_at(8),
@@ -1658,6 +1661,8 @@ fn load_pl_track(events: &[Event], t: &PlTrackLoc, enc: TextEnc) -> PlaylistTrac
     let r = events[t.record].data().unwrap_or(&[]);
     let custom = t.color_flag.is_some_and(|i| int(&events[i]) != 0);
     PlaylistTrack {
+        height:None,
+        folder:false,
         frozen: None,
         comp: None,
         number: r.get(0..4).map_or(0, |b| u32::from_le_bytes(b.try_into().unwrap())),
@@ -1752,9 +1757,11 @@ fn set_param_record(data: &mut Vec<u8>, loc: u16, pid: u8, v: i32) {
 
 /// Sets the record (`kind`, `pid`) at `loc`, or adds it before the first record of a later location.
 fn set_record(data: &mut Vec<u8>, kind: u8, loc: u16, pid: u8, v: i32) {
-    let found = mixer_param_records(data).find(|&(_, p, k, at, _)| k == kind && p == pid && at == loc).map(|r| r.0);
-    if let Some(off) = found {
-        data[off + 8..off + 12].copy_from_slice(&v.to_le_bytes());
+    // Some FL projects repeat a control record. The reader takes the final slot value;
+    // update every matching record so a later duplicate cannot undo the user's edit.
+    let found:Vec<_> = mixer_param_records(data).filter(|&(_, p, k, at, _)| k == kind && p == pid && at == loc).map(|r| r.0).collect();
+    if !found.is_empty() {
+        for off in found {data[off + 8..off + 12].copy_from_slice(&v.to_le_bytes());}
         return;
     }
     let at = mixer_param_records(data)
@@ -3271,16 +3278,19 @@ pub fn apply(project: &Project, file: &mut FlpFile) -> Result<(), ProjectError> 
     write_peak_links(project,file);
     write_channel_layouts(project,file);
     write_strip_bypass(project,file);
+    write_mixer_locks(project, file);
+    write_track_folders(project,file);write_track_heights(project,file);
     write_comp_groups(project, file);
     write_frozen_tracks(project, file);
     write_extra_fx(project, file);
     write_audio_warps(project,file);
+    write_vocals(project,file);
     write_rack_strips(project,file);
     write_instrument_lanes(project,file);
     write_pattern_speeds(project,file);
     write_marker_colors(project,file);
     write_clip_fx_owners(project,file);
-    write_mpe(project,file);
+    write_note_drive(project,file);write_mpe(project,file);
     Ok(())
 }
 
@@ -3808,16 +3818,19 @@ pub fn create(project: &Project) -> Result<FlpFile, ProjectError> {
     write_peak_links(project,&mut file);
     write_channel_layouts(project,&mut file);
     write_strip_bypass(project,&mut file);
+    write_mixer_locks(project, &mut file);
+    write_track_folders(project,&mut file);write_track_heights(project,&mut file);
     write_comp_groups(project, &mut file);
     write_frozen_tracks(project, &mut file);
     write_extra_fx(project, &mut file);
     write_audio_warps(project,&mut file);
+    write_vocals(project,&mut file);
     write_rack_strips(project,&mut file);
     write_instrument_lanes(project,&mut file);
     write_pattern_speeds(project,&mut file);
     write_marker_colors(project,&mut file);
     write_clip_fx_owners(project,&mut file);
-    write_mpe(project,&mut file);
+    write_note_drive(project,&mut file);write_mpe(project,&mut file);
     Ok(file)
 }
 
@@ -4643,6 +4656,26 @@ mod tests {
         assert!(back.mixer[1].strip_bypassed);assert!(!back.mixer[2].strip_bypassed);assert!(back.mixer[1].slots_enabled);assert_eq!(back.mixer[1].strip[0],12345);
         let mut old=f;old.chunks.retain(|c|c.tag!=STRIP_BYPASS_TAG);assert!(!load(&old).unwrap().mixer[1].strip_bypassed);
     }
+ #[test]fn foreign_imports_have_neutral_layouts_and_explicit_lemon_layouts_survive(){
+  let mut project=new_project();project.arrangements.push(default_arrangement());project.mixer=(0..45).map(MixerTrack::new).collect();project.mixer[33].channel_layout=2;
+  let mut file=create(&project).unwrap();assert_eq!(load(&file).unwrap().mixer[33].channel_layout,2);
+  file.chunks.retain(|c|!matches!(&c.tag.0,b"LPCH"|b"LSKB"|b"LSCL"));
+  let foreign=load(&file).unwrap();assert!(foreign.mixer.iter().all(|t|t.channel_layout==0));
+  file.chunks.push(Chunk{tag:Tag(*b"LPCH"),body:ChunkBody::Raw(vec![1,0,0,0,0])});
+  assert_eq!(load(&file).unwrap().mixer[33].channel_layout,2,"old Lemon migration retained");
+ }
+
+    #[test]
+    fn duplicated_imported_slot_controls_take_the_new_value() {
+        let loc=mixer_location(3,2);
+        let mut data=param_rec(MX_SLOT_MIX,MX_KIND_PARAM,loc,12800).to_vec();
+        data.extend(param_rec(MX_SLOT_MIX,MX_KIND_PARAM,loc,6400));
+        let untouched=param_rec(17,MX_KIND_PARAM,loc,1234);data.extend(&untouched);
+        set_param_record(&mut data,loc,MX_SLOT_MIX,3200);
+        let values:Vec<_>=mixer_param_records(&data).filter(|r|r.1==MX_SLOT_MIX).map(|r|r.4).collect();
+        assert_eq!(values,vec![3200,3200]);assert_eq!(&data[data.len()-untouched.len()..],untouched);
+    }
+
     #[test]
     fn channel_layouts_roundtrip_and_legacy_vocal_range() {
         let mut p=new_project();p.arrangements.push(default_arrangement());p.mixer=(0..45).map(MixerTrack::new).collect();
@@ -5640,6 +5673,7 @@ mod tests {
         let (mut lists, mut autos) = (0, 0);
         for path in text.lines().map(str::trim).filter(|l| !l.is_empty()) {
             let file = FlpFile::parse(&std::fs::read(path).unwrap()).unwrap();
+            if matches!(load(&file),Err(ProjectError::LegacyLayout(_))){continue;}
             for e in events_of(&file).unwrap() {
                 match e.id {
                     id::ARR_CLIPS => {
@@ -6423,6 +6457,26 @@ fn write_instrument_lanes(p:&Project,file:&mut FlpFile) {
 }
 
 // Versioned comp leaders; take grouping, muted state, source windows and fades use normal FLP records.
+const FOLDER_TAG:Tag=Tag(*b"LSFD");
+fn read_track_folders(file:&FlpFile,p:&mut Project){
+    for chunk in file.chunks.iter().filter(|c|c.tag==FOLDER_TAG){
+        if let ChunkBody::Raw(data)=&chunk.body && data.first()==Some(&1){
+            for row in data[1..].chunks_exact(4){
+                let arr=u16::from_le_bytes([row[0],row[1]]);
+                let index=u16::from_le_bytes([row[2],row[3]]) as usize;
+                if let Some(t)=p.arrangements.iter_mut().find(|a|a.number==arr).and_then(|a|a.tracks.get_mut(index)){t.folder=true;}
+            }
+        }
+    }
+}
+fn write_track_folders(p:&Project,file:&mut FlpFile){
+    file.chunks.retain(|c|c.tag!=FOLDER_TAG);
+    let mut data=vec![1];for a in &p.arrangements{for (i,t) in a.tracks.iter().enumerate(){if t.folder{
+        data.extend(a.number.to_le_bytes());data.extend((i as u16).to_le_bytes());
+    }}}
+    if data.len()>1{file.chunks.push(Chunk{tag:FOLDER_TAG,body:ChunkBody::Raw(data)});}
+}
+
 const COMP_TAG: Tag = Tag(*b"LSCP");
 fn read_comp_groups(file: &FlpFile, p: &mut Project) {
     for c in &file.chunks {
@@ -6448,8 +6502,9 @@ fn write_comp_groups(p: &Project, file: &mut FlpFile) {
 
 const CHANNEL_LAYOUT_TAG:Tag=Tag(*b"LSCL");
 fn read_channel_layouts(file:&FlpFile,p:&mut Project) {
-    // Upgrade the user's existing mixer once. Explicit layouts thereafter travel with channels.
-    for m in &mut p.mixer {m.channel_layout=if (32..=41).contains(&m.index){2}else{1};}
+    // Migrate old Lemon projects only. Foreign FL projects have no template-specific Vox strips.
+    let old_lemon=file.chunks.iter().any(|c|matches!(&c.tag.0,b"LPCH"|b"LSKB"));
+    for m in &mut p.mixer {m.channel_layout=if old_lemon{if (32..=41).contains(&m.index){2}else{1}}else{0};}
     for c in &file.chunks {
         if c.tag!=CHANNEL_LAYOUT_TAG {continue;}let ChunkBody::Raw(d)=&c.body else{continue};
         if d.first()!=Some(&1){continue;}
@@ -6497,7 +6552,7 @@ fn read_parametric_chunk(file: &FlpFile, project: &mut Project) {
 fn write_parametric_chunk(project: &Project, file: &mut FlpFile) {
     let mut data = vec![1];
     for m in &project.mixer {
-        if m.slots[10].is_none() && !m.parametric_pre {continue;}
+        if m.slots[10].is_none() && !m.parametric_pre && m.slot_on[10] {continue;}
         data.extend(m.index.to_le_bytes());
         data.extend([u8::from(m.parametric_pre),u8::from(m.slot_on[10]),u8::from(m.slots[10].is_some())]);
         let mut state = [0u8;354];
@@ -6506,6 +6561,31 @@ fn write_parametric_chunk(project: &Project, file: &mut FlpFile) {
     }
     file.chunks.retain(|c|c.tag!=PARAMETRIC_TAG);
     if data.len()>1 {file.chunks.push(Chunk{tag:PARAMETRIC_TAG,body:ChunkBody::Raw(data)});}
+}
+
+const MIXER_LOCK_TAG: Tag = Tag(*b"LMLK");
+fn read_mixer_locks(file: &FlpFile, p: &mut Project) {
+    for chunk in file.chunks.iter().filter(|c| c.tag == MIXER_LOCK_TAG) {
+        let ChunkBody::Raw(data) = &chunk.body else { continue };
+        if data.first() != Some(&1) { continue; }
+        for bytes in data[1..].chunks_exact(2) {
+            let index = u16::from_le_bytes([bytes[0], bytes[1]]);
+            if let Some(track) = p.mixer.iter_mut().find(|m| m.index == index) {
+                track.edit_locked = true;
+            }
+        }
+    }
+}
+
+fn write_mixer_locks(p: &Project, file: &mut FlpFile) {
+    let mut data = vec![1];
+    for m in p.mixer.iter().filter(|m| m.edit_locked) {
+        data.extend(m.index.to_le_bytes());
+    }
+    file.chunks.retain(|c| c.tag != MIXER_LOCK_TAG);
+    if data.len() > 1 {
+        file.chunks.push(Chunk { tag: MIXER_LOCK_TAG, body: ChunkBody::Raw(data) });
+    }
 }
 
 const STRIP_BYPASS_TAG:Tag=Tag(*b"LSKB");
@@ -6703,6 +6783,49 @@ fn read_clip_fx_owners(file:&FlpFile,p:&mut Project){
 }
 
 // Native MPE extension. Legacy FL note records remain unchanged.
+const NOTE_DRIVE: Tag = Tag(*b"LSND");
+fn write_note_drive(p: &Project, file: &mut FlpFile) {
+    file.chunks.retain(|c| c.tag != NOTE_DRIVE);
+    let mut data = Vec::new();
+    for pat in p
+        .patterns
+        .iter()
+        .filter(|pat| pat.notes.iter().any(|n| n.drive > 0))
+    {
+        let mut sorted: Vec<_> = pat.notes.iter().collect();
+        sorted.sort_by_key(|n| n.position);
+        for (i, n) in sorted.into_iter().enumerate().filter(|(_, n)| n.drive > 0) {
+            data.extend(pat.number.to_le_bytes());
+            data.extend((i as u32).to_le_bytes());
+            data.push(n.drive);
+        }
+    }
+    if !data.is_empty() {
+        file.chunks.push(Chunk {
+            tag: NOTE_DRIVE,
+            body: ChunkBody::Raw(data),
+        });
+    }
+}
+fn read_note_drive(file: &FlpFile, p: &mut Project) {
+    for chunk in file.chunks.iter().filter(|c| c.tag == NOTE_DRIVE) {
+        if let ChunkBody::Raw(bytes) = &chunk.body {
+            for r in bytes.chunks_exact(7) {
+                let pat = u16::from_le_bytes([r[0], r[1]]);
+                let i = u32::from_le_bytes(r[2..6].try_into().unwrap()) as usize;
+                if let Some(n) = p
+                    .patterns
+                    .iter_mut()
+                    .find(|x| x.number == pat)
+                    .and_then(|x| x.notes.get_mut(i))
+                {
+                    n.drive = r[6].min(127);
+                }
+            }
+        }
+    }
+}
+
 const MPE_DATA:Tag=Tag(*b"LSME");
 fn write_mpe(p:&Project,file:&mut FlpFile){
  file.chunks.retain(|c|c.tag!=MPE_DATA);
@@ -6722,3 +6845,20 @@ fn read_mpe(file:&FlpFile,p:&mut Project){
  }
  for c in &file.chunks{if c.tag!=MPE_DATA{continue;}let ChunkBody::Raw(d)=&c.body else{continue;};let Some((mut data,links))=parse(d)else{continue;};data.channels.retain(|(id,_)|p.channels.iter().any(|c|c.index==*id));for(pat,index,id)in links{if let Some(n)=p.patterns.iter_mut().find(|p|p.number==pat).and_then(|p|p.notes.get_mut(index)){n.expression=id;}}p.mpe=data;}
 }
+
+fn write_vocals(p:&Project,file:&mut FlpFile){
+ file.chunks.retain(|c|c.tag!=Tag(*b"LSVT"));
+ if !p.vocal_edits.is_empty(){if let Ok(data)=serde_json::to_vec(&p.vocal_edits){file.chunks.push(Chunk{tag:Tag(*b"LSVT"),body:ChunkBody::Raw(data)});}}
+}
+fn read_vocals(file:&FlpFile,p:&mut Project){
+ for c in &file.chunks{if c.tag!=Tag(*b"LSVT"){continue;}let ChunkBody::Raw(data)=&c.body else{continue};
+  if data.len()>64*1024*1024{continue;}
+  if let Ok(edits)=serde_json::from_slice::<Vec<os_model::vocal::Edit>>(data){
+   let mut channels=std::collections::HashSet::new();
+   p.vocal_edits=edits.into_iter().take(1000).filter(|v|v.valid()&&p.channels.iter().any(|c|c.index==v.channel)&&channels.insert(v.channel)).collect();
+  }
+ }
+}
+
+fn read_track_heights(file:&FlpFile,p:&mut Project){for c in &file.chunks{if c.tag!=Tag(*b"LSTH"){continue;}let ChunkBody::Raw(d)=&c.body else{continue};if d.first()!=Some(&1){continue;}for r in d[1..].chunks_exact(8){let arr=u16::from_le_bytes([r[0],r[1]]);let row=u16::from_le_bytes([r[2],r[3]])as usize;let h=f32::from_le_bytes(r[4..8].try_into().unwrap());if h.is_finite()&&(16.0..=600.).contains(&h){if let Some(t)=p.arrangements.iter_mut().find(|a|a.number==arr).and_then(|a|a.tracks.get_mut(row)){t.height=Some(h);}}}}}
+fn write_track_heights(p:&Project,file:&mut FlpFile){file.chunks.retain(|c|c.tag!=Tag(*b"LSTH"));let mut d=vec![1];for a in &p.arrangements{for(i,t)in a.tracks.iter().enumerate(){if let Some(h)=t.height{d.extend(a.number.to_le_bytes());d.extend((i as u16).to_le_bytes());d.extend(h.to_le_bytes());}}}if d.len()>1{file.chunks.push(Chunk{tag:Tag(*b"LSTH"),body:ChunkBody::Raw(d)});}}

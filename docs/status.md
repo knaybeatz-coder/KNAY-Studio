@@ -3,7 +3,7 @@
 The details behind the [Capabilities](../README.md#capabilities) table, area by area. Controls for anything
 that is not implemented yet are greyed out in the application: hovering one says "not available yet", and
 clicking it does nothing. The full, item-by-item roadmap lives on the
-[Discord server](https://discord.gg/yC2uCuGs3M).
+[Discord server](https://discord.gg/CDYs4rQEk).
 
 ✅ usable · 🚧 partial · ❌ not available yet
 

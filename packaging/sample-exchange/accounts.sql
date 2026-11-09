@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS members(id TEXT PRIMARY KEY,email TEXT NOT NULL,newsletter INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS account_votes(sample_id TEXT NOT NULL,member_id TEXT NOT NULL,PRIMARY KEY(sample_id,member_id));
+CREATE TABLE IF NOT EXISTS upload_receipts(sample_id TEXT PRIMARY KEY,member_id TEXT NOT NULL,at INTEGER NOT NULL,license TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS newsletter_events(member_id TEXT NOT NULL,email TEXT NOT NULL,opted_in INTEGER NOT NULL,at INTEGER NOT NULL,notice TEXT NOT NULL);
+
+CREATE TABLE IF NOT EXISTS exchange_limits(k TEXT PRIMARY KEY,n INTEGER NOT NULL,expires INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS exchange_limits_expiry ON exchange_limits(expires);

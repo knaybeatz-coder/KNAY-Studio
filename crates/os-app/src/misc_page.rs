@@ -812,7 +812,7 @@ pub fn paint(c: &mut Canvas, t: &Palette, ax: f32, ay: f32, v: &MiscVals, ui: &M
     } else {
         t.tx(0xd2d8dc)
     };
-    c.icon(&tb::HAND_FINGER, Rect::new(hx - 9.0, hy - 9.0, 18.0, 18.0), hand);
+    crate::icons::draw(c, crate::icons::Icon::Touch, Rect::new(hx - 9.0, hy - 9.0, 18.0, 18.0), hand);
     if lemon {
         keyboard_lemon(c, t, root as u8, ui);
     } else {
@@ -870,7 +870,13 @@ fn headers(c: &mut Canvas, t: &Palette, v: &MiscVals, ui: &MiscUi) {
             c.glyph(col, &g);
         };
         match i {
-            0 => c.icon_stroke(&tb::X, Rect::new(x - 7.0, my - 7.0, 14.0, 14.0), col, 1.6),
+            0 => {
+                if c.icon_pack() == 0 {
+                    c.icon_stroke(&tb::X, Rect::new(x - 7.0, my - 7.0, 14.0, 14.0), col, 1.6);
+                } else {
+                    crate::icons::draw(c, crate::icons::Icon::Close, Rect::new(x - 7.0, my - 7.0, 14.0, 14.0), col);
+                }
+            },
             1 => tri(c, true, my, 5.0),
             2 => tri(c, false, my, 5.0),
             3 => {

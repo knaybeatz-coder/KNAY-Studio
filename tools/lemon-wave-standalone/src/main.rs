@@ -31,7 +31,7 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.get(1).is_some_and(|a| a == "--build-info") {
         if let Some(path) = args.get(2) {
-            std::fs::write(path,"Lemon Wave standalone; shared synth and Wavetable Workshop; MIDI keyboard input; Windows WASAPI output; no audio input; no on-screen keyboard\n").expect("write build info");
+            std::fs::write(path,"Lemon Wave standalone; shared synth and Wavetable Workshop; MIDI keyboard input; Windows WASAPI output; no audio input; playable on-screen piano with chord and arp modes\n").expect("write build info");
         }
         return;
     }
@@ -55,6 +55,16 @@ fn main() {
         let began=std::time::Instant::now();
         for _ in 0..12 {engine.render(&mut left,&mut right);assert!(left.iter().chain(right.iter()).all(|v|v.is_finite()));}
         let rack_ms=began.elapsed().as_millis();assert!(left.iter().any(|v|v.abs()>1e-5));engine.reset();engine.render(&mut left,&mut right);assert!(left.iter().chain(right.iter()).all(|v|v.abs()<1e-6));
+        let mut player=lemon_wave::performance::Player::default();
+        let keyboard=lemon_wave::performance::Keyboard::default();
+        patch[lemon_wave::controls::CHORD_ON]=1.;
+        patch[lemon_wave::controls::ARP_ON]=1.;
+        engine.set(patch);player.configure(&mut engine,&patch);
+        keyboard.set_note(60);player.mouse(&mut engine,&keyboard);
+        player.render(&mut engine,&mut left,&mut right);
+        assert!(left.iter().any(|v|v.abs()>1e-5));
+        keyboard.release();player.mouse(&mut engine,&keyboard);
+        assert!(!player.playing());
         let included = lemon_wave::included_library::entries().len();
         if included > 0 {
             lemon_wave::included_library::load(0)
@@ -63,7 +73,7 @@ fn main() {
                 .unwrap();
         }
         if let Some(path) = args.get(2) {
-            std::fs::write(path,format!("PASS: offline synth note-on, finite non-silent stereo audio, reset clears notes and effect tails; {included} included recordings; first recording decoded. Modular compressor/delay/reverb chain: 8 synthetic notes, 1.024 seconds rendered in {rack_ms} ms; reset cleared the rack. No audio or MIDI device opened.\n")).expect("write self-test");
+            std::fs::write(path,format!("PASS: offline synth note-on, finite non-silent stereo audio, reset clears notes and effect tails; {included} included recordings; first recording decoded. Modular compressor/delay/reverb chain: 8 synthetic notes, 1.024 seconds rendered in {rack_ms} ms; reset cleared the rack. On-screen piano, chord and arpeggiator rendered and released a synthetic trigger. No audio or MIDI device opened.\n")).expect("write self-test");
         }
         return;
     }
@@ -106,25 +116,10 @@ fn main() {
     if args.len() == 1 {
         let available = ports();
         let midi = settings.midi_input.or_else(|| available.first().cloned());
-        let Some(midi) = midi else {
-            message(
-                "Connect and switch on your MIDI keyboard, then open Lemon Wave again. No MIDI input device was found.",
-            );
-            return;
-        };
-        if !available.contains(&midi) {
-            message(&format!(
-                "The MIDI input '{midi}' is unavailable. Connect it, or change midi_input in Settings.json. Available inputs:\n{}",
-                available.join("\n")
-            ));
-            return;
+        args.extend(["--backend".into(),"wasapi".into()]);
+        if let Some(port)=midi.filter(|port|available.contains(port)){
+            args.extend(["--midi-input".into(),port]);
         }
-        args.extend([
-            "--backend".into(),
-            "wasapi".into(),
-            "--midi-input".into(),
-            midi,
-        ]);
         if let Some(d) = settings.output_device {
             args.extend(["--output-device".into(), d]);
         }

@@ -23,7 +23,7 @@ fn row(app: &App, i: usize) -> Option<usize> {
         .iter()
         .position(|c| c.index == id && c.kind == os_model::ChannelKind::AudioClip)
 }
-fn choices(app: &App) -> Vec<os_host::Descriptor> {
+pub(crate) fn choices(app: &App) -> Vec<os_host::Descriptor> {
     let mut out: Vec<_> = app
         .plugins
         .effects

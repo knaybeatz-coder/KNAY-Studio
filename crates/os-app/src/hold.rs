@@ -97,6 +97,9 @@ impl App {
 
     /// The mouse moved to (`x`, `y`): further than [`SLOP`] from the press, the hold ends and the drag goes on as one.
     pub(crate) fn hold_moved(&mut self, x: f32, y: f32) {
+        if self.state.piano.properties_click.is_some_and(|(_,_,_,_,at)| (x-at.0).abs().max((y-at.1).abs())>SLOP){
+            self.state.piano.properties_click=None;
+        }
         if self.hold.is_some_and(|h| (x - h.from.0).abs().max((y - h.from.1).abs()) > SLOP) {
             self.hold = None;
         }
@@ -109,6 +112,7 @@ impl App {
         if periods == h.periods {
             return;
         }
+        self.state.piano.properties_click=None;
         match h.kind {
             Kind::NewNote => {
                 let Some(Drag::NoteMove { orig, .. }) = &self.drag else {
@@ -167,7 +171,7 @@ impl App {
     /// The moved clips are copied (`playlist::clone_clips`); the copies are dragged from here on, starting one snap
     /// step later (a step without a snap).
     fn pick_up_clips(&mut self) {
-        let Some(Drag::Pl(PlDrag::Move { x0, y0, orig, fresh: false })) = self.drag.clone() else { return };
+        let Some(Drag::Pl(PlDrag::Move { x0, y0, scroll_x, track0, orig, fresh: false })) = self.drag.clone() else { return };
         let Some(grid) = self.pl_grid() else { return };
         crate::history::rename(&mut self.state, "Playlist clone clip");
         let copies = pl::clone_clips(&mut self.state, &orig);
@@ -177,7 +181,7 @@ impl App {
             sn => sn.ticks(g.ppq, g.bar_w),
         };
         // `fresh`: the copies are a change even where they end up.
-        let d = PlDrag::Move { x0: x0 - unit as f32 * g.ppt, y0, orig: copies, fresh: true };
+        let d = PlDrag::Move { x0: x0 - unit as f32 * g.ppt, y0, scroll_x, track0, orig: copies, fresh: true };
         self.drag = Some(Drag::Pl(d.clone()));
         pl::drag_move(self, d, grid);
         self.invalidate();

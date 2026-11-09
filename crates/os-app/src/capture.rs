@@ -14,7 +14,8 @@ use std::cell::UnsafeCell;
 use std::io::{BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU32, AtomicU64, AtomicUsize, Ordering};
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 /// One producer, one consumer ring of samples: the device's callback pushes, the writer thread pops; neither locks.
 pub struct Ring {
@@ -118,6 +119,8 @@ pub struct Capture {
     /// Stereo frames that came in since `start` (the ones the ring had no room for included), and those lost.
     frames: AtomicU64,
     dropped: AtomicU64,
+    /// File frame index and physical capture time of the latest timestamped input block.
+    clock: Mutex<Option<(u64, Instant)>>,
 }
 
 /// About 20 s of stereo at 48 kHz: the writer drains it every few milliseconds.
@@ -136,6 +139,7 @@ pub fn capture() -> &'static Capture {
         stereo: AtomicBool::new(true),
         frames: AtomicU64::new(0),
         dropped: AtomicU64::new(0),
+        clock: Mutex::new(None),
     })
 }
 
@@ -147,19 +151,36 @@ static DISPATCHING: AtomicBool = AtomicBool::new(false);
 pub fn extra_capture(index: usize) -> &'static Capture {
     EXTRA[index].get_or_init(|| Capture { ring: FrameRing::new(RING), on: AtomicBool::new(false),
         asio: AtomicBool::new(true), first: AtomicU32::new(0), stereo: AtomicBool::new(false),
-        frames: AtomicU64::new(0), dropped: AtomicU64::new(0) })
+        frames: AtomicU64::new(0), dropped: AtomicU64::new(0), clock: Mutex::new(None) })
 }
 pub fn start_group() { INPUT_GATE.store(true, Ordering::Release); }
+
+#[cfg(test)]
+pub(crate) fn push_test_timed(frames: usize, captured_at: Instant, at: impl Fn(usize, usize) -> f32) {
+    push_inputs_at(false, frames, Some(captured_at), at);
+}
 pub fn stop_group() {
     INPUT_GATE.store(false, Ordering::Release);
     while DISPATCHING.load(Ordering::Acquire) { std::thread::yield_now(); }
     capture().stop();
     for c in EXTRA.iter().filter_map(OnceLock::get) { c.stop(); }
 }
+#[cfg(any(windows, test))]
 pub fn push_inputs(asio: bool, frames: usize, at: impl Fn(usize, usize) -> f32) {
+    push_inputs_at(asio, frames, None, at);
+}
+
+fn push_inputs_at(asio: bool, frames: usize, captured_at: Option<Instant>, at: impl Fn(usize, usize) -> f32) {
     if !INPUT_GATE.load(Ordering::Acquire) || DISPATCHING.compare_exchange(false,true,Ordering::Acquire,Ordering::Relaxed).is_err() { return; }
     if INPUT_GATE.load(Ordering::Acquire) && capture().on() {
-        capture().push_source(asio,frames,&at);
+        let primary = capture();
+        let first = primary.frames();
+        primary.push_source(asio, frames, &at);
+        if !asio && primary.frames() != first {
+            if let Ok(mut clock) = primary.clock.try_lock() {
+                *clock = captured_at.map(|time| (first, time));
+            }
+        }
         for c in EXTRA.iter().filter_map(OnceLock::get) { c.push_source(asio,frames,&at); }
     }
     DISPATCHING.store(false,Ordering::Release);
@@ -185,6 +206,7 @@ impl Capture {
         self.stereo.store(stereo, Ordering::Relaxed);
         self.frames.store(0, Ordering::Relaxed);
         self.dropped.store(0, Ordering::Relaxed);
+        *self.clock.lock().unwrap_or_else(|error| error.into_inner()) = None;
         self.on.store(true, Ordering::Release);
     }
 
@@ -204,6 +226,10 @@ impl Capture {
     /// Stereo frames that came in since `start`.
     pub fn frames(&self) -> u64 {
         self.frames.load(Ordering::Acquire)
+    }
+
+    pub(crate) fn recording_clock(&self) -> Option<(u64, Instant)> {
+        *self.clock.lock().ok()?
     }
 
     pub fn dropped(&self) -> u64 {
@@ -351,9 +377,14 @@ where
     device
         .build_input_stream::<T, _, _>(
             config.clone(),
-            move |data: &[T], _| {
+            move |data: &[T], info| {
+                let now = Instant::now();
+                let stamp = info.timestamp();
+                let captured_at = stamp.callback.checked_duration_since(stamp.capture)
+                    .filter(|&delay| delay <= Duration::from_secs(1))
+                    .and_then(|delay| now.checked_sub(delay));
                 // An input past the device's channels is its last one.
-                push_inputs(false, data.len() / channels, |c, f| data[f * channels + c.min(channels - 1)].to_sample::<f32>());
+                push_inputs_at(false, data.len() / channels, captured_at, |c, f| data[f * channels + c.min(channels - 1)].to_sample::<f32>());
                 crate::input_monitor::push_all(false, rate, data.len() / channels, |c, f| data[f * channels + c.min(channels - 1)].to_sample::<f32>());
             },
             |e| eprintln!("audio input stream: {e}"),
@@ -561,7 +592,7 @@ mod tests {
     /// Stereo takes a pair; one input goes to both sides.
     #[test]
     fn a_block_goes_in_as_stereo() {
-        let c = Capture { ring: FrameRing::new(64), on: AtomicBool::new(false), asio: AtomicBool::new(true), first: AtomicU32::new(0), stereo: AtomicBool::new(true), frames: AtomicU64::new(0), dropped: AtomicU64::new(0) };
+        let c = Capture { ring: FrameRing::new(64), on: AtomicBool::new(false), asio: AtomicBool::new(true), first: AtomicU32::new(0), stereo: AtomicBool::new(true), frames: AtomicU64::new(0), dropped: AtomicU64::new(0), clock: Mutex::new(None) };
         c.push(2, |ch, f| (ch * 10 + f) as f32);
         assert_eq!(c.frames(), 0, "off");
         c.start(1, true);

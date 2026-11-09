@@ -16,6 +16,49 @@ const SUG_W: f32 = 96.0;
 const SUG_ROW: f32 = 18.0;
 const SW: f32 = 22.0;
 
+fn custom_swatches(ui: &mut Ui, p: Rect, editing: Option<&(usize, crate::dialog::Field)>) {
+    let t = ui.t;
+    let y = p.y + SW * 2. + 2.;
+    ui.c.text(Font::new(11), p.x + 5., y + 1., t.text_dim, "Custom swatches");
+    for i in 0..pt::CUSTOM_SWATCHES {
+        let cell = Rect::new(p.x + 5. + i as f32 * 36., y + 16., 32., 21.);
+        let color = pt::custom_swatch(i);
+        let swatch = Rect::new(cell.x, cell.y, 19., cell.h);
+        let hot = ui.hit(swatch, Action::Pat(Hit::CustomSwatch(i)),
+            if color.is_some() { "Apply saved color to the source" } else { "Create a custom color" });
+        ui.c.fill_rrect(swatch, 3., color.map_or(t.sunken, Color::rgb));
+        ui.c.stroke_rrect(swatch, 3., 1., if hot { t.glyph } else { t.menu_pop_border });
+        if color.is_none() {
+            ui.c.text_center(Font::new(13), swatch, t.text, "+");
+        } else {
+            let edit = Rect::new(swatch.right(), cell.y, cell.w - swatch.w, cell.h);
+            let hot = ui.hit(edit, Action::Pat(Hit::EditSwatch(i)), "Edit or clear this swatch");
+            if hot { ui.c.fill_rrect(edit, 3., t.menu_pop_hi); }
+            crate::icons::draw(ui.c, crate::icons::Icon::Pencil, edit.inset(1.), t.text);
+        }
+    }
+    if let Some((i, field)) = editing {
+        let row = Rect::new(p.x + 5., y + 42., p.w - 10., 22.);
+        let hex = Rect::new(row.x, row.y, 94., row.h);
+        ui.c.fill_rrect(hex, 3., t.sunken);
+        ui.c.text_clip(Font::new(12), hex.x + 5., hex.y + 3., hex.w - 8., t.text, &field.text);
+        let x = hex.x + 5. + ui.c.text_width(Font::new(12), field.before_caret()).min(hex.w - 9.);
+        ui.c.fill_rect(Rect::new(x, hex.y + 3., 1., 15.), t.accent);
+        let mut left = hex.right() + 4.;
+        for (label, action, width) in [
+            ("Save", Hit::SaveSwatch, 41.),
+            ("Clear", Hit::ClearSwatch, 41.),
+            ("×", Hit::CancelSwatch, 24.),
+        ] {
+            let button = Rect::new(left, row.y, width, row.h);
+            let hot = ui.hit(button, Action::Pat(action), format!("{label} swatch {}", i + 1));
+            ui.c.fill_rrect(button, 3., if hot { t.menu_pop_hi } else { t.button });
+            ui.c.text_center(Font::new(11), button, t.text, label);
+            left += width + 3.;
+        }
+    }
+}
+
 fn cross(ui: &mut Ui, r: Rect, c: Color) {
     os_ui::kit::cross(ui.c, r, c);
 }
@@ -161,7 +204,11 @@ pub fn paint(ui: &mut Ui, s: &State) {
             }
         }
         if b.palette {
-            let p = Rect::new(r.right() - SW * 10.0 - 2.0, r.bottom(), SW * 10.0 + 2.0, SW * 2.0 + 2.0);
+            let custom = crate::workspace_visibility::shown("visible_playlist-custom-swatches");
+            let w = SW * 10. + 2.;
+            let h = SW * 2. + 2. + if !custom { 0. } else if b.custom.is_some() { 68. } else { 43. };
+            let y = if r.bottom() + h > s.screen.1 && r.y >= h { r.y - h } else { r.bottom() };
+            let p = Rect::new((r.right() - w).clamp(0., (s.screen.0 - w).max(0.)), y, w, h);
             ui.c.fill_rect(p, t.menu_pop);
             ui.hit(p, Action::Pat(Hit::Inside), "");
             for (i, &c) in SWATCHES.iter().enumerate() {
@@ -171,6 +218,9 @@ pub fn paint(ui: &mut Ui, s: &State) {
                 if hov {
                     ui.c.stroke_rrect(sr.inset(1.0), 0.0, 1.0, t.glyph);
                 }
+            }
+            if custom {
+                custom_swatches(ui, p, b.custom.as_ref());
             }
         }
     }

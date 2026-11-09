@@ -995,6 +995,7 @@ listed too.
   enum-primitive-derive 0.3.0 (MIT)
   enumflags2 0.7.12 (MIT OR Apache-2.0)
   enumflags2_derive 0.7.12 (MIT OR Apache-2.0)
+  ebur128 0.1.11 (MIT)
   equivalent 1.0.2 (Apache-2.0 OR MIT)
   errno 0.3.14 (MIT OR Apache-2.0)
   event-listener 5.4.2 (Apache-2.0 OR MIT)
@@ -3210,6 +3211,29 @@ You should also get your employer (if you work as a programmer) or school, if an
 
 The GNU General Public License does not permit incorporating your program into proprietary programs. If your program is a subroutine library, you may consider it more useful to permit linking proprietary applications with the library. If this is what you want to do, use the GNU Lesser General Public License instead of this License. But first, please read <http://www.gnu.org/philosophy/why-not-lgpl.html>.
 
+
+--- MIT License: ebur128 0.1.11
+
+Copyright (c) 2011 Jan Kokemüller
+Copyright (c) 2020 Sebastian Dröge <sebastian@centricular.com>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 
 --- MIT License: vst3-com 0.1.0
 
@@ -13281,3 +13305,56 @@ its embedded dependencies' notices are preserved in JUCE/LICENSE.md.
 Matching JUCE source: https://github.com/juce-framework/JUCE/tree/8.0.9
 Full AGPLv3 terms: https://www.gnu.org/licenses/agpl-3.0.html
 The mastering VST3 and its corresponding source are included with this edition.
+
+MiniBPM 1.0
+-----------
+Copyright 2012 Particular Programs Ltd.
+https://breakfastquay.com/minibpm/
+GPL version 2 or later; included under GPL version 3.
+Source, integration notes and original licence are in crates/os-app/vendor/minibpm.
+
+WORLD vocal analysis and synthesis engine
+-----------------------------------------
+Optional downloadable component; WORLD source is at tools/vocal-engine/vendor/world.
+https://github.com/mmorise/World
+/* ----------------------------------------------------------------- */
+/*           WORLD: High-quality speech analysis,                    */
+/*           manipulation and synthesis system                       */
+/*           developed by M. Morise                                  */
+/*           http://www.kisc.meiji.ac.jp/~mmorise/world/english/     */
+/* ----------------------------------------------------------------- */
+/*                                                                   */
+/*  Copyright (c) 2010  M. Morise                                    */
+/*                                                                   */
+/* All rights reserved.                                              */
+/*                                                                   */
+/* Redistribution and use in source and binary forms, with or        */
+/* without modification, are permitted provided that the following   */
+/* conditions are met:                                               */
+/*                                                                   */
+/* - Redistributions of source code must retain the above copyright  */
+/*   notice, this list of conditions and the following disclaimer.   */
+/* - Redistributions in binary form must reproduce the above         */
+/*   copyright notice, this list of conditions and the following     */
+/*   disclaimer in the documentation and/or other materials provided */
+/*   with the distribution.                                          */
+/* - Neither the name of the M. Morise nor the names of its          */
+/*   contributors may be used to endorse or promote products derived */
+/*   from this software without specific prior written permission.   */
+/*                                                                   */
+/* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND            */
+/* CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,       */
+/* INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF          */
+/* MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE          */
+/* DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS */
+/* BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,          */
+/* EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED   */
+/* TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,     */
+/* DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON */
+/* ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,   */
+/* OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY    */
+/* OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE           */
+/* POSSIBILITY OF SUCH DAMAGE.                                       */
+/* ----------------------------------------------------------------- */
+
+Lemon native bridge: GPL-3.0-or-later, matching source distributed alongside the optional binary.

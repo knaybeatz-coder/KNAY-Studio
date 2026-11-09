@@ -214,6 +214,9 @@ pub trait Plugin: Instrument + HostedEffect + Send {
 
     /// The plugin has an editor that can be embedded in a host window.
     fn has_editor(&self) -> bool;
+    /// (program selector, program index, display name) supplied by the plugin.
+    fn programs(&self)->Vec<(u32,u32,String)> { Vec::new() }
+    fn select_program(&mut self,_selector:u32,_index:u32)->bool {false}
     fn editor_open(&self) -> bool;
     /// Embeds the plugin's editor in `parent` (a host window handle: HWND on Windows); returns its size in pixels.
     /// The host draws the window frame around it (spec: ui/plugin-window.md). `scale` is the parent window's DPI

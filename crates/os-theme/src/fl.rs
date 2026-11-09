@@ -106,6 +106,8 @@ pub struct FlTheme {
     /// Lemon Studio's own key (`COLORS_KEY`, ignored by FL): the theme is a skin's own colours, the Lemon or Citrus
     /// theme (spec: ui/theme-presets.md §B).
     pub colors: Option<crate::Design>,
+    pub appearance: crate::appearance::Appearance,
+    pub color_overrides: Vec<(&'static str, Color)>,
 }
 
 /// The key that makes a theme file a skin's own colours: `LemonStudioColors=Lemon` or `=Citrus`. FL ignores it and
@@ -129,7 +131,10 @@ impl FlTheme {
         let mut kv = std::collections::HashMap::new();
         for line in text.trim_start_matches('\u{feff}').lines() {
             if let Some((k, v)) = line.split_once('=') {
-                kv.insert(k.trim().to_ascii_lowercase(), v.trim().to_string());
+                let key = k.trim().to_ascii_lowercase();
+                if !key.starts_with("lemonstudiomixer.") && key != "lemonstudiofontdata" {
+                    kv.insert(key, v.trim().to_string());
+                }
             }
         }
         let num = |k: &str| kv.get(k).and_then(|v| v.parse::<f64>().ok());
@@ -172,6 +177,13 @@ impl FlTheme {
             back_color: col("backcolor"),
             back_picture: kv.get("backpicfilename").cloned().unwrap_or_default(),
             colors: kv.get(&COLORS_KEY.to_ascii_lowercase()).and_then(|v| crate::Design::parse(v)),
+            appearance: crate::appearance::Appearance::parse(|key| {
+                kv.get(&format!("{}{key}", crate::appearance::STYLE_PREFIX.to_ascii_lowercase())).cloned()
+            }),
+            color_overrides: Palette::NAMES.iter().filter_map(|&name| {
+                let key = format!("{}{name}", crate::appearance::COLOR_PREFIX.to_ascii_lowercase());
+                Some((name, Color::parse(kv.get(&key)?)?))
+            }).collect(),
         }
     }
 
@@ -183,7 +195,7 @@ impl FlTheme {
     /// Whether this is the stock Dark theme, whatever its clip note colours option: the colours a skin has of its own
     /// (no theme).
     pub fn is_stock(&self) -> bool {
-        self.same_colours(&FlTheme::dark())
+        self.same_colours(&FlTheme { appearance: self.appearance, color_overrides: self.color_overrides.clone(), ..FlTheme::dark() })
     }
 
     /// Whether the two themes differ at most in their clip note colours option.

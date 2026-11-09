@@ -223,6 +223,16 @@ impl Pack {
                 ch.sample_path = Some(path);
             }
         }
+        for vocal in &mut p.vocal_edits {
+            let current=vocal.render_key==crate::vocal::key(vocal);
+            for stored in [&mut vocal.source,&mut vocal.rendered]{
+                if stored.is_empty(){continue;}let real=PathBuf::from(crate::plugins::resolve_sample(stored));
+                if !real.is_file(){self.missing.push(file_name(stored).to_string());continue;}
+                let name=if let Some((_,name))=self.files.iter().find(|(p,_)|p==&real){name.clone()}else{let name=self.free_name(&real.file_name().unwrap_or_default().to_string_lossy());self.files.push((real,name.clone()));name};
+                *stored=name;
+            }
+            if current{vocal.render_key=crate::vocal::key(vocal);}
+        }
         for warp in &mut p.audio_warps {
             let real=PathBuf::from(crate::plugins::resolve_sample(&warp.source));
             if !real.is_file(){self.missing.push(file_name(&warp.source).to_string());continue;}
@@ -400,6 +410,18 @@ mod tests {
 
     /// A zip unzips beside itself and the project nearest its top is the one opened; names leaving the folder are
     /// skipped; unzipping it again uses the same folder, and a folder holding other files of those names is not used.
+    #[test]
+    fn vocal_portable_pack_preserves_original_and_render_with_colliding_names(){
+        let dir=std::env::temp_dir().join(format!("lemon-vocal-pack-{}",std::process::id()));let a=dir.join("source");let b=dir.join("render");std::fs::create_dir_all(&a).unwrap();std::fs::create_dir_all(&b).unwrap();
+        let original=a.join("Voice.wav");let rendered=b.join("Voice.wav");std::fs::write(&original,b"original source").unwrap();std::fs::write(&rendered,b"tuned cache").unwrap();
+        let mut p=crate::app::test_project();let channel=p.channels[0].index;p.channels[0].sample_path=Some(rendered.to_string_lossy().into_owned());
+        let mut edit=os_model::vocal::Edit{channel,source:original.to_string_lossy().into_owned(),source_hash:"0".repeat(64),rendered:rendered.to_string_lossy().into_owned(),render_key:String::new(),rate:16000,frames:16000,f0:vec![0.;201],notes:vec![],curve:vec![],timing:vec![(0.,0.),(1.,1.)],enabled:true,strength:1.,formant:1.};edit.render_key=crate::vocal::key(&edit);p.vocal_edits.push(edit);
+        let mut pack=Pack{project:"Vocal.lmn".into(),..Default::default()};pack.gather(&mut p);
+        assert_eq!(pack.files.len(),2);assert!(pack.missing.is_empty());let edit=&p.vocal_edits[0];assert_ne!(edit.source,edit.rendered);assert_eq!(edit.render_key,crate::vocal::key(edit));
+        assert!(pack.files.iter().any(|(p,n)|p==&original&&n==&edit.source));assert!(pack.files.iter().any(|(p,n)|p==&rendered&&n==&edit.rendered));
+        let loaded=os_flp::project::load(&os_flp::project::create(&p).unwrap()).unwrap();assert_eq!(loaded.vocal_edits,p.vocal_edits);
+    }
+
     #[test]
     fn unzips_beside_the_zip() {
         let d = temp("unzip");

@@ -36,7 +36,14 @@ use stream::MemStream;
 pub fn default_fl_dir() -> PathBuf {
     std::env::var_os("OPENSTUDIO_FACTORY")
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(r"C:\Program Files\Image-Line\FL Studio 2026"))
+        .unwrap_or_else(|| {
+            let root=std::env::var_os("ProgramFiles").map(PathBuf::from).unwrap_or_else(||PathBuf::from(r"C:\Program Files")).join("Image-Line");
+            std::fs::read_dir(&root).into_iter().flatten().flatten().map(|entry|entry.path())
+                .filter(|p|p.join("Plugins/Fruity").is_dir())
+                .filter_map(|p|{let name=p.file_name()?.to_str()?.strip_prefix("FL Studio")?.trim();
+                    let version:Vec<u32>=name.split('.').filter_map(|part|part.parse().ok()).collect();Some((version,p))})
+                .max().map(|(_,p)|p).unwrap_or_else(||root.join("FL Studio 2026"))
+        })
 }
 
 /// Whether the experimental native-plugin host is opted into for this process, via the

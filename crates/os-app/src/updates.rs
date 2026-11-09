@@ -4,7 +4,7 @@ use ed25519_dalek::{Signature, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-pub const VERSION: u64 = 2026110307;
+pub const VERSION: u64 = 2026110801;
 #[cfg(windows)]
 pub const FEED: &str = "https://michaellanemusic.de/lemon-studio/updates/stable.json";
 #[cfg(windows)]
@@ -325,7 +325,8 @@ mod tests {
         for width in [900,1600] {
             let mut canvas=os_ui::Canvas::new(width,900,1.0).unwrap();app.paint(&mut canvas,None);
             let hit=app.hits.iter().find(|h|h.action==Action::Updates).expect("update button");
-            assert!(hit.rect.x>=width as f32-280.0 && hit.rect.right()<=width as f32);
+            assert!(hit.rect.x>=0. && hit.rect.right()<=width as f32);
+            assert_eq!(app.top_hit(hit.rect.cx(),hit.rect.cy()).map(|h|&h.action),Some(&Action::Updates));
             let cpu=app.hits.iter().find(|h|h.action==Action::CpuPanel).expect("compact CPU visible");
             let ai=app.hits.iter().find(|h|h.action==Action::Ai).unwrap();
             assert!(cpu.rect.w<=54. && cpu.rect.right()<ai.rect.x && cpu.rect.h<=24.);
@@ -336,7 +337,8 @@ mod tests {
             let close=app.hits.iter().find(|h|h.action==Action::Close).unwrap();
             assert!(minimize.rect.x-donate.rect.right()>=32.);
             assert!(maximize.rect.x>=minimize.rect.right() && close.rect.x>=maximize.rect.right());
-            assert!((close.rect.right()-(width as f32-10.)).abs()<1.);
+            assert!(close.rect.right()<=width as f32 && close.rect.x>=width as f32-64.);
+            assert_eq!(app.top_hit(maximize.rect.cx(),maximize.rect.cy()).map(|h|&h.action),Some(&Action::Maximize));
             assert_eq!(app.hits.iter().filter(|h|h.action==Action::Close).count(),1);
             if let Some(dir)=std::env::var_os("LEMON_UPDATE_PREVIEW") {let dir=PathBuf::from(dir);fs::create_dir_all(&dir).unwrap();canvas.pixmap.save_png(dir.join(format!("updates-{width}.png"))).unwrap();}
         }

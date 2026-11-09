@@ -746,6 +746,8 @@ impl App {
         if seen.is_none_or(|p| p == now) {
             return;
         }
+        if let Some(previous)=seen {write_loops(&mut self.state,previous);}
+        read_loops(&mut self.state);
         // Per rack row: the channel has notes or steps in the new pattern.
         let s = &self.state;
         let used: Vec<bool> = match s.project.pattern(now) {
@@ -850,6 +852,7 @@ pub fn remap_project(p: &mut Project, map: &[Option<usize>]) {
         p.channels.iter().enumerate().filter_map(|(pos, c)| map.get(pos).copied().flatten().map(|n| (c.index, n as u16))).collect();
     p.mpe.channels.retain_mut(|v|map.get(usize::from(v.0)).copied().flatten().map(|id|v.0=id as u16).is_some());
     p.clip_fx_channels=p.clip_fx_channels.iter().filter_map(|c|idx.get(c).copied()).collect();
+    p.vocal_edits.retain_mut(|d|idx.get(&d.channel).map(|&id|d.channel=id).is_some());
     let mut chans: Vec<(usize, os_model::Channel)> =
         std::mem::take(&mut p.channels).into_iter().enumerate().filter_map(|(pos, c)| map.get(pos).copied().flatten().map(|n| (n, c))).collect();
     chans.sort_by_key(|(n, _)| *n);
@@ -898,6 +901,7 @@ pub fn remap_project(p: &mut Project, map: &[Option<usize>]) {
 /// Apply a new channel order (`order` = old rows top to bottom; rows left out are deleted) to the project, the
 /// app state and the hosted plugins.
 pub fn reorder(app: &mut App, order: &[usize]) {
+    app.vocal_job=None;app.state.playlist.vocal.busy=false;app.state.playlist.vocal.selected.clear();
     let n = app.state.project.channels.len();
     let mut map = vec![None; n];
     for (new, &old) in order.iter().enumerate() {
@@ -986,6 +990,7 @@ pub fn clone_rows(app: &mut App, rows: &[usize]) {
             let root=app.state.project.channels.len();
             let children=os_model::instrument_stack(&app.state.project,r).into_iter().skip(1).collect::<Vec<_>>();
             app.state.project.channels.push(c);
+            crate::vocal::clone_source(&mut app.state,from,root as u16);
             order.push(root);roots.push(root);sources.push((root,r));
             if !children.is_empty(){
                 app.state.project.channels[root].layer_children.clear();
@@ -1010,6 +1015,280 @@ pub fn clone_rows(app: &mut App, rows: &[usize]) {
         s.selected_channel = last;
     }
     s.message = Some(if new_rows.len() == 1 { format!("Cloned as {}", channel_name(s, new_rows[0])) } else { format!("Cloned {} channels", new_rows.len()) });
+}
+
+/// Build the musical copy before committing its undo step. Existing pattern clips can share
+/// a pattern across arrangements, so create one independent pattern per source pattern.
+fn clone_complete(app: &mut App, row: usize) -> Option<String> {
+    use crate::history::{Rows, Snap};
+    use os_model::ClipSource;
+    use std::collections::BTreeMap;
+    let s = &app.state;
+    let p = &s.project;
+    let source = p.channels.get(row)?;
+    let mut rows = os_model::instrument_stack(p, row);
+    for child in &source.layer_children {
+        if let Some(i) = p.channels.iter().position(|c| c.index == *child)
+            && !rows.contains(&i)
+        {
+            rows.push(i);
+        }
+    }
+    let instruments = rows.len();
+    let musical: Vec<_> = rows.iter().map(|&i| p.channels[i].index).collect();
+    for a in &p.automations {
+        if a.targets
+            .iter()
+            .any(|t| musical.contains(&((t >> 16) as u16)))
+            && let Some(i) = p.channels.iter().position(|c| c.index == a.channel)
+            && !rows.contains(&i)
+        {
+            rows.push(i);
+        }
+    }
+    let start = p.channels.len();
+    if start + rows.len() >= 0x4000 {
+        return Some("Channel limit reached".into());
+    }
+    let map: BTreeMap<_, _> = rows
+        .iter()
+        .enumerate()
+        .map(|(i, &r)| (p.channels[r].index, (start + i) as u16))
+        .collect();
+    let mut channels = Vec::new();
+    let mut back = Vec::new();
+    for (i, &r) in rows.iter().enumerate() {
+        let mut ch = p.channels[r].clone();
+        ch.name = Some(clone_name(s, r));
+        ch.index = (start + i) as u16;
+        for child in &mut ch.layer_children {
+            if let Some(copy) = map.get(child) {
+                *child = *copy;
+            }
+        }
+        if let Some((index, state)) = app.plugin_copy(r) {
+            back.push((start + i, index, state));
+        } else if app.plugins.hosted.contains_key(&r) {
+            return Some("This plugin could not provide independent clone state".into());
+        }
+        channels.push(ch);
+    }
+    let mut numbers = (1..=crate::patterns::MAX).filter(|n| p.pattern(*n).is_none());
+    let mut patterns = Vec::new();
+    let mut pattern_map = BTreeMap::new();
+    for original in &p.patterns {
+        let mut pat = original.clone();
+        pat.notes.retain_mut(|n| {
+            if let Some(copy) = map.get(&n.channel) {
+                n.channel = *copy;
+                true
+            } else {
+                false
+            }
+        });
+        pat.controls.retain_mut(|c| {
+            if let Some(copy) = map.get(&c.channel()) {
+                c.kind = os_model::target::channel(*copy, c.param());
+                true
+            } else {
+                false
+            }
+        });
+        pat.loops.retain_mut(|(ch, _)| {
+            if let Some(copy) = map.get(ch) {
+                *ch = *copy;
+                true
+            } else {
+                false
+            }
+        });
+        if pat.notes.is_empty() && pat.controls.is_empty() && pat.loops.is_empty() {
+            continue;
+        }
+        let Some(number) = numbers.next() else {
+            return Some("No free pattern for the complete clone".into());
+        };
+        pat.number = number;
+        pat.name = Some(format!(
+            "{} (clone)",
+            crate::patterns::name_of(s, original.number)
+        ));
+        pattern_map.insert(original.number, number);
+        patterns.push(pat);
+    }
+    let root = map[&source.index];
+    let name = channels[0].name.clone().unwrap_or_default();
+    let mut automations = Vec::new();
+    for a in &p.automations {
+        if let Some(copy) = map.get(&a.channel) {
+            let mut linked = a.clone();
+            linked.channel = *copy;
+            if musical.contains(&a.channel) {
+                for t in &mut linked.targets {
+                    if let Some(ch) = map.get(&((*t >> 16) as u16)) {
+                        *t = os_model::target::channel(*ch, *t as u16);
+                    }
+                }
+            } else {
+                linked.targets = linked
+                    .targets
+                    .iter()
+                    .filter_map(|t| {
+                        Some(os_model::target::channel(
+                            *map.get(&((t >> 16) as u16))?,
+                            *t as u16,
+                        ))
+                    })
+                    .collect();
+            }
+            automations.push(linked);
+        }
+    }
+    let init: Vec<_> = p
+        .init_controls
+        .iter()
+        .filter_map(|v| {
+            let mut copy = *v;
+            copy.target =
+                os_model::target::channel(*map.get(&((v.target >> 16) as u16))?, v.target as u16);
+            Some(copy)
+        })
+        .collect();
+    let mut arrangements = p.arrangements.clone();
+    let mut instrument_lanes = p.instrument_lanes.clone();
+    for arr in &mut arrangements {
+        let mut occupied: BTreeSet<_> = arr.clips.iter().map(|c| c.track).collect();
+        occupied.extend(
+            arr.tracks
+                .iter()
+                .enumerate()
+                .filter(|(_, t)| {
+                    t.name.is_some()
+                        || t.folder
+                        || t.grouped
+                        || t.locked
+                        || t.comp.is_some()
+                        || t.frozen.is_some()
+                        || !t.enabled
+                })
+                .map(|(i, _)| i as u16),
+        );
+        occupied.extend(
+            p.instrument_lanes
+                .iter()
+                .filter(|l| l.1 == arr.number)
+                .map(|l| l.2),
+        );
+        let mut lanes = BTreeMap::new();
+        let mut clips = Vec::new();
+        for c in &arr.clips {
+            let new = match c.source {
+                ClipSource::Channel(ch) => map.get(&ch).copied().map(ClipSource::Channel),
+                ClipSource::Pattern(n) => pattern_map.get(&n).copied().map(ClipSource::Pattern),
+            };
+            if let Some(src) = new {
+                let dst = if let Some(&dst) = lanes.get(&c.track) {
+                    dst
+                } else {
+                    let Some(dst) = (c.track + 1..crate::playlist::TRACKS)
+                        .chain(0..c.track)
+                        .find(|i| !occupied.contains(i))
+                    else {
+                        return Some("No free Playlist track for the complete clone".into());
+                    };
+                    occupied.insert(dst);
+                    lanes.insert(c.track, dst);
+                    dst
+                };
+                let mut copy = c.clone();
+                copy.source = src;
+                copy.track = dst;
+                clips.push(copy);
+            }
+        }
+        for (from, to) in lanes {
+            let enabled = arr.tracks.get(from as usize).is_none_or(|t| t.enabled);
+            if let Some(dst) = arr.tracks.get_mut(to as usize) {
+                dst.name = Some(name.clone());
+                dst.color = channels[0].color;
+                dst.enabled = enabled;
+            }
+            for &(ch, num, lane, pat) in &p.instrument_lanes {
+                if num == arr.number
+                    && lane == from
+                    && let Some(&new) = map.get(&ch)
+                {
+                    instrument_lanes.push((
+                        new,
+                        num,
+                        to,
+                        pattern_map.get(&pat).copied().unwrap_or(pat),
+                    ));
+                }
+            }
+        }
+        arr.clips.extend(clips);
+        arr.clips.sort_by_key(|c| c.position);
+    }
+    let gone = (start..start + rows.len()).collect();
+    let hist = Rows::now(s, false, gone, back.clone());
+    let before = Snap::Patterns {
+        patterns: p.patterns.clone(),
+        current: s.pattern,
+    };
+    // Restore plugin state on independent instances before changing any musical data.
+    let mut ready = Vec::new();
+    for (r, index, blob) in &back {
+        if let Err(error) = app.plugins.create_with(*r, *index, Some(blob)) {
+            for row in ready {
+                app.plugins.hosted.remove(&row);
+            }
+            return Some(format!("Could not clone instrument: {error}"));
+        }
+        ready.push(*r);
+    }
+    let s = &mut app.state;
+    crate::history::record(
+        s,
+        "Clone complete channel",
+        Snap::Several(vec![
+            before,
+            Snap::InstrumentLanes(s.project.instrument_lanes.clone()),
+            Snap::Rows(Box::new(hist)),
+        ]),
+    );
+    s.project.channels.extend(channels);
+    for (&from,&to) in &map {crate::vocal::clone_source(s,from,to);}
+    s.project.patterns.extend(patterns);
+    s.project.automations.extend(automations);
+    s.project.init_controls.extend(init);
+    s.project.arrangements = arrangements;
+    s.project.instrument_lanes = instrument_lanes;
+    for &src in &rows[..instruments] {
+        let ch = s.project.channels[src].index;
+        if let Some((_, config)) = s.project.mpe.channels.iter().find(|v| v.0 == ch).cloned() {
+            s.project.mpe.channels.push((map[&ch], config));
+        }
+    }
+    for (&src, &dst) in &map {
+        if let Some(v) = s.playlist.original_values.get(&src).copied() {
+            s.playlist.original_values.insert(dst, v);
+        }
+    }
+    if let Some(&pat) = pattern_map.get(&s.pattern) {
+        s.pattern = pat;
+        s.project.current_pattern = Some(pat);
+    }
+    s.selected_channel = root as usize;
+    s.rack.select_only(root as usize);
+    s.piano.clear_selection();
+    s.piano.dirty = true;
+    autosize(s);
+    s.hosted_rows.extend(ready);
+    app.transport.set_instruments(app.plugins.instruments());
+    app.sync_live();
+    app.invalidate();
+    Some(format!("Cloned {name} with its musical parts"))
 }
 
 /// Ask before deleting rows (§18: "The selected channel is about to be deleted.").
@@ -1181,6 +1460,8 @@ pub fn open_box(s: &mut State, b: RBox, at: (f32, f32)) {
 /// Commands of the rack's popup menus.
 #[derive(Debug, Clone, PartialEq)]
 pub enum RCmd {
+    FitSample(usize,crate::loop_fit::Fit),
+    CutSelf(usize),
     PitchFollow(usize),
     Consolidate(usize),
     BounceWet(usize),
@@ -1192,6 +1473,7 @@ pub enum RCmd {
     RandomColor(usize),
     LoadSample(usize),
     Clone(usize),
+    CloneComplete(usize),
     Delete(usize),
     Cut(usize),
     Copy(usize),
@@ -1265,6 +1547,10 @@ fn opt(s: &State, label: &'static str) -> PItem {
 }
 
 pub fn options_menu(s: &State, x: f32, y: f32) -> Popup {
+    crate::menu_layout::Menu::Rack.popup(default_options_menu(s, x, y))
+}
+
+pub(crate) fn default_options_menu(s: &State, x: f32, y: f32) -> Popup {
     let r = &s.rack;
     let none = r.sel.is_empty();
     let off = |i: PItem, cond: bool| if cond { i.off() } else { i };
@@ -1422,20 +1708,60 @@ pub fn empty_menu(s: &State, x: f32, y: f32) -> Popup {
 
 /// Channel actions first, with pattern editing grouped in the second column.
 pub fn channel_menu(s: &State, r: usize, x: f32, y: f32) -> Popup {
+    crate::menu_layout::Menu::RackChannel.popup(default_channel_menu(s, r, x, y, false))
+}
+
+pub(crate) fn default_channel_menu(s: &State, r: usize, x: f32, y: f32, catalog: bool) -> Popup {
     use crate::plugin_menu::{PlugCmd, Target};
-    let sampler = s.project.channels.get(r).is_some_and(|c| c.kind.is_sampler());
+    let channel = s.project.channels.get(r);
+    let sampler = catalog || channel.is_some_and(|c| c.kind.is_sampler());
     let piano_on = s.shown(Win::PianoRoll) && s.selected_channel == r;
     let mut items = vec![
+        it("Piano roll", RCmd::PianoRoll(r)).key("F7").mark(Mark::Check(piano_on)),
         PItem::new("Plugin picker - replace instrument...", Cmd::Plugin(PlugCmd::Picker(Target::Replace(r)))),
-        PItem::sub("Insert", crate::plugin_menu::items(s, Target::Gen(Some(r)), true)),
-        PItem::sub("Replace", crate::plugin_menu::items(s, Target::Replace(r), true)),
+        it("Graph editor", RCmd::Graph(r)),
+        it("Follow global pitch", RCmd::PitchFollow(r)).mark(Mark::Check(channel.is_some_and(|c| c.misc.main_pitch))),
+        PItem::sep(),
     ];
-    items.extend(crate::instrument_stack::menu(s,r));
-    if sampler { items.push(it("Load sample...", RCmd::LoadSample(r))); }
+    if sampler {
+        let misc=channel.map(|c| c.misc).unwrap_or_default();
+        items.extend([
+            it("Load sample...", RCmd::LoadSample(r)),
+            {let entry=PItem::sub("Tempo / stretching",crate::loop_fit::channel_items(r));if channel.is_some_and(|c| c.sample_path.is_some()){entry}else{entry.off()}},
+            it("Cut itself",RCmd::CutSelf(r)).mark(Mark::Check(misc.cut!=0 && misc.cut==misc.cut_by)),
+            PItem::sep(),
+        ]);
+    }
+    items.extend([
+        PItem::sub("Insert instrument", crate::plugin_menu::items(s, Target::Gen(Some(r)), true)),
+        PItem::sub("Replace instrument", crate::plugin_menu::items(s, Target::Replace(r), true)),
+    ]);
+    let stack = crate::instrument_stack::menu(s, r);
+    if catalog && stack.is_empty() {
+        items.push(PItem::sub("Channel instruments", Vec::new()));
+    } else {
+        items.extend(stack);
+    }
+    let paste = it("Paste", RCmd::Paste(r));
     items.extend([
         PItem::sep(),
-        it("Piano roll", RCmd::PianoRoll(r)).key("F7").mark(Mark::Check(piano_on)),
-        it("Graph editor", RCmd::Graph(r)),
+        PItem::sub("Pattern editing", vec![
+            it("Cut", RCmd::Cut(r)),
+            it("Copy", RCmd::Copy(r)),
+            if s.rack.clipboard.is_some() { paste } else { paste.off() },
+            PItem::sep(),
+            it("Fill each 2 steps", RCmd::Fill(r,2)),
+            it("Fill each 4 steps", RCmd::Fill(r,4)),
+            it("Fill each 8 steps", RCmd::Fill(r,8)),
+            it("Advanced fill...", RCmd::AdvancedFill(r)),
+            PItem::sep(),
+            it("Rotate left", RCmd::Rotate(r,-1)).key("Shift+Ctrl+Left"),
+            it("Rotate right", RCmd::Rotate(r,1)).key("Shift+Ctrl+Right"),
+        ]),
+        PItem::sub("Consolidate / Bounce to Audio", vec![
+            it("Bounce including mixer effects", RCmd::BounceWet(r)),
+            it("Consolidate (keep mixer live)", RCmd::Consolidate(r)),
+        ]),
         PItem::sep(),
         it("Rename, color and icon...", RCmd::Rename(r)),
         PItem::sub("Color", vec![
@@ -1443,31 +1769,10 @@ pub fn channel_menu(s: &State, r: usize, x: f32, y: f32) -> Popup {
             it("Random color", RCmd::RandomColor(r)),
         ]),
         PItem::sep(),
-        PItem::sub("Consolidate / Bounce to Audio", vec![it("Bounce including mixer effects", RCmd::BounceWet(r)),it("Consolidate (keep mixer live)", RCmd::Consolidate(r))]),
         it("Clone", RCmd::Clone(r)),
-        it("Delete...", RCmd::Delete(r)),
-        PItem::col(),
-        PItem::head("Pattern editing"),
-        it("Cut", RCmd::Cut(r)),
-        it("Copy", RCmd::Copy(r)),
+        it("Clone (Complete)", RCmd::CloneComplete(r)),
+        it("Delete...", RCmd::Delete(r)).key("D"),
     ]);
-    let paste = it("Paste", RCmd::Paste(r));
-    items.push(if s.rack.clipboard.is_some() { paste } else { paste.off() });
-    items.extend([
-        PItem::sep(),
-        it("Fill each 2 steps", RCmd::Fill(r, 2)),
-        it("Fill each 4 steps", RCmd::Fill(r, 4)),
-        it("Fill each 8 steps", RCmd::Fill(r, 8)),
-        it("Advanced fill...", RCmd::AdvancedFill(r)),
-        PItem::sep(),
-        it("Rotate left", RCmd::Rotate(r, -1)).key("Shift+Ctrl+Left"),
-        it("Rotate right", RCmd::Rotate(r, 1)).key("Shift+Ctrl+Right"),
-    ]);
-    if let Some(at)=items.iter().position(|p|p.col) {
-        let mut editing=items.split_off(at);
-        editing.drain(..2);
-        items.push(PItem::sub("Pattern editing",editing));
-    }
     Popup { x, y, items, sub: None, scroll: [0; 2], cascade: Vec::new() }
 }
 
@@ -1638,7 +1943,7 @@ pub fn sample_chosen(app: &mut App, r: usize, p: std::path::PathBuf) {
     // With Copy used samples to the project folder: the sample's copy in the data folder (`data_folder::adopt`).
     let path = crate::data_folder::adopt(s, &p.to_string_lossy());
     if r < s.project.channels.len() {
-        crate::history::load_sample(s, r);
+        crate::sample_route::begin(s, Some(r), &p);
     }
     if let Some(ch) = s.project.channels.get_mut(r) {
         auto_name(ch, &p);
@@ -1656,6 +1961,7 @@ pub fn run(app: &mut App, c: RCmd) -> Option<String> {
     match c {
         RCmd::BounceWet(r) => { app.bounce_channel(r,true); return None; }
         RCmd::Consolidate(r) => { app.consolidate_channel(r); return None; }
+        RCmd::CloneComplete(r) => return clone_complete(app,r),
         RCmd::Clone(r) => clone_rows(app, &[r]),
         RCmd::CloneSel => clone_rows(app, &sel),
         RCmd::MoveSel(d) => move_selected(app, d),
@@ -1668,6 +1974,7 @@ pub fn run(app: &mut App, c: RCmd) -> Option<String> {
                 .start(dir.as_deref().and_then(std::path::Path::parent));
             app.file_dialog(dlg);
         }
+        RCmd::FitSample(r,fit) => return crate::loop_fit::run_channel(app,r,fit),
         RCmd::PianoRoll(r) => {
             app.focus_channel(r);
             app.state.raise(Win::PianoRoll);
@@ -1681,7 +1988,7 @@ pub fn run(app: &mut App, c: RCmd) -> Option<String> {
     }
     let s = &mut app.state;
     let msg = match c {
-        RCmd::Consolidate(_) | RCmd::BounceWet(_) => None,
+        RCmd::FitSample(..) | RCmd::Consolidate(_) | RCmd::BounceWet(_) => None,
         RCmd::PitchFollow(r) => {crate::rack_controls::toggle_follow(app,r);None}
         RCmd::Graph(r) => {
             s.selected_channel = r;
@@ -1738,6 +2045,7 @@ pub fn run(app: &mut App, c: RCmd) -> Option<String> {
             paste_at(s, sel.first().copied().unwrap_or(s.selected_channel));
             None
         }
+        RCmd::CutSelf(r) => crate::misc::cut_self(app,r),
         RCmd::Fill(r, n) => {
             snapshot(s);
             fill_each(s, r, n);
@@ -1913,7 +2221,7 @@ pub fn run(app: &mut App, c: RCmd) -> Option<String> {
             s.rack.colorful = !s.rack.colorful;
             None
         }
-        RCmd::Clone(_)
+        RCmd::CloneComplete(_) | RCmd::Clone(_)
         | RCmd::CloneSel
         | RCmd::MoveSel(_)
         | RCmd::Sort(_)
@@ -1968,45 +2276,43 @@ pub fn play_project(s: &State) -> Project {
     }
     p.tempo = Some(s.tempo);
     p.current_pattern = Some(s.pattern);
-    if s.rack.loop_mode && !s.rack.loop_len.is_empty() {
-        let rows: Vec<usize> = s.rack.loop_len.keys().copied().collect();
-        expand_loops(&mut p, s, &rows);
+    let active=s.rack.pattern_seen.unwrap_or(s.pattern);
+    let ps=per_step(s);
+    let ends:Vec<_>=p.patterns.iter().map(|pat|p.pattern_length(pat.number)).collect();
+    for (pat,end) in p.patterns.iter_mut().zip(ends) {
+        let loops=if pat.number==active {
+            if !s.rack.loop_mode {continue;}
+            s.rack.loop_len.iter().filter_map(|(&row,&n)|p.channels.get(row).map(|ch|(ch.index,n))).collect()
+        }else{
+            if pat.loop_off.is_some(){continue;}
+            pat.loops.clone()
+        };
+        expand_loops(pat,end,ps,&loops);
     }
     p
 }
 
-/// Repeat each row's first `loop_len` steps up to the end of every pattern (its length as played, §23); notes past
-/// the loop length go.
-fn expand_loops(p: &mut Project, s: &State, rows: &[usize]) {
-    let ps = per_step(s);
-    let ends: Vec<u32> = p.patterns.iter().map(|pat| p.pattern_length(pat.number)).collect();
-    for &r in rows {
-        let (Some(&len), Some(ch)) = (s.rack.loop_len.get(&r), p.channels.get(r).map(|c| c.index)) else { continue };
-        let span = len.max(1) * ps;
-        for (pat, &end) in p.patterns.iter_mut().zip(&ends) {
-            let src: Vec<Note> = pat.notes.iter().filter(|n| n.channel == ch && n.position < span).copied().collect();
-            if src.is_empty() {
-                continue;
-            }
-            pat.notes.retain(|n| n.channel != ch);
-            let mut off = 0;
-            while off < end {
-                pat.notes.extend(src.iter().filter(|n| n.position + off < end).map(|n| Note { position: n.position + off, ..*n }));
-                off += span;
-            }
-            pat.notes.sort_by_key(|n| (n.position, n.channel));
+fn expand_loops(pat:&mut os_model::Pattern,end:u32,per_step:u32,loops:&[(u16,u32)]) {
+    for &(ch,steps) in loops {
+        if steps==0 || steps==os_model::Pattern::LOOP_FOLLOW {continue;}
+        let span=steps.saturating_mul(per_step).max(1);
+        let src:Vec<_>=pat.notes.iter().filter(|n|n.channel==ch && n.position<span).copied().collect();
+        pat.notes.retain(|n|n.channel!=ch);
+        if src.is_empty(){continue;}
+        for off in (0..end).step_by(span as usize) {
+            pat.notes.extend(src.iter().filter(|n|n.position<end-off).map(|n|Note{position:n.position+off,..*n}));
         }
+        pat.notes.sort_by_key(|n|(n.position,n.channel));
     }
 }
 
 /// Loop button > Burn: write the loops into the current pattern's notes and drop the loop lengths.
 fn burn(s: &mut State, all: bool) {
     let rows: Vec<usize> = if all { s.rack.loop_len.keys().copied().collect() } else { s.rack.sel.iter().copied().filter(|r| s.rack.loop_len.contains_key(r)).collect() };
-    let mut p = s.project.clone();
-    expand_loops(&mut p, s, &rows);
-    if let (Some(src), Some(dst)) = (p.pattern(s.pattern).cloned(), s.project.patterns.iter_mut().find(|x| x.number == s.pattern)) {
-        dst.notes = src.notes;
-    }
+    let loops:Vec<_>=rows.iter().filter_map(|&r|Some((s.project.channels.get(r)?.index,*s.rack.loop_len.get(&r)?))).collect();
+    let end=s.project.pattern_length(s.pattern);
+    let ps=per_step(s);
+    if let Some(pat)=s.project.patterns.iter_mut().find(|p|p.number==s.pattern){expand_loops(pat,end,ps,&loops);}
     for r in rows {
         s.rack.loop_len.remove(&r);
     }
@@ -2258,6 +2564,13 @@ pub fn from_model(s: &mut State) {
             None => Filter::All,
         },
     };
+    read_loops(s);
+    s.rack.pattern_seen=Some(s.pattern);
+    organize_clips(s);
+}
+
+fn read_loops(s:&mut State) {
+    let (p,rack)=(&s.project,&mut s.rack);
     let pat = p.pattern(s.pattern);
     let loops = pat.map(|p| p.loops.clone()).unwrap_or_default();
     rack.loop_len = loops
@@ -2275,7 +2588,6 @@ pub fn from_model(s: &mut State) {
         None => 0,
     };
     rack.loop_mode = !loops.is_empty() && off.is_none();
-    organize_clips(s);
 }
 
 /// Writes the rack state into the project before a save (the inverse of [`from_model`]).
@@ -2306,7 +2618,11 @@ pub fn to_model(s: &mut State) {
     if p.groups.is_empty() {
         p.current_group = None;
     }
-    // Loop lengths belong to the current pattern.
+    write_loops(s,s.rack.pattern_seen.unwrap_or(s.pattern));
+}
+
+fn write_loops(s:&mut State,n:u16){
+    let (p,rack)=(&s.project,&s.rack);
     let mut loops: Vec<(u16, u32)> =
         rack.loop_len.iter().filter_map(|(&r, &l)| p.channels.get(r).map(|c| (c.index, l))).collect();
     if rack.loop_type == 1 && !loops.is_empty() {
@@ -2315,7 +2631,6 @@ pub fn to_model(s: &mut State) {
     }
     loops.sort_by_key(|l| l.0);
     let loop_off = (!rack.loop_mode && !loops.is_empty()).then(|| LOOP_TYPE_CODES[usize::from(rack.loop_type.min(2))]);
-    let n = s.pattern;
     // Pairs with no length (0) carry nothing: a file that has them is unchanged.
     let set = |l: &[(u16, u32)]| l.iter().filter(|x| x.1 != 0).copied().collect::<BTreeSet<_>>();
     let changed = p.pattern(n).map_or(!loops.is_empty(), |pat| set(&pat.loops) != set(&loops) || pat.loop_off != loop_off);
@@ -2333,6 +2648,38 @@ mod tests {
     /// Ctrl+C / Ctrl+X / Ctrl+V with the rack in front (§11, §20): copy takes the selected channels' steps, a row each;
     /// paste puts the first row into the first selected channel and the next rows into the rows below it, whatever else
     /// is selected; cut copies and clears. Each change is one undo step.
+    #[test]
+    fn complete_clone_is_independent_and_round_trips(){
+        let mut a=App::new(None);a.state.project=crate::app::test_project();
+        let p=&mut a.state.project;
+        p.patterns[0].notes=vec![os_model::Note{drive:93,..os_model::Note::step(0,24)},os_model::Note::step(1,48)];
+        let arr=crate::playlist::arr_mut(&mut a.state);arr.clips=vec![os_model::Clip::new(96,384,0,os_model::ClipSource::Pattern(1))];
+        let old=a.state.project.clone();
+        assert!(clone_complete(&mut a,0).unwrap().starts_with("Cloned"));
+        let new=a.state.project.clone();let clone=new.patterns.last().unwrap();
+        assert_eq!(clone.notes.len(),1);assert_eq!((clone.notes[0].channel,clone.notes[0].drive),(5,93));
+        let clips=&new.arrangement().unwrap().clips;assert_eq!(clips.len(),2);
+        assert_eq!(clips[1].source,os_model::ClipSource::Pattern(clone.number));
+        let flp=os_flp::project::create(&new).unwrap();
+        let loaded=os_flp::project::load(&flp).unwrap();assert_eq!(loaded.pattern(clone.number).unwrap().notes[0].drive,93);
+        crate::history::undo(&mut a.state);assert_eq!(a.state.project.channels,old.channels);assert_eq!(a.state.project.patterns,old.patterns);
+        crate::history::redo(&mut a.state);assert_eq!(a.state.project.channels,new.channels);assert_eq!(a.state.project.patterns,new.patterns);
+    }
+    #[test]
+    fn imported_pattern_loops_are_independent() {
+        let mut app=App::new(None);let s=&mut app.state;s.project=crate::app::test_project();
+        let step=per_step(s);let ch=s.project.channels[0].index;
+        for (number,span) in [(1,2),(2,3)]{
+            let pat=crate::patterns::pat_mut(s,number);pat.length=Some(step*12);
+            pat.notes.push(Note::step(ch,0));pat.loops=vec![(ch,span)];
+        }
+        s.pattern=1;from_model(s);
+        let p=play_project(s);assert_eq!(p.pattern(1).unwrap().notes.len(),6);assert_eq!(p.pattern(2).unwrap().notes.len(),4);
+        s.rack.loop_len.insert(0,4);s.pattern=2;app.pattern_tick();
+        assert_eq!(app.state.rack.loop_len.get(&0),Some(&3));
+        assert_eq!(app.state.project.pattern(1).unwrap().loops,vec![(ch,4)]);
+    }
+
     #[test]
     fn automatic_clip_groups_preserve_custom_groups_and_roundtrip() {
         let mut app=App::new(None);let s=&mut app.state;
@@ -2374,11 +2721,14 @@ mod tests {
         let ch=app.state.project.channels[0].index;
         crate::playlist::arr_mut(&mut app.state).clips=vec![os_model::Clip::new(0,384,0,os_model::ClipSource::Channel(ch))];
         let clip=crate::playlist::clip_menu(&app.state,0,0.,0.);
-        assert!(clip.items.len()<=16);
+        assert!(clip.items.len()<=20);
         for cmd in [Cmd::ClipEffects(0),Cmd::ClipRoute(0),Cmd::SeparateStems(0),Cmd::AraMenu(0),Cmd::Warp(0),Cmd::ClipDelete(0)] {
             assert!(contains(&clip.items,&cmd));
         }
         let channel=channel_menu(&app.state,0,0.,0.);
+        for n in [2,4,8]{assert!(contains(&channel.items,&Cmd::Rack(RCmd::Fill(0,n))));}
+        assert_eq!(channel.items[0].cmd,Cmd::Rack(RCmd::PianoRoll(0)));
+        assert_eq!(channel.items[1].label,"Plugin picker - replace instrument...");
         assert!(!channel.items.iter().any(|p|p.col));
         assert!(contains(&channel.items,&Cmd::Rack(RCmd::Copy(0))));
     }

@@ -63,6 +63,8 @@ impl Design {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Style {
     pub design: Design,
+    /// Fixed vintage appearance overlay.
+    pub vintage_2005: bool,
     /// Corner radius of buttons, boxes and combos.
     pub radius: f32,
     /// Corner radius of small parts (steps, slots, LEDs, notes).
@@ -72,8 +74,8 @@ pub struct Style {
 }
 
 impl Style {
-    pub const CITRUS: Style = Style { design: Design::Citrus, radius: 3.0, radius_small: 2.5, radius_panel: 4.0 };
-    pub const LEMON: Style = Style { design: Design::Lemon, radius: 6.0, radius_small: 4.0, radius_panel: 10.0 };
+    pub const CITRUS: Style = Style { design: Design::Citrus, vintage_2005: false, radius: 3.0, radius_small: 2.5, radius_panel: 4.0 };
+    pub const LEMON: Style = Style { design: Design::Lemon, vintage_2005: false, radius: 6.0, radius_small: 4.0, radius_panel: 10.0 };
 
     pub fn is(&self, d: Design) -> bool {
         self.design == d
@@ -373,6 +375,9 @@ fn overrides(d: Design) -> Vec<(&'static str, Color)> {
 pub fn palette(design: Design, theme: Option<&FlTheme>) -> Palette {
     let mut p = skin_palette(design, theme);
     p.wallpaper = theme.and_then(fl::wallpaper);
+    if let Some(theme) = theme {
+        theme.appearance.apply(&mut p, &theme.color_overrides);
+    }
     p
 }
 
@@ -400,6 +405,20 @@ fn skin_palette(design: Design, theme: Option<&FlTheme>) -> Palette {
             None => Palette::default(),
         };
     };
+    let mut p = mapped_palette(map);
+    for (name, c) in overrides(design) {
+        if let Some(slot) = p.get_mut(name) {
+            *slot = c;
+        }
+    }
+    p.style = design.style();
+    if let Some(th) = theme.filter(|t| !t.is_stock()) {
+        retint(&mut p, th);
+    }
+    p
+}
+
+fn mapped_palette(map: DesignMap) -> Palette {
     let classic = Palette::default();
     let mut p = classic.clone();
     for name in Palette::NAMES {
@@ -413,17 +432,74 @@ fn skin_palette(design: Design, theme: Option<&FlTheme>) -> Palette {
         };
         *p.get_mut(name).expect("token") = v;
     }
-    for (name, c) in overrides(design) {
-        if let Some(slot) = p.get_mut(name) {
-            *slot = c;
-        }
-    }
     p.xf = fl::Xform { design: Some(map), ..fl::Xform::default() };
-    p.style = design.style();
-    if let Some(th) = theme.filter(|t| !t.is_stock()) {
-        retint(&mut p, th);
-    }
     p
+}
+
+/// The fixed workspace palette. This is independent of imported themes and skin preferences.
+pub fn vintage_2005() -> &'static Palette {
+    use crate::appearance::{Finish, Indicator, Lettering};
+    static PALETTE: std::sync::OnceLock<Palette> = std::sync::OnceLock::new();
+    PALETTE.get_or_init(|| {
+        let rgb = Color::rgb;
+        let mut p = mapped_palette(DesignMap {
+            ramp: &[(0.0, 0.0), (0.08, 0.075), (0.13, 0.19), (0.19, 0.295),
+                (0.26, 0.39), (0.4, 0.53), (0.7, 0.74), (1.0, 1.0)],
+            tint: (202.0, 0.12),
+            accent: rgb(0xc7d49a),
+            highlight: rgb(0xe5ae75),
+            mute: rgb(0x9ab779),
+            text: rgb(0xe0e5df),
+            text_bg: rgb(0x424b51),
+        });
+        p.style = Style {
+            vintage_2005: true,
+            radius: 1.5,
+            radius_small: 1.5,
+            radius_panel: 1.0,
+            ..Style::CITRUS
+        };
+        p.appearance.buttons = Some(Finish::Beveled);
+        p.appearance.panels = Some(Finish::Beveled);
+        p.appearance.bevel = Some(0.19);
+        p.appearance.themed_buttons = true;
+        p.appearance.indicator = Some(Indicator::Round);
+        p.appearance.title_text = Some(Lettering::Bold);
+        p.appearance.icon_pack = crate::appearance::VINTAGE_ICON_PACK;
+        p.appearance.cursor_family = Some(crate::appearance::VINTAGE_CURSOR_PACK);
+        p.appearance.ui_font = 2;
+        for (name, hex) in [
+            ("workspace", 0x252a30), ("toolbar", 0x5f686d), ("toolbar_edge", 0x929c9d),
+            ("toolbar_line", 0x252b30), ("menu_panel", 0x5b6c6d), ("menu_text", 0xcde3e4),
+            ("menu_pop", 0x9ba6a8), ("menu_pop_border", 0x263033),
+            ("menu_pop_hi", 0xb7cebd), ("menu_pop_text", 0x182327),
+            ("menu_pop_shortcut", 0x314447), ("menu_pop_dim", 0x465356),
+            ("menu_pop_head", 0x66777c), ("menu_pop_head_text", 0xe1e9e7),
+            ("sunken", 0x303b3d), ("sunken_dark", 0x20292c), ("time_panel", 0x263637),
+            ("button", 0x566066), ("button_hi", 0x68747a), ("button_border", 0x20282c),
+            ("button_pressed", 0x907655), ("button_disabled", 0x40494e),
+            ("on_top", 0xe5b382), ("on_bottom", 0x9b6a4d), ("on_glyph", 0x292821),
+            ("text", 0xc0d0d8), ("text_dim", 0xb0c0c8), ("glyph", 0xdce5e1),
+            ("window_title", 0x606d70), ("window_body", 0x747b7d),
+            ("window_border", 0x242b2f), ("splitter_dark", 0x232c31),
+            ("browser_list", 0x101416), ("browser_folder", 0xc0cdd0),
+            ("rack_inset", 0x6a7274), ("rack_inset_border", 0x1b2327),
+            ("step_a", 0x7b8587), ("step_b", 0x8c7370), ("step_on", 0xf3e7cb),
+            ("step_dim_a", 0x374044), ("step_dim_b", 0x43383b),
+            ("grid", 0x30323f), ("grid_alt", 0x353744), ("grid_gap", 0x454653),
+            ("grid_bar", 0x1f222e), ("clip", 0x6b8291),
+            ("pr_row", 0x39414b), ("pr_row_black", 0x303742), ("pr_bar", 0x202831),
+            ("mixer_bg", 0x39434a), ("mixer_strip", 0x747e82),
+            ("mixer_strip_dark", 0x505c60), ("mixer_plate", 0x3f494e),
+            ("mixer_panel", 0x465259), ("fader_handle", 0x788388),
+            ("accent", 0xe4a452), ("track_header", 0x697274),
+            ("browser_title", 0x5b686b), ("browser_tabs", 0x3f4b50),
+            ("indicator_on", 0xe4a452), ("record", 0xeb7762),
+        ] {
+            *p.get_mut(name).expect("vintage palette token") = rgb(hex);
+        }
+        p
+    })
 }
 
 /// FL's base palette toolbar (spec: ui/flstheme.md §5): its slight blue tint is what a theme's Hue and Saturation turn.

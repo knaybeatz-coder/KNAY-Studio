@@ -261,6 +261,20 @@ pub fn read_by(len: usize, pos: f64, ratio: f64, quality: Quality, at: impl Fn(u
     if f == 0.0 && ratio.abs() == 1.0 {
         return at((k0 as usize).min(len - 1));
     }
+    // Ordinary live upsampling reads 16 consecutive frames. Resolve the bounds
+    // once and use fixed-size coefficients; retain edge clamping in the general path.
+    if quality == Quality::Live16 && ratio.abs() <= 1.0 && k0 >= 7 && k0 < len as i64 - 8 {
+        let first = k0 as usize - 7;
+        let mut w = [0.; 16];
+        weights(f, ratio, 8, quality, &mut w);
+        let (mut l, mut r) = (0.,0.);
+        for (i, weight) in w.into_iter().enumerate() {
+            let (a,b) = at(first+i);
+            l += a*weight;
+            r += b*weight;
+        }
+        return (l,r);
+    }
     let n = quality_width(ratio, quality);
     let mut small = [0.0f32; 2 * N_MIN];
     let mut big;

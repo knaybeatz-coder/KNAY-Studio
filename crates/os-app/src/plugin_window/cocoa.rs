@@ -47,6 +47,8 @@ use super::*;
 pub struct KeyMsg {
     /// The key's virtual key code (`NSEvent.keyCode`), as winit's `PhysicalKeyExtScancode` expects it on macOS.
     pub scancode: u32,
+    pub undo:bool,
+    pub shift:bool,
     pub pressed: bool,
     /// Control or Command.
     pub ctrl: bool,
@@ -379,6 +381,7 @@ struct Frame {
     state: RefCell<State>,
     canvas: RefCell<Canvas>,
     /// The backing scale the frame is drawn at.
+    editor_zoom:Cell<f32>,
     scale: Cell<f32>,
     /// Docked and clipped: the parts shown (frame points); `None`: all of it.
     shown: RefCell<Option<Vec<NSRect>>>,
@@ -431,6 +434,7 @@ impl FrameWindow {
                 state: RefCell::new(state),
                 // Sized at the real scale once placed (`layout`).
                 canvas: RefCell::new(Canvas::new(1, 1, 1.0).expect("canvas")),
+                editor_zoom:Cell::new(1.),
                 scale: Cell::new(scale),
                 shown: RefCell::new(None),
                 wheel: Cell::new(0.0),
@@ -549,8 +553,14 @@ impl FrameWindow {
     }
 
     /// The plugin's smallest editor size when the frame's edges may resize it (`None`: a fixed size).
+    pub fn enable_wave_zoom(&self) {
+        self.f.state.borrow_mut().wave_zoom=true;
+        self.set_resizable(None);
+    }
+
     pub fn set_resizable(&self, min: Option<(f32, f32)>) {
         let mut st = self.f.state.borrow_mut();
+        let min=st.effective_resize_min(min);
         if st.resize_min != min {
             st.resize_min = min;
             if min.is_none() {
@@ -612,7 +622,14 @@ impl FrameWindow {
     }
 
     /// Follows a new editor size (plugins may resize).
+    pub fn set_editor_zoom(&self,zoom:f32){
+        let old=self.f.editor_zoom.replace(zoom);
+        let displayed=self.f.state.borrow().editor;
+        self.set_editor_size((displayed.0/old,displayed.1/old));
+    }
     pub fn set_editor_size(&self, editor: (f32, f32)) {
+        let zoom=self.f.editor_zoom.get();
+        let editor=(editor.0*zoom,editor.1*zoom);
         if self.f.state.borrow().editor != editor {
             self.f.state.borrow_mut().editor = editor;
             self.f.layout();
@@ -750,6 +767,10 @@ impl Frame {
             None => self.view.setFrameSize(NSSize::new(w, h)),
         }
         self.area.setFrame(rect(f64::from(BORDER), f64::from(ay), f64::from(ed.0), f64::from(ed.1)));
+        let zoom=f64::from(self.editor_zoom.get());
+        if zoom!=1. || self.area.bounds().size!=self.area.frame().size {
+            self.area.setBoundsSize(NSSize::new(f64::from(ed.0)/zoom,f64::from(ed.1)/zoom));
+        }
         self.pin_editor();
         self.area.setHidden(!show);
         let k = self.scale.get();
@@ -773,7 +794,7 @@ impl Frame {
     /// area's height when they open or resize (before the frame follows them): Vital, resized from its own settings,
     /// hung below a gap at the top; Surge, placed at the origin of a smaller area, was cut off at the top.
     fn pin_editor(&self) {
-        let h = self.area.frame().size.height;
+        let h = self.area.bounds().size.height;
         for v in self.area.subviews().iter() {
             let f = v.frame();
             let y = h - f.size.height;
@@ -1057,41 +1078,41 @@ fn keys_in_frame(window: &NSWindow) -> bool {
         // The panel itself (no view has the keyboard): still a frame's.
         return FRAMES.with(|fr| fr.borrow().iter().filter_map(Weak::upgrade).any(|f| f.panel.borrow().as_ref().is_some_and(|p| std::ptr::eq(Retained::as_ptr(p).cast::<NSWindow>(), window))));
     };
-    FRAMES.with(|fr| fr.borrow().iter().filter_map(Weak::upgrade).any(|f| v.isDescendantOf(&f.view)))
+    crate::strip_editor::contains_editor(&v) || FRAMES.with(|fr| fr.borrow().iter().filter_map(Weak::upgrade).any(|f| v.isDescendantOf(&f.view)))
 }
 
-fn monitor(e: &NSEvent) {
-    let Some(window) = MainThreadMarker::new().and_then(|mtm| e.window(mtm)) else { return };
+fn monitor(e: &NSEvent) -> bool {
+    let Some(window) = MainThreadMarker::new().and_then(|mtm| e.window(mtm)) else { return false };
     let t = e.r#type();
     if t == NSEventType::KeyDown || t == NSEventType::KeyUp {
-        if t == NSEventType::KeyDown && e.isARepeat() || !keys_in_frame(&window) {
-            return;
+        if !keys_in_frame(&window) {
+            return false;
         }
         let flags = e.modifierFlags();
         let k = KeyMsg {
-            scancode: u32::from(e.keyCode()),
+            scancode: u32::from(e.keyCode()),shift:flags.contains(NSEventModifierFlags::Shift),
+            undo:flags.intersects(NSEventModifierFlags::Control | NSEventModifierFlags::Command) && e.charactersIgnoringModifiers().is_some_and(|s|s.to_string().eq_ignore_ascii_case("z")),
             pressed: t == NSEventType::KeyDown,
             ctrl: flags.intersects(NSEventModifierFlags::Control | NSEventModifierFlags::Command),
             alt: flags.contains(NSEventModifierFlags::Option),
         };
-        KEYS.with(|q| q.borrow_mut().push(k));
-        os_clap::wake();
-        return;
+        if t!=NSEventType::KeyDown || !e.isARepeat(){KEYS.with(|q| q.borrow_mut().push(k));os_clap::wake();}
+        return k.undo;
     }
     if let Some(f) = frame_at(&window, e.locationInWindow()) {
         f.clicked();
     }
+    false
 }
 
 /// Installs the event monitor once (it stays for the app's life).
-fn install_monitor(_mtm: MainThreadMarker) {
+pub fn install_monitor(_mtm: MainThreadMarker) {
     if MONITOR.with(|m| m.replace(true)) {
         return;
     }
     let mask = NSEventMask::KeyDown | NSEventMask::KeyUp | NSEventMask::LeftMouseDown | NSEventMask::RightMouseDown | NSEventMask::OtherMouseDown;
     let block = RcBlock::new(|e: NonNull<NSEvent>| -> *mut NSEvent {
-        monitor(unsafe { e.as_ref() });
-        e.as_ptr()
+        if monitor(unsafe { e.as_ref() }){std::ptr::null_mut()}else{e.as_ptr()}
     });
     let token = unsafe { NSEvent::addLocalMonitorForEventsMatchingMask_handler(mask, &block) };
     std::mem::forget(token);

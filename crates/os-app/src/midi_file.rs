@@ -625,6 +625,19 @@ impl App {
         }
     }
 
+    pub(crate) fn midi_drop(&mut self, path: PathBuf, channel: bool, placement:Option<(u16,u32)>) {
+        let file = match std::fs::read(&path).map_err(|e|e.to_string()).and_then(|b|os_smf::read(&b).map_err(|e|e.to_string())) {
+            Ok(file) => file,
+            Err(e) => return self.tell(Kind::Warning,TITLE,spans(&[&e])),
+        };
+        let o = Options { new_project:false, blend:true, ..options_for(&file) };
+        if channel && crate::piano::channel(&self.state).is_some() {
+            self.import_into_piano(&path,&file,&o);
+        } else {
+            self.import_into_project_at(&path,&file,&o,placement);
+        }
+    }
+
     /// The settings are chosen: the piano roll's import at once; FILE's into this project at once, into a new one
     /// once unsaved changes are answered.
     fn midi_accepted(&mut self, path: PathBuf, smf: Smf, o: Options, piano: bool) {
@@ -654,11 +667,26 @@ impl App {
     /// FILE's import (spec §3 to §7): into a new project in pattern mode at PPQ 96, or added to this one as one undo
     /// step.
     fn import_into_project(&mut self, path: &Path, f: &Smf, o: &Options) {
+        self.import_into_project_at(path,f,o,None);
+    }
+
+    fn import_into_project_at(&mut self,path:&Path,f:&Smf,o:&Options,placement:Option<(u16,u32)>) {
         let ppq = if o.new_project { 96 } else { self.state.project.ppq.max(1) };
         let imp = convert(f, o, ppq);
         let name = stem(path);
         if imp.parts.is_empty() {
             return self.tell(Kind::Info, TITLE, spans(&["", &file_name(path), " has no notes in the tracks and channels chosen."]));
+        }
+        let mut pattern=self.state.pattern;
+        if placement.is_some() {
+            let p=&self.state.project;
+            let occupied:std::collections::BTreeSet<_>=p.patterns.iter().map(|p|p.number).chain(
+                p.arrangements.iter().flat_map(|a|a.clips.iter()).filter_map(|c|match c.source{os_model::ClipSource::Pattern(n)=>Some(n),_=>None})
+            ).collect();
+            let Some(free)=(1..=crate::patterns::MAX).find(|n|!occupied.contains(n)) else{
+                return self.tell(Kind::Warning,TITLE,spans(&["No empty pattern is available."]));
+            };
+            pattern=free;
         }
         let parts = imp.parts.len();
         if o.new_project {
@@ -694,8 +722,14 @@ impl App {
                 Snap::Tail(Box::new(history::Tail::now(s, s.project.channels.len()))),
             ]);
             history::record(s, IMPORT_STEP, snap);
-            let n = s.pattern;
+            let n=pattern;
             place(s, imp, o, &name, n);
+            if let Some((track,tick))=placement {
+                crate::patterns::select(s,n);
+                s.playlist.lock_len=None;
+                let clip=crate::playlist::place(s,track,tick);
+                s.playlist.sel=vec![clip];
+            }
         }
         let s = &mut self.state;
         crate::piano::center_keys(s, self.piano_grid.map_or(700.0, |g| g.h));
@@ -1064,6 +1098,27 @@ mod tests {
         app
     }
 
+    #[test]
+    fn playlist_midi_drop_places_new_pattern_and_undo_restores_song(){
+        let mut app=test_app();
+        let original=app.state.project.patterns.clone();
+        let count=app.state.project.channels.len();
+        let clips=crate::playlist::clips(&app.state).to_vec();
+        let path=write_three("arranged-drop");
+        app.midi_drop(path.clone(),false,Some((7,1536)));
+        assert!(!app.modal_open());
+        let pattern=app.state.pattern;
+        assert!(original.iter().all(|p|p.number!=pattern));
+        assert!(app.state.project.pattern(pattern).unwrap().notes.len()>=3);
+        let c=crate::playlist::clips(&app.state).last().unwrap();
+        assert_eq!((c.track,c.position,c.source),(7,1536,os_model::ClipSource::Pattern(pattern)));
+        crate::history::undo(&mut app.state);
+        assert_eq!(app.state.project.patterns,original);
+        assert_eq!(app.state.project.channels.len(),count);
+        assert_eq!(crate::playlist::clips(&app.state),clips);
+        let _=std::fs::remove_file(path);
+    }
+
     fn write_three(tag: &str) -> PathBuf {
         let path = std::env::temp_dir().join(format!("os_midi_{tag}_{}.mid", std::process::id()));
         std::fs::write(&path, os_smf::write(&three(96))).unwrap();
@@ -1176,11 +1231,11 @@ mod tests {
         app.key(&Key::Named(NamedKey::Escape), false, false);
         let path = write_three("drop");
         let before = app.state.project.clone();
-        app.drop_file(path.clone());
-        assert!(form(&app).is_some());
-        app.key(&Key::Named(NamedKey::Escape), false, false);
+        app.drop_file_at_plugin(path.clone(), Some(1));
         assert!(!app.modal_open());
-        assert_eq!(app.state.project, before);
+        assert_eq!(app.state.project.channels,before.channels);
+        assert_eq!(app.state.selected_channel,1);
+        assert_ne!(app.state.project.patterns,before.patterns);
         let _ = std::fs::remove_file(path);
     }
 
@@ -1191,7 +1246,7 @@ mod tests {
         let path = std::env::temp_dir().join(format!("os_midi_late_{}.mid", std::process::id()));
         std::fs::write(&path, LATE_NOTE).unwrap();
         let mut app = test_app();
-        app.drop_file(path.clone());
+        app.midi_file_chosen(path.clone(),false);
         assert!(form(&app).expect("the form shows for the late file").o.realign);
         app.dialog_click(crate::dialog::DHit::Form(FHit::Main));
         let notes = &app.state.project.patterns[0].notes;

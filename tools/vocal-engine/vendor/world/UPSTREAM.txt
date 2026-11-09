@@ -1,0 +1,5 @@
+WORLD by Masanori Morise
+BSD-3-Clause
+https://github.com/mmorise/World
+Revision c794856b537758a3d300757db2e5e31685a822c2
+Unmodified upstream source.

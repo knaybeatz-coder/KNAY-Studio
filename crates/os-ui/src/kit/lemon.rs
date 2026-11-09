@@ -288,14 +288,16 @@ pub fn step(c: &mut Canvas, t: &Palette, r: Rect, on: bool, odd: bool, dim: bool
     let (a, b) = if dim { (t.step_dim_a, t.step_dim_b) } else { (t.step_a, t.step_b) };
     let off = if odd { b } else { a };
     let (main, high) = (t.brand_sel(brand::MAIN), t.brand_sel(brand::HIGHLIGHT));
-    if on {
-        let (top, bottom) = if dim { (main.mix(off, 0.45), main.mix(off, 0.55)) } else { (high.mix(main, 0.5), main) };
-        c.fill_rect_gradient(r, if hover { high } else { top }, bottom, rad);
-        if playing {
-            c.fill_rrect(Rect::new(r.x + 2.0, r.bottom() - 4.0, r.w - 4.0, 2.0), 1.0, t.brand_sel(brand::COLORED_DARK));
-        }
-    } else {
-        c.fill_rrect(r, rad, if hover { off.mix(t.brand_grey(brand::DARK_HIGHLIGHT), 0.4) } else { off });
+    c.fill_rrect(r,rad,off.shade(-0.47));
+    let mut face=r.inset(0.8);
+    if on {face.y+=0.8;face.h=(face.h-0.8).max(0.);}
+    let base=if on && dim {main.mix(off,0.48)} else if on {main} else {off};
+    let top=if hover {base.mix(high,0.23)} else {base.shade(if on {0.09} else {0.16})};
+    c.fill_rect_gradient(face,top,base.shade(if on {-0.08} else {-0.24}),rad);
+    if face.w>5. && face.h>6. {
+        c.line(face.x+2.,face.y+1.,face.right()-2.,face.y+1.,0.8,top.shade(0.24));
+        c.line(face.x+2.,face.bottom()-1.,face.right()-2.,face.bottom()-1.,1.,base.shade(-0.33));
+        if playing {c.fill_rrect(Rect::new(face.x+2.,face.bottom()-4.,face.w-4.,2.),1.,t.brand_sel(brand::COLORED_DARK));}
     }
 }
 

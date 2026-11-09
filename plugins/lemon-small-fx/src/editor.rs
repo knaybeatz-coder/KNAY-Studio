@@ -26,6 +26,12 @@ use crate::{Shared, Spec};
 
 /// Optional non-parameter instrument controls, called only on the editor thread.
 pub trait Extension: Send + Sync {
+    /// (Route id, source label, automatable depth parameter id).
+    fn modulation_routes(&self, _id: &str) -> Vec<(usize, &'static str, &'static str)> { Vec::new() }
+    fn remove_modulation(&self, _id: &str, _route: usize, _context: Option<&Arc<dyn GuiContext>>) {}
+    fn editor_closed(&self) {}
+    fn accepts_files(&self)->bool { false }
+    fn file_dropped(&self,_path:&std::path::Path) {}
     /// Optional complete instrument view. Existing effect editors retain their default view.
     fn render(&self, _canvas: &mut os_ui::Canvas, _model: &dyn view::Model,
         _state: &ViewState, _hint: &str) -> Option<Vec<view::Hit>> { None }
@@ -139,6 +145,7 @@ pub enum Cmd {
     PasteValue(String),
     TypeIn(String),
     Automate(String),
+    RemoveModulation(String, usize),
     About,
 }
 
@@ -201,6 +208,9 @@ pub struct Logic {
     pub hosted: bool,
 }
 
+impl Drop for Logic {
+    fn drop(&mut self) {if let Some(extension)=&self.shared.extension {extension.editor_closed();}}
+}
 impl Logic {
     pub fn new(spec: &'static Spec, params: Arc<FxParams>, shared: Arc<Shared>, ctx: Option<Arc<dyn GuiContext>>) -> Self {
         let vals = Vals::new(&*params, params.live.clone(), ctx.clone());
@@ -344,6 +354,13 @@ impl Logic {
                 // Automation belongs to the host: offered when Lemon Studio hosts the editor (host link).
                 m.sep(Cmd::None);
                 m.add(MenuItem::item("Create automation clip").enabled(self.hosted), Cmd::Automate(id.clone()));
+                if let Some(extension) = &self.shared.extension {
+                    for (route, source, depth) in extension.modulation_routes(id) {
+                        m.sep(Cmd::None);
+                        m.add(MenuItem::item(&format!("Remove {source} modulation")), Cmd::RemoveModulation(id.clone(), route));
+                        m.add(MenuItem::item(&format!("Automate {source} depth")).enabled(self.hosted), Cmd::Automate(depth.into()));
+                    }
+                }
                 m.sep(Cmd::None);
                 m.add(MenuItem::item(&format!("About {}...", self.spec.name)), Cmd::About);
                 m
@@ -370,6 +387,11 @@ impl Logic {
             }
             Cmd::TypeIn(id) => return vec![Act::TypeIn(id, x, y)],
             Cmd::Automate(id) => return self.spec.index(&id).map(Act::Automate).into_iter().collect(),
+            Cmd::RemoveModulation(id, route) => {
+                if let Some(extension) = &self.shared.extension {
+                    extension.remove_modulation(&id, route, self.context.as_ref());
+                }
+            }
             Cmd::About => return vec![Act::Menu(MenuReq::About, x, y)],
         }
         vec![Act::Repaint]
@@ -513,6 +535,9 @@ mod win32 {
                 GetModuleHandleW(std::ptr::null()),
                 Box::into_raw(win) as *const c_void,
             );
+            if shared.extension.as_ref().is_some_and(|e|e.accepts_files()){
+                windows_sys::Win32::UI::Shell::DragAcceptFiles(hwnd,1);
+            }
             slot.store(hwnd as isize, Ordering::Release);
             // About 33 checks a second (edits the host confirms, the hint).
             SetTimer(hwnd, TIMER, 30, None);
@@ -556,6 +581,20 @@ mod win32 {
                 WM_TIMER | WM_CHANGED => {
                     w.poll();
                     0
+                }
+                WM_DROPFILES => {
+                    use std::os::windows::ffi::OsStringExt;
+                    use windows_sys::Win32::UI::Shell::{DragFinish,DragQueryFileW};
+                    let handle=wp as *mut core::ffi::c_void;
+                    let length=DragQueryFileW(handle,0,std::ptr::null_mut(),0);
+                    let mut buffer=vec![0u16;length as usize+1];
+                    let read=DragQueryFileW(handle,0,buffer.as_mut_ptr(),buffer.len() as u32);
+                    DragFinish(handle);
+                    if read>0 {if let Some(extension)=&w.logic.shared.extension{
+                        let path=std::path::PathBuf::from(std::ffi::OsString::from_wide(&buffer[..read as usize]));
+                        extension.file_dropped(&path);
+                    }}
+                    w.run(vec![Act::Repaint]);0
                 }
                 WM_CHAR => {
                     if char::from_u32(wp as u32).is_some_and(|ch|w.logic.shared.extension.as_ref().is_some_and(|e|e.character(ch))) {
@@ -721,7 +760,7 @@ mod win32 {
                     }
                     1
                 }
-                Cmd::BrowseSample | Cmd::Changed | Cmd::Note | Cmd::Automate | Cmd::Audio | Cmd::Resizable | Cmd::SetSize => 0,
+                Cmd::SampleFit | Cmd::BrowseSample | Cmd::Changed | Cmd::Note | Cmd::Automate | Cmd::Audio | Cmd::Resizable | Cmd::SetSize => 0,
             }
         }
 

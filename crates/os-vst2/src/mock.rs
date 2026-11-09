@@ -241,7 +241,10 @@ unsafe extern "C" fn dispatch(e: *mut Effect, opcode: i32, index: i32, value: is
             unsafe { *(ptr as *mut *mut Rect) = &mut m.rect };
             return 1;
         }
-        op::EDITOR_OPEN => log(format!("editor open {}", ptr as usize)),
+        op::EDITOR_OPEN => {
+            log(format!("editor open {}", ptr as usize));
+            log(format!("host display {}", value != 0));
+        }
         op::EDITOR_CLOSE => log("editor close"),
         op::EDITOR_IDLE => probe(|p| p.idles += 1),
         op::CUSTOM if index == fourcc(*b"PreS") && value == fourcc(*b"AeCs") as isize => log(format!("scale {opt}")),
@@ -278,7 +281,7 @@ unsafe extern "C" fn process(e: *mut Effect, inputs: *const *const f32, outputs:
     if m.id == GAIN_ID {
         let gain = m.params[0] * 2.0;
         for (c, o) in out.into_iter().enumerate() {
-            let input = unsafe { std::slice::from_raw_parts(*inputs.add(c.min(m.effect.num_inputs as usize - 1)), n) };
+            let input = unsafe { std::slice::from_raw_parts(*inputs.add(if m.effect.num_inputs==4 {c+2} else {c.min(m.effect.num_inputs as usize - 1)}), n) };
             o.iter_mut().zip(input).for_each(|(o, i)| *o = i * gain);
         }
         return;

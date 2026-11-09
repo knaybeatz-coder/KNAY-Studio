@@ -24,7 +24,7 @@ pub struct Preview {
     resume:bool,
 }
 impl Preview {pub fn busy(&self)->bool {self.pending.is_some()||self.playing}}
-pub fn visible(s:&State)->bool {matches!(s.browser_tab,0|3)&&view::opt(s,view::OPT_PANEL)&&s.browser_preview.path.is_some()}
+pub fn visible(s:&State)->bool {crate::workspace_visibility::shown("visible_browser-preview") && matches!(s.browser_tab,0|3|view::EXCHANGE_BUTTON)&&view::opt(s,view::OPT_PANEL)&&s.browser_preview.path.is_some()}
 fn overview(sample:&os_engine::sample::Sample)->Vec<(f32,f32)> {
     let step=sample.frames().div_ceil(512).max(1);
     sample.left.chunks(step).zip(sample.right.chunks(step)).map(|(l,r)|l.iter().zip(r).fold((0f32,0f32),|(lo,hi),(&a,&b)|(lo.min(a).min(b),hi.max(a).max(b)))).collect()
@@ -42,8 +42,10 @@ pub fn select(app:&mut App,path:&str) {
     app.state.browser_preview=Preview{resume:true,path:Some(path.into()),pending:Some(result.clone()),..Default::default()};
     let path=crate::plugins::resolve_sample(path);
     let (normal,reversed,trim)=(normalize(),reverse(),auto_trim());
+    let boost=boost_db();let clip=clip_on();
     std::thread::spawn(move||{
-        let loaded=os_engine::sample::load_shared(std::path::Path::new(&path)).map(|s|{let s=processed(s,normal,reversed,trim);let peaks=overview(&s);(s,peaks)}).map_err(|e|format!("Cannot preview: {e}"));
+        let loaded=os_engine::sample::load_shared(std::path::Path::new(&path)).map(|s|{let mut s=processed(s,normal,reversed,trim);
+            if boost>0 || clip {let gain=10f32.powf(f32::from(boost)/20.);let audio=Arc::make_mut(&mut s);for v in audio.left.iter_mut().chain(&mut audio.right){*v*=gain;if clip{*v=v.clamp(-1.,1.);}}}let peaks=overview(&s);(s,peaks)}).map_err(|e|format!("Cannot preview: {e}"));
         if let Ok(mut out)=result.lock(){*out=Some(loaded);}
     });
     app.invalidate();
@@ -73,6 +75,19 @@ fn processed(sample:Arc<os_engine::Sample>,normal:bool,reversed:bool,trim:bool)-
     }
     Arc::new(copy)
 }
+pub fn retrigger(app: &mut App, path: &str) {
+    if app.state.browser_preview.path.as_deref() == Some(path) && app.state.browser_preview.sample.is_some() {
+        app.transport.stop_preview();
+        app.state.browser_preview.position = 0.0;
+        play(app);
+    } else if app.state.browser_preview.path.as_deref() == Some(path) && app.state.browser_preview.pending.is_some() {
+        app.state.browser_preview.resume = true;
+        app.state.browser_preview.position = 0.0;
+    } else {
+        select(app, path);
+    }
+}
+
 fn play(app:&mut App) {
     let preview=&mut app.state.browser_preview;
     preview.resume=true;
@@ -108,7 +123,7 @@ pub fn tick(app:&mut App) {
 // Roughly -90 dBFS: remove near-silent ends without cutting normal release tails.
 pub const AUTO_TRIM_THRESHOLD:u32=1;
 pub fn auto_trim()->bool {crate::prefs::text("browser_auto_trim").as_deref()==Some("1")}
-fn trim_bounds(s:&os_engine::Sample)->(usize,usize){
+pub(crate) fn trim_bounds(s:&os_engine::Sample)->(usize,usize){
     let n=s.frames().min(s.right.len());
     let audible=|i:usize| s.left[i].abs().max(s.right[i].abs())>=AUTO_TRIM_THRESHOLD as f32/32768.;
     let Some(a)=(0..n).find(|&i|audible(i)) else{return (0,n)};
@@ -121,6 +136,8 @@ pub fn import_window(path:&str)->Option<(f64,f64)>{
     if a==0&&b==sample.frames(){return None;}
     let ms=1000./f64::from(sample.rate.max(1));Some((a as f64*ms,b as f64*ms))
 }
+fn boost_db()->u8{crate::prefs::text("browser_preview_boost").and_then(|v|v.parse().ok()).unwrap_or(0).min(18)}
+fn clip_on()->bool{crate::prefs::text("browser_preview_clip").as_deref()==Some("1")}
 pub fn normalize()->bool {crate::prefs::text("browser_preview_normalize").as_deref()==Some("1")}
 pub fn reverse()->bool {crate::prefs::text("browser_preview_reverse").as_deref()==Some("1")}
 pub fn act(app:&mut App,cmd:u8) {
@@ -133,10 +150,11 @@ pub fn act(app:&mut App,cmd:u8) {
             p.position=f64::from(((app.mouse.0-r.x)/r.w).clamp(0.,1.))*p.duration;
             play(app);
         },
-        3|4|5=>{
+        3..=7=>{
+            if cmd==6 {crate::prefs::set_text("browser_preview_boost",&((boost_db()+3)%21).to_string());}else if cmd==7 {crate::prefs::set_text("browser_preview_clip",if clip_on(){"0"}else{"1"});}else{
             let key=match cmd {3=>"browser_preview_normalize",4=>"browser_preview_reverse",_=>"browser_auto_trim"};
             let on=match cmd {3=>normalize(),4=>reverse(),_=>auto_trim()};
-            crate::prefs::set_text(key,if on {"0"}else{"1"});
+            crate::prefs::set_text(key,if on {"0"}else{"1"});}
             if let Some(path)=app.state.browser_preview.path.clone(){
                 let position=app.state.browser_preview.position;let resume=app.state.browser_preview.playing || (app.state.browser_preview.pending.is_some() && app.state.browser_preview.resume);
                 select(app,&path);app.state.browser_preview.position=position;app.state.browser_preview.resume=resume;
@@ -177,7 +195,13 @@ pub fn paint(ui:&mut Ui,s:&State,r:Rect) {
         ui.c.fill_rrect(b,3.,if on{t.accent}else if hover{t.button_hi}else{t.sunken});
         ui.c.text_center(Font::new(11),b,if on{t.sunken}else{t.text},label);
     }
-    ui.c.text_clip(Font::new(11),r.x+8.,r.y+109.,r.w-16.,t.text,&format!("{} / {}",time(p.position),time(p.duration)));
+    for (cmd,label,x,w,on) in [(6,format!("+{} dB",boost_db()),8.,52.,boost_db()>0),(7,"Clip".to_owned(),64.,34.,clip_on())] {
+        let b=Rect::new(r.x+x,r.y+105.,w,21.);
+        let hover=ui.hit(b,Action::BrowserPreview(cmd),if cmd==6{"Preview boost: click to cycle 0 to 18 dB"}else{"Clip boosted preview peaks"});
+        ui.c.fill_rrect(b,3.,if on{t.accent}else if hover{t.button_hi}else{t.sunken});
+        ui.c.text_center(Font::new(11),b,if on{t.sunken}else{t.text},&label);
+    }
+    ui.c.text_clip(Font::new(11),r.x+102.,r.y+109.,(r.w-110.).max(0.),t.text,&format!("{} / {}",time(p.position),time(p.duration)));
 }
 #[cfg(test)]
 mod tests {

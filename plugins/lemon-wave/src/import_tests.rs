@@ -108,6 +108,7 @@ fn frames_mips_and_embedded_recall_without_original_file() {
     let params = WaveParams::default();
     params
         .replace(Sources {
+            noise: None,
             samples: Default::default(),
             oscillators: [Some(source.clone()), Some(source)],
         })
@@ -165,6 +166,7 @@ fn import_editor_layout_and_builtin_restore() {
     .unwrap();
     params
         .replace(Sources {
+            noise: None,
             samples: Default::default(),
             oscillators: [Some(source), None],
         })
@@ -176,7 +178,7 @@ fn import_editor_layout_and_builtin_restore() {
     });
     let mut logic = Logic::new(crate::controls::SPEC, params.base.clone(), shared, None);
     for scale in [1., 1.5] {
-        let mut c = os_ui::Canvas::new(1180, 820, scale).unwrap();
+        let mut c = os_ui::Canvas::new(1584, 992, scale).unwrap();
         logic.paint(&mut c, &os_plugkit::palette());
         for o in 0..2 {
             for r in crate::table_editor::TableEditor::buttons(o) {
@@ -194,7 +196,7 @@ fn import_editor_layout_and_builtin_restore() {
     let r = crate::table_editor::TableEditor::buttons(0)[2];
     logic.down(r.cx(), r.cy(), Btn::Left, Mods::default(), false);
     assert!(params.sources().oscillators[0].is_none());
-    assert!(!extension.click(1000., 782., None));
+    assert!(!extension.click(1579., 1053., None));
 }
 
 #[test]
@@ -209,6 +211,7 @@ fn recorded_samples_decode_embed_clear_and_render_consistently() {
     let params = WaveParams::default();
     params
         .replace(Sources {
+            noise: None,
             samples: [Some(sample), None],
             ..Default::default()
         })
@@ -293,7 +296,7 @@ fn included_moog_dropdown_stays_in_editor_and_generic_selectors_work() {
         ..Default::default()
     });
     let mut logic = Logic::new(crate::controls::SPEC, params.base.clone(), shared, None);
-    let mut canvas = os_ui::Canvas::new(1180, 820, 1.).unwrap();
+    let mut canvas = os_ui::Canvas::new(1584, 992, 1.).unwrap();
     logic.paint(&mut canvas, &os_plugkit::palette());
     // A parameter selector opens in-place, then commits the chosen value through existing host gestures.
     let selector = logic
@@ -359,7 +362,7 @@ fn workshop_draft_apply_and_embedded_conversion_recall() {
         ..Default::default()
     });
     let mut logic = Logic::new(crate::controls::SPEC, params.base.clone(), shared, None);
-    let mut c = os_ui::Canvas::new(1180, 820, 1.).unwrap();
+    let mut c = os_ui::Canvas::new(1584, 992, 1.).unwrap();
     logic.paint(&mut c, &os_plugkit::palette());
     let r = crate::instrument_view::edit_table_button(0);
     logic.down(r.cx(), r.cy(), Btn::Left, Mods::default(), false);
@@ -407,6 +410,7 @@ fn workshop_draft_apply_and_embedded_conversion_recall() {
         let sample = crate::included_library::load(0).unwrap();
         params
             .replace(Sources {
+            noise: None,
                 samples: [Some(sample), None],
                 ..Default::default()
             })
@@ -421,7 +425,7 @@ fn workshop_draft_apply_and_embedded_conversion_recall() {
         assert!(params.sources().samples[0].is_none());
     }
     for scale in [1., 1.5] {
-        let mut c = os_ui::Canvas::new(1180, 820, scale).unwrap();
+        let mut c = os_ui::Canvas::new(1584, 992, scale).unwrap();
         logic.paint(&mut c, &os_plugkit::palette());
         assert!(logic.hits.is_empty());
         if let Ok(dir) = std::env::var("LEMON_WAVE_PREVIEW") {
@@ -434,21 +438,21 @@ fn workshop_draft_apply_and_embedded_conversion_recall() {
 }
 
 #[test]
-fn oscillator_channel_faders_follow_vertical_travel() {
+fn oscillator_level_knobs_follow_vertical_gestures() {
     use lemon_small_fx::editor::{Btn, Logic, Mods};
     use lemon_small_fx::view::Target;
     let params=Arc::new(WaveParams::default());
     let editor=Arc::new(crate::table_editor::TableEditor::new(params.clone()));
     let shared=Arc::new(lemon_small_fx::Shared { extension:Some(editor), ..Default::default() });
     let mut logic=Logic::new(crate::controls::SPEC,params.base.clone(),shared,None);
-    let mut canvas=os_ui::Canvas::new(1180,820,1.).unwrap();
+    let mut canvas=os_ui::Canvas::new(1584,992,1.).unwrap();
     logic.paint(&mut canvas,&os_plugkit::palette());
     for (level,pan) in [(crate::controls::A_LEVEL,crate::controls::A_PAN),(crate::controls::B_LEVEL,crate::controls::B_PAN)] {
         let id=crate::controls::SETTINGS[level].id;
         let h=logic.hits.iter().find(|h|h.t.id()==id).unwrap().clone();
-        let Target::Fader(_,travel)=h.t else {panic!("level must be a fader")};
+        assert!(matches!(h.t,Target::Knob(_))); let travel=1000.;
         let p=logic.hits.iter().find(|h|h.t.id()==crate::controls::SETTINGS[pan].id).unwrap();
-        assert!(p.r.bottom()<h.r.y);
+        assert!(p.r.right()<h.r.x);
         logic.down(h.r.cx(),h.r.cy(),Btn::Left,Mods::default(),false);
         logic.delta(0.,-travel,Mods {shift:true,..Mods::default()});
         logic.up(Btn::Left);
@@ -458,4 +462,54 @@ fn oscillator_channel_faders_follow_vertical_travel() {
         logic.up(Btn::Left);
         assert_eq!(params.base.v(level),crate::controls::SETTINGS[level].range.0);
     }
+}
+
+#[test]
+fn marked_wav_drop_audition_move_apply_and_recall(){
+    use lemon_small_fx::editor::{Extension,Logic};
+    use crate::morph_panel::{BUILD,TIMELINE};
+    let params=Arc::new(WaveParams::default());
+    let editor=Arc::new(crate::table_editor::TableEditor::new(params.clone()));
+    let shared=Arc::new(lemon_small_fx::Shared{extension:Some(editor.clone()),..Default::default()});
+    let mut logic=Logic::new(crate::controls::SPEC,params.base.clone(),shared,None);
+    let mut recording=Vec::new();
+    for (j,hz) in [196.,220.,246.94].into_iter().enumerate(){
+        recording.extend((0..24000).map(|i|{
+            let phase=i as f32*hz*TAU/48000.;
+            (phase.sin()*0.52+(phase*(j+2) as f32+0.3).sin()*0.28)*(0.75+0.2*(phase/137.).sin())
+        }));
+    }
+    let dir=std::env::temp_dir().join(format!("wave-morph-{}",std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let temp=dir.join("Three sustained tones.wav");
+    std::fs::write(&temp,wav(16,1,false,&recording)).unwrap();
+    editor.file_dropped(&temp);std::fs::remove_file(temp).unwrap();std::fs::remove_dir(dir).unwrap();
+    let original=params.serialize_fields();
+    let x=|t:f32|TIMELINE.x+t*TIMELINE.w;let y=TIMELINE.cy();
+    for t in [0.16,0.50,0.84]{editor.click(x(t),y,None);}
+    let mut preview=crate::morph::PreviewVoice::default();let mut l=[0.;1024];let mut r=l;
+    preview.mix(&params.audition,48000.,&mut l,&mut r);assert!(l.iter().any(|v|v.abs()>0.01));
+    editor.click(x(0.5),y,None);assert!(editor.moved(x(0.56),y));assert!(editor.release(None));
+    editor.click(1270.,854.,None);
+    let mut sweep=vec![0.;48_000];let mut stereo=sweep.clone();
+    preview.mix(&params.audition,24_000.,&mut sweep,&mut stereo);
+    assert_eq!(sweep,stereo);
+    assert!(sweep[40_000..47_000].iter().any(|v|v.abs()>0.05));
+    editor.click(BUILD.cx(),BUILD.cy(),None);assert_eq!(params.serialize_fields(),original);
+    if let Ok(dir)=std::env::var("LEMON_MORPH_RENDER"){
+        let mut canvas=os_ui::Canvas::new(1584,1056,1.).unwrap();
+        logic.paint(&mut canvas,&os_plugkit::palette());
+        canvas.pixmap.save_png(std::path::Path::new(&dir).join("Sample Morph.png")).unwrap();
+    }
+    editor.click(400.,108.,None);
+    let source=params.sources().oscillators[0].clone().unwrap();
+    assert_eq!(source.frames(),21);
+    let recalled=WaveParams::default();recalled.deserialize_fields(&params.serialize_fields());
+    assert_eq!(recalled.sources().oscillators[0].as_ref().unwrap().samples,source.samples);
+    let render=|position:f32|{
+        let mut engine=dsp::Engine::new(48000.);let mut patch=dsp::defaults();patch[crate::controls::A_POSITION]=position;patch[crate::controls::B_LEVEL]=0.;
+        engine.custom=recalled.tables.read().unwrap().clone();engine.set(patch);engine.reset();engine.on(60,0.8,0,None);
+        let mut l=vec![0.;48000];let mut r=l.clone();engine.render(&mut l,&mut r);assert!(l.iter().all(|v|v.is_finite()));l
+    };
+    let a=render(0.);let b=render(1000.);assert!(a[24000..].iter().zip(&b[24000..]).any(|(x,y)|(x-y).abs()>0.002));
 }

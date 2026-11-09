@@ -7,14 +7,24 @@ use crate::{
 };
 use os_model::{
     target::{self, Target},
-    ChannelKind, Clip, ClipSource, MixerTrack, Project,
+    ChannelKind, Clip, ClipSource, MixerTrack, PlaylistTrack, Project,
 };
 use std::path::PathBuf;
+
+pub const VISIBILITY: &str = "visible_playlist-bounce-audio";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mode {
+    Freeze,
+    BounceNew,
+    BounceReplace,
+}
 
 #[derive(Debug, Clone)]
 pub struct Pending {
     row: u16,
-    freeze: bool,
+    mode: Mode,
+    track: PlaylistTrack,
     name: String,
     original: Vec<Clip>,
     arrangement: u16,
@@ -62,18 +72,21 @@ fn destination(s: &State, row: u16) -> Result<u16, String> {
     Ok(at)
 }
 /// Prepare a render without modifying the user's project. Keep automation at its original song time.
-fn prepare(s: &State, row: u16, freeze: bool) -> Result<(Project, crate::export::Job, Pending), String> {
+fn prepare(s: &State, row: u16, mode: Mode) -> Result<(Project, crate::export::Job, Pending), String> {
     let t = pl::track_info(s, row).ok_or("Track no longer exists")?;
-    if freeze && t.frozen.is_some() {
-        return Err("This track is already frozen. Choose Unfreeze track first.".into());
-    }
-    if freeze && t.locked {
-        return Err("Unlock the track before freezing it.".into());
+    let freeze = mode == Mode::Freeze;
+    if mode != Mode::BounceNew {
+        if t.frozen.is_some() {
+            return Err("This track is frozen. Choose Unfreeze track first.".into());
+        }
+        if t.locked {
+            return Err("Unlock the track before rendering in place.".into());
+        }
     }
     if crate::comping::parent(s, row).is_some_and(|p| p != row) {
         return Err("Choose the main comp track to freeze or bounce the selected takes.".into());
     }
-    if !freeze {
+    if mode == Mode::BounceNew {
         destination(s, row)?;
     }
     let original: Vec<_> = pl::clips(s).iter().filter(|c| c.track == row).copied().collect();
@@ -207,7 +220,8 @@ fn prepare(s: &State, row: u16, freeze: bool) -> Result<(Project, crate::export:
         job,
         Pending {
             row,
-            freeze,
+            mode,
+            track: t.clone(),
             name,
             original,
             arrangement,
@@ -230,6 +244,7 @@ pub fn unfreeze(s: &mut State, row: u16) -> String {
 }
 fn place(s: &mut State, p: &Pending, files: &[PathBuf]) -> Result<String, String> {
     if s.project.arrangement().map(|a| a.number) != Some(p.arrangement)
+        || pl::track_info(s, p.row) != Some(&p.track)
         || pl::clips(s)
             .iter()
             .filter(|c| c.track == p.row)
@@ -239,9 +254,10 @@ fn place(s: &mut State, p: &Pending, files: &[PathBuf]) -> Result<String, String
     {
         return Err("The source track changed during rendering. The audio was saved in Rendered; the Playlist was left untouched.".into());
     }
+    let freeze = p.mode == Mode::Freeze;
     let mut stems = Vec::new();
     for (i, path) in files.iter().enumerate() {
-        let mixer = if p.freeze {
+        let mixer = if freeze {
             if i == 0 {
                 continue;
             }
@@ -268,33 +284,43 @@ fn place(s: &mut State, p: &Pending, files: &[PathBuf]) -> Result<String, String
             .ceil()
             .max(1.0) as u32;
         stems.push((text, mixer, length));
-        if !p.freeze {
+        if !freeze {
             break;
         }
     }
     if stems.is_empty() {
         return Err("The render was silent; original clips were preserved.".into());
     }
-    let row = if p.freeze { p.row } else { destination(s, p.row)? };
+    let row = if p.mode == Mode::BounceNew { destination(s, p.row)? } else { p.row };
     let before = crate::history::Snap::Rack(Box::new(crate::history::RackSide::now(s, s.project.channels.len())));
-    pl::snapshot_with(s, if p.freeze { "Freeze track" } else { "Bounce track" }, before);
-    if p.freeze {
-        let project = s.project.clone();
-        let a = pl::arr_mut(s);
-        a.clips.retain(|c| c.track != row || automation(&project, c));
-        a.tracks[row as usize].frozen = Some(p.original.clone());
-    } else {
+    let action = match p.mode {
+        Mode::Freeze => "Freeze track",
+        Mode::BounceNew => "Bounce audio in new track",
+        Mode::BounceReplace => "Bounce and replace track",
+    };
+    pl::snapshot_with(s, action, before);
+    if p.mode == Mode::BounceNew {
         pl::insert_track(s, row);
+        // As when muting a track by hand, end solo without toggling the other track states.
+        s.playlist.solo = None;
         let a = pl::arr_mut(s);
+        a.tracks[p.row as usize].enabled = false;
         a.tracks[row as usize].name = Some(format!("{} - Bounce", p.name));
-        a.tracks[row as usize].enabled = true;
-        a.tracks[row as usize].grouped = false;
+        a.tracks[row as usize].color = p.track.color;
+    } else {
+        let kept = pl::clips(s).iter().copied()
+            .filter(|c| c.track != row || automation(&s.project, c)).collect();
+        let a = pl::arr_mut(s);
+        a.clips = kept;
+        if freeze {
+            a.tracks[row as usize].frozen = Some(p.original.clone());
+        }
     }
     let mut selection = Vec::new();
     for (path, mixer, length) in stems {
         let ch = pr::add_channel(s, &path, s.pattern);
         if let Some(c) = s.project.channels.last_mut() {
-            c.name = Some(format!("{} - {}", p.name, if p.freeze { "Frozen" } else { "Bounce" }));
+            c.name = Some(format!("{} - {}", p.name, if freeze { "Frozen" } else { "Bounce" }));
             c.mixer_track = mixer;
             c.misc.main_pitch = false;
         }
@@ -305,19 +331,19 @@ fn place(s: &mut State, p: &Pending, files: &[PathBuf]) -> Result<String, String
     s.playlist.sel = selection;
     s.playlist.track = row;
     s.piano.dirty = true;
-    Ok(if p.freeze {
-        "Track frozen; mixer processing stays live. Unfreeze restores the original clips.".into()
-    } else {
-        "Bounced audio added below the original; both tracks are available and unmuted.".into()
-    })
+    Ok(match p.mode {
+        Mode::Freeze => "Track frozen. Mixer processing stays live.",
+        Mode::BounceNew => "Bounced audio added below the source. The source track is muted.",
+        Mode::BounceReplace => "Track clips replaced with bounced audio. Undo restores the original clips.",
+    }.into())
 }
 impl App {
-    pub(crate) fn render_track(&mut self, row: u16, freeze: bool) {
+    pub(crate) fn render_track(&mut self, row: u16, mode: Mode) {
         if let Err(e)=crate::clip_effects::normalize(self){self.state.message=Some(e);self.invalidate();return;}
         if self.export.is_some() {
             return;
         }
-        match prepare(&self.state, row, freeze) {
+        match prepare(&self.state, row, mode) {
             Ok((p, job, pending)) => {
                 if let Err(e) = std::fs::create_dir_all(&job.folder) {
                     self.state.message = Some(format!("Cannot create render folder: {e}"));
@@ -400,18 +426,28 @@ mod tests {
         app.state.project.mixer=os_flp::project::load(&os_flp::FlpFile::parse(bytes).unwrap()).unwrap().mixer;
         for route in [0,8,21,32] {
             app.state.project.channels[0].mixer_track=route;
-            assert!(prepare(&app.state,0,false).is_ok(),"route {route}: {:?}",prepare(&app.state,0,false).err());
+            assert!(prepare(&app.state, 0, Mode::BounceNew).is_ok(), "route {route}");
         }
         app.state.project.channels[0].mixer_track=8;
         let original=pl::clips(&app.state).to_vec();
-        app.render_track(0,false);finish(&mut app);
-        assert_eq!(pl::clips(&app.state)[0],original[0]);
+        app.render_track(0, Mode::BounceNew);finish(&mut app);
+        assert_eq!(pl::clips(&app.state)[0], original[0]);
+        assert!(!pl::track_on(&app.state, 0));
+        assert!(pl::track_on(&app.state, 1));
         let bounced=pl::clips(&app.state).iter().find(|c|c.track==1).expect("bounce on next row");
         let ClipSource::Channel(ch)=bounced.source else {panic!("audio bounce")};
         let path=app.state.project.channels.iter().find(|c|c.index==ch).unwrap().sample_path.as_ref().unwrap();
         let sound=os_engine::sample::load(std::path::Path::new(path)).unwrap();
         assert!(sound.left.iter().any(|v|v.abs()>0.001),"assigned bounce must be audible");
-        crate::history::undo(&mut app.state);assert_eq!(pl::clips(&app.state),original);
+        let file = os_flp::project::create(&app.state.project).unwrap();
+        let reopened = os_flp::project::load(&os_flp::FlpFile::parse(&file.to_bytes().unwrap()).unwrap()).unwrap();
+        assert!(!reopened.arrangement().unwrap().tracks[0].enabled);
+        crate::history::undo(&mut app.state).unwrap();
+        assert_eq!(pl::clips(&app.state), original);
+        assert!(pl::track_on(&app.state, 0));
+        crate::history::redo(&mut app.state).unwrap();
+        assert!(!pl::track_on(&app.state, 0));
+        assert!(pl::track_on(&app.state, 1));
         let _=std::fs::remove_dir_all(dir);
     }
     #[test]
@@ -424,7 +460,7 @@ mod tests {
         let expected = audio(&before);
         let source = pl::clips(&app.state).to_vec();
         let count = app.state.project.channels.len();
-        app.render_track(0, true);
+        app.render_track(0, Mode::Freeze);
         finish(&mut app);
         assert!(
             pl::track_info(&app.state, 0).unwrap().frozen.is_some(),
@@ -490,9 +526,11 @@ mod tests {
         a.clips.push(Clip::new(192, 96, 2, ClipSource::Channel(0)));
         let original = pl::clips(s)[0];
         let count = s.project.channels.len();
-        app.render_track(0, false);
+        app.render_track(0, Mode::BounceNew);
         finish(&mut app);
-        assert_eq!(pl::clips(&app.state)[0], original, "original untouched");
+        assert_eq!(pl::clips(&app.state)[0], original, "original clip untouched");
+        assert!(!pl::track_on(&app.state, 0), "source row muted");
+        assert!(!pl::track_on(&app.state, 1), "take lane kept its mute state");
         assert_eq!(crate::comping::parent(&app.state, 1), Some(0));
         assert_eq!(pl::clips(&app.state).iter().find(|c| c.track == 1), Some(&take));
         let bounced = pl::clips(&app.state)
@@ -509,11 +547,52 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
     #[test]
+    fn track_render_replace_keeps_automation_and_other_rows_and_undoes() {
+        let (mut app, dir) = fixture("replace");
+        app.state.project.channels[1].kind = ChannelKind::Automation;
+        let automation = Clip::new(0, 192, 0, ClipSource::Channel(1));
+        let other = Clip::new(192, 96, 1, ClipSource::Channel(0));
+        let a = pl::arr_mut(&mut app.state);
+        a.clips.extend([automation, other]);
+        a.tracks[0].name = Some("Voice".into());
+        a.tracks[1].name = Some("Other".into());
+        let tracks = a.tracks.clone();
+        let original = a.clips.clone();
+        let count = app.state.project.channels.len();
+
+        let (_, _, pending) = prepare(&app.state, 0, Mode::BounceReplace).unwrap();
+        assert!(place(&mut app.state, &pending, &[dir.join("missing.wav")]).is_err());
+        assert_eq!(pl::clips(&app.state), original);
+        assert_eq!(app.state.project.channels.len(), count);
+
+        let menu = pl::track_menu(&app.state, 0, 0., 0.);
+        let bounce = menu.items.iter().find(|item| item.label == "Bounce audio").unwrap();
+        assert_eq!(bounce.children.len(), 2);
+        pl::run(&mut app, bounce.children[1].cmd.clone());
+        finish(&mut app);
+        let clips = pl::clips(&app.state);
+        assert_eq!(&clips[..2], &[automation, other]);
+        assert_eq!(clips.len(), 3);
+        assert_eq!(clips[2].track, 0);
+        assert_eq!(app.state.project.channels.len(), count + 1);
+        assert_eq!(app.state.project.arrangement().unwrap().tracks, tracks);
+        let rendered = clips.to_vec();
+        crate::history::undo(&mut app.state).unwrap();
+        assert_eq!(pl::clips(&app.state), original);
+        assert_eq!(app.state.project.channels.len(), count);
+        crate::history::redo(&mut app.state).unwrap();
+        assert_eq!(pl::clips(&app.state), rendered);
+        crate::workspace_visibility::toggle(VISIBILITY);
+        assert!(!pl::track_menu(&app.state, 0, 0., 0.).items.iter().any(|item| item.label == "Bounce audio"));
+        assert_eq!(pl::clips(&app.state), rendered);
+        let _=std::fs::remove_dir_all(dir);
+    }
+    #[test]
     fn track_render_guards_and_master_stem() {
         let (mut app, dir) = fixture("master");
         app.state.project.channels[0].mixer_track = 0;
         let expected = audio(&crate::rack::play_project(&app.state));
-        app.render_track(0, true);
+        app.render_track(0, Mode::Freeze);
         finish(&mut app);
         assert!(
             pl::track_info(&app.state, 0).unwrap().frozen.is_some(),
@@ -525,8 +604,9 @@ mod tests {
         assert_eq!(app.state.project.channels.last().unwrap().mixer_track, 0);
         unfreeze(&mut app.state, 0);
         pl::arr_mut(&mut app.state).tracks[(pl::TRACKS - 1) as usize].name = Some("Keep".into());
-        assert!(prepare(&app.state, 0, false).is_err());
-        assert!(prepare(&app.state, 12, true).is_err());
+        assert!(prepare(&app.state, 0, Mode::BounceNew).is_err());
+        assert!(prepare(&app.state, 0, Mode::BounceReplace).is_ok());
+        assert!(prepare(&app.state, 12, Mode::Freeze).is_err());
         let _ = std::fs::remove_dir_all(dir);
     }
     #[test]
@@ -560,7 +640,7 @@ mod tests {
             Arc::new(Mutex::new(Tone(false))) as os_engine::SharedInstrument,
         )]);
         let original = pl::clips(&app.state).to_vec();
-        app.render_track(0, true);
+        app.render_track(0, Mode::Freeze);
         finish(&mut app);
         let routes: Vec<_> = app
             .state

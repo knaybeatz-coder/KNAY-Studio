@@ -145,6 +145,7 @@ fn target_text(t: Target) -> String {
             KnobId::Eq(m, b, f) => format!("eq:{m}:{b}:{f}"),
             KnobId::Strum(_) | KnobId::Arp(_) | KnobId::PianoDlg(_) => "none".into(),
         },
+        Target::SampleTempo(_) => "none".into(),
         Target::Fader(m) => format!("fader:{m}"),
         Target::Param(key, i) => format!("param:{key}:{i}"),
     }
@@ -541,6 +542,7 @@ impl App {
     fn remote_set(&mut self, t: Target, v: f32) {
         let v = v.clamp(0.0, 1.0);
         match t {
+            Target::SampleTempo(_) => return,
             Target::Knob(k) => {
                 crate::history::knob(&mut self.state, k, true);
                 self.state.set_knob(k, v);

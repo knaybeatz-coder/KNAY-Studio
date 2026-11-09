@@ -118,6 +118,8 @@ pub const TOOLBARS_SCALING: Combo = Combo {
 pub const COLORFUL_WAVEFORMS: Combo =
     Combo { key: "colorful_waveforms", label: "Colorful waveforms", choices: &["Off", "Color map", "Multiband"], default: 0 };
 
+pub const MIXER_STYLE: Combo = Combo { key: "full_mixer_style", label: "Mixer style", choices: &["Original", "Clean Modern", "Analog"], default: 2 };
+
 /// General ▸ Language: how note names read (`crate::note_names`; FL asks for a restart, Lemon Studio renames at once).
 /// Spec: ui/settings-choices.md "Note names and Black notes".
 pub const NOTE_NAMES: Combo = Combo { key: "note_names", label: "Note names", choices: &["English", "Germanic", "Solfege (do, re, mi, ...)"], default: 0 };
@@ -166,7 +168,10 @@ pub const SELECT_FIRST_CHANNEL: Check =
 /// General ▸ Miscellaneous: opening the piano roll zooms on the pattern and the channel's notes (`crate::piano::auto_zoom`).
 pub const AUTO_ZOOM_PIANO: Check = Check { key: "auto_zoom_piano", label: "Auto zoom in piano roll", default: false };
 
-/// General ▸ Miscellaneous: thin editor scroll bars without arrow buttons (`crate::views::small_scrollbars`).
+/// Theme option for clip display only; project and source colors remain untouched.
+pub const BRIGHT_PLAYLIST_CLIPS: Check = Check { key: "bright_playlist_clips", label: "Brighter Playlist clips", default: false };
+
+/// General: thin editor scroll bars without arrow buttons.
 pub const SMALL_SCROLLBARS: Check = Check { key: "small_scrollbars", label: "Small scrollbars in editors", default: false };
 
 /// General ▸ Miscellaneous: a pattern switch zips the channels with nothing in the new pattern (`App::pattern_tick`).
@@ -210,6 +215,7 @@ pub const AUTOMATION_AT_PLAYBACK_POSITION: Check =
 /// General ▸ Miscellaneous: opening or focusing a plugin window selects its mixer track
 /// (`App::select_window_track`). Spec: ui/settings-choices.md "Miscellaneous: seven more checks, Default template and
 /// Startup project".
+pub const ROUTE_EDGE_SCROLL:Check=Check{key:"route_edge_scroll",label:"Auto-scroll mixer while routing",default:true};
 pub const AUTO_SELECT_LINKED: Check = Check { key: "auto_select_linked_modules", label: "Auto select linked modules", default: true };
 
 /// General ▸ Miscellaneous: stored and shown only. FL showed no change on native plugin windows; it has no effect until
@@ -220,6 +226,7 @@ pub const HIDE_PLUGIN_TOOLBAR: Check =
 /// General ▸ Miscellaneous: a sample or channel preset loaded into an existing channel renames the channel after the
 /// file (`rack::auto_name`); off, the channel keeps its name. Spec: ui/settings-choices.md "Miscellaneous: naming,
 /// detached plugins and startup".
+pub const ROUTE_RACK_SAMPLES: Check = Check { key: "route_rack_samples", label: "Auto-route Channel Rack samples to mixer inserts", default: false };
 pub const AUTO_NAME_CHANNELS: Check = Check { key: "auto_name_channels", label: "Auto name channels", default: true };
 
 /// General ▸ Miscellaneous: a preset loaded into an effect renames its mixer slot after the preset
@@ -513,6 +520,7 @@ pub const CHECKS: &[&Check] = &[
     &SELECT_FIRST_CHANNEL,
     &AUTO_ZOOM_PIANO,
     &SMALL_SCROLLBARS,
+    &BRIGHT_PLAYLIST_CLIPS,
     &AUTO_ZIP_EMPTY,
     &MONO_PAINTING,
     &AUTO_CROSSFADES_NEW,
@@ -521,8 +529,10 @@ pub const CHECKS: &[&Check] = &[
     &ALTERNATE_METER_SCALE,
     &AUTOMATION_AT_PLAYBACK_POSITION,
     &AUTO_SELECT_LINKED,
+    &ROUTE_EDGE_SCROLL,
     &HIDE_PLUGIN_TOOLBAR,
     &AUTO_NAME_CHANNELS,
+    &ROUTE_RACK_SAMPLES,
     &AUTO_NAME_EFFECT_SLOTS,
     &DETACH_NEW,
     &DETACHED_WITH_MAIN,
@@ -559,7 +569,14 @@ pub const CHECKS: &[&Check] = &[
     &TOGGLE_ON_RELEASE,
 ];
 /// The declared combos.
-pub const COMBOS: &[&Combo] = &[&MAIN_GUI_SCALING, &POPUPS_SCALING, &NOTE_NAMES, &BLACK_NOTES, &AUTOSAVE, &BACKUP_LOCATION, &STARTUP_PROJECT, &COLORFUL_WAVEFORMS, &ANIMATION_REFRESH_RATE, &TRANSPARENT_WINDOWS, &CURSORS_SCALING, &LEGACY_SCALING, &OPTIMIZE_FOR, &RESAMPLING_QUALITY, &PROJECT_DATA_SIZE_WARNING, &TOOLBARS_SCALING, &ASK_DATA_FOLDER, &VELOCITY_LINK, &RELEASE_LINK, &CONTROLLER_TYPE, &SYNC_TYPE];
+pub const PIANO_ZOOM_KEYS: Combo = Combo {
+    key: "piano_zoom_keys",
+    label: "Piano Roll zoom keys",
+    choices: &["Page Up / Page Down", "Ctrl + Page keys", "Alt + Page keys", "Shift + Page keys"],
+    default: 0,
+};
+
+pub const COMBOS: &[&Combo] = &[&PIANO_ZOOM_KEYS, &MAIN_GUI_SCALING, &POPUPS_SCALING, &MIXER_STYLE, &NOTE_NAMES, &BLACK_NOTES, &AUTOSAVE, &BACKUP_LOCATION, &STARTUP_PROJECT, &COLORFUL_WAVEFORMS, &ANIMATION_REFRESH_RATE, &TRANSPARENT_WINDOWS, &CURSORS_SCALING, &LEGACY_SCALING, &OPTIMIZE_FOR, &RESAMPLING_QUALITY, &PROJECT_DATA_SIZE_WARNING, &TOOLBARS_SCALING, &ASK_DATA_FOLDER, &VELOCITY_LINK, &RELEASE_LINK, &CONTROLLER_TYPE, &SYNC_TYPE];
 /// The declared combos no settings page shows (a window of their own does): General ▸ Input ▸ Manage shortcuts' rows
 /// (`crate::shortcuts`). Read by the declaration tests.
 #[cfg_attr(not(test), allow(dead_code))]
@@ -752,6 +769,14 @@ impl App {
     pub(crate) fn pref_choose(&mut self, c: &'static Combo, i: usize) -> Option<String> {
         let band = crate::views::band_h(&self.state);
         set_choice(c, i);
+        if c.key == MIXER_STYLE.key
+            && let Some(text) = &self.state.fl_text
+            && os_theme::fl::get_key(text, crate::mixer_skin::FINISH).is_some() {
+            let next = os_theme::fl::remove_key(text, crate::mixer_skin::FINISH);
+            self.theme_mark(crate::theme_library::Step::Other);
+            self.theme_edit(next);
+            self.theme_store();
+        }
         // Toolbars scaling: the workspace's top follows the band's new height, the floating windows with it (spec:
         // ui/ui-scaling.md §1).
         if c.key == TOOLBARS_SCALING.key && !self.state.toolbar.hidden {
@@ -1055,6 +1080,26 @@ main_gui_scaling = 200%
         assert_eq!(choice(&COLORFUL_WAVEFORMS), "Multiband");
         assert_eq!(app.state.message.as_deref(), Some("Colorful waveforms: Multiband"));
         set_choice(&COLORFUL_WAVEFORMS, 0);
+    }
+
+    #[test]
+    fn full_mixer_style_switches_from_theme_settings() {
+        let mut canvas = Canvas::new(1366, 768, 1.0).unwrap();
+        let mut app = App::new(None);
+        app.open_settings(settings::THEME);
+        assert_eq!(choice(&MIXER_STYLE), "Analog");
+        for index in [1, 2, 0] {
+            app.paint(&mut canvas, None);
+            let control = app.hits.iter().rev().find(|h| matches!(
+                h.action, Action::Settings(SAct::Combo(label, ..)) if label == MIXER_STYLE.label
+            )).expect("full mixer style selector").rect;
+            click(&mut app, &mut canvas, control);
+            let popup = app.state.playlist.popup.as_ref().expect("mixer style menu");
+            assert_eq!(popup.items.iter().map(|item| item.label.as_ref()).collect::<Vec<_>>(), MIXER_STYLE.choices);
+            let entry = hit_rect(&app, &Action::PlPopup(index));
+            click(&mut app, &mut canvas, entry);
+            assert_eq!(choice(&MIXER_STYLE), MIXER_STYLE.choices[index as usize]);
+        }
     }
 
     /// Every declared slider is a slider on a settings page, with a key and a label of its own among all the

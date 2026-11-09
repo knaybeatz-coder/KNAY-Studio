@@ -70,6 +70,7 @@ fn destination(s: &State) -> Option<u8> {
 }
 
 pub fn open(app: &mut App, toggle: bool) {
+    if crate::mixer::locked(&app.state, 0) { app.state.message = Some(crate::mixer::LOCK_MESSAGE.into()); return; }
     if let Some(k) = slot(&app.state) {
         if toggle {
             let on = !enabled(&app.state);

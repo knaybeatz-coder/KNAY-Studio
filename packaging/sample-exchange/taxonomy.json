@@ -1,0 +1,11 @@
+{
+  "families": {
+    "Drums": ["Kick", "Snare", "Clap", "Rimshot", "Snap", "Hi-hat", "Closed hi-hat", "Open hi-hat", "Pedal hi-hat", "Tom", "Crash", "Ride", "Splash", "China cymbal", "Bongos", "Congas", "Timbales", "Djembe", "Tabla", "Cajon", "Shaker", "Tambourine", "Maracas", "Cowbell", "Claves", "Woodblock", "Triangle", "Guiro", "Hand percussion"],
+    "Bass": ["Sub bass", "808 bass", "Reese bass", "Acid bass", "Synth bass", "Wobble bass", "FM bass", "Electric bass", "Upright bass", "Bass stab"],
+    "Melody": ["Piano", "Electric piano", "Organ", "Synth keys", "Synth lead", "Pluck", "Pad", "Arpeggio", "Chord stab", "Bell", "Mallet", "Acoustic guitar", "Electric guitar", "Strings", "Brass", "Woodwind", "Harp"],
+    "Loops": ["Full drum loop", "Drum break", "Top loop", "Hi-hat loop", "Percussion loop", "Drum fill", "Bass loop", "Melody loop", "Chord loop", "Arpeggio loop", "Guitar loop", "Keys loop", "Vocal loop", "Songstarter"],
+    "Vocals": ["Lead phrase", "Hook", "Ad-lib", "Vocal chop", "Spoken word", "Rap phrase", "Choir", "Harmony", "Shout", "Breath", "Beatbox", "Acapella"],
+    "FX": ["Impact", "Riser", "Downlifter", "Sweep", "Reverse hit", "Transition", "Glitch", "Noise", "Drone", "Atmosphere", "Foley", "Field recording", "Stinger"]
+  },
+  "genres": ["Cross-genre", "Hip-hop", "Boom bap", "Trap", "Drill", "Lo-fi hip-hop", "House", "Deep house", "Tech house", "Progressive house", "Afro house", "Amapiano", "UK garage", "Trance", "Progressive trance", "Psytrance", "Techno", "Melodic techno", "Hard techno", "Hardstyle", "Drum and bass", "Jungle", "Breakbeat", "Dubstep", "Future bass", "EDM", "Electro", "Synthwave", "Disco", "Funk", "R&B", "Soul", "Jazz", "Pop", "Rock", "Metal", "Indie", "Reggae", "Dancehall", "Reggaeton", "Afrobeats", "Latin", "Folk", "Country", "Ambient", "Cinematic", "Experimental"]
+}

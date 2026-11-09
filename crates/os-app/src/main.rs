@@ -30,6 +30,9 @@ mod audio_bench;
 #[cfg(test)]
 mod open_bench;
 mod browser;
+mod browser_files;
+mod community_samples;
+mod community_service;
 mod browser_preview;
 mod plugin_downloads;
 mod plugin_picker;
@@ -44,6 +47,7 @@ mod cable;
 mod capture;
 mod input_monitor;
 mod detached;
+mod edited_sample;
 mod one_click;
 mod score_log;
 mod clip_colors;
@@ -67,6 +71,9 @@ mod knobs;
 mod layout;
 mod loading;
 mod missing;
+mod import_report;
+mod drop_preview;
+mod playlist_motion;
 mod zipped;
 mod logo;
 #[cfg(target_os = "macos")]
@@ -84,7 +91,9 @@ mod midi_out;
 mod midi_play;
 mod mixer;
 mod rack_mixer;
+#[cfg(any(windows,target_os="macos"))] mod strip_geometry;
 #[cfg(windows)] mod strip_editor;
+#[cfg(target_os="macos")] #[path="strip_editor_mac.rs"] mod strip_editor;
 mod mini_eq;
 mod mixer_recording;
 mod smart_recording;
@@ -94,6 +103,8 @@ mod citrus;
 mod monitor;
 mod params;
 mod piano;
+mod piano_note_mode;
+mod piano_note_properties;
 mod piano_snap;
 mod piano_split;
 mod piano_tools;
@@ -139,13 +150,25 @@ mod project_plugins;
 mod presets;
 mod misc;
 mod misc_page;
+mod typing_layout;
+mod sample_route;
+mod clip_normalize;
+mod strip_silence;
 mod note_names;
 mod save_form;
 mod scroll_speed;
 mod search_folders;
 mod settings_file;
+mod workspace_visibility;
+mod vintage;
+mod vintage_cursors;
+mod vintage_rack_art;
+mod vintage_skin;
+mod menu_layout;
 mod shortcuts;
 mod warp;
+mod vocal_align;
+mod vocal;
 mod smooth;
 mod snap;
 mod song_pos;
@@ -171,8 +194,12 @@ mod arpeggiate;
 mod tapper;
 mod touch;
 mod record;
+mod record_lead;
 mod recent;
 mod theme_adjust;
+mod advanced_theme;
+mod mixer_skin;
+mod theme_identity;
 mod theme_library;
 mod templates;
 mod timesig;
@@ -217,13 +244,17 @@ struct Shell {
     pointer_locked: bool,
     cursor: app::Cursor,
     cursor_scale: u16,
-    tool_cursors: Vec<(playlist::PlTool, u8, u16, winit::window::CustomCursor)>,
+    cursor_pack: u8,
+    cursor_color: Option<os_theme::Color>,
+    tool_cursors: CursorCache,
     /// Main-window border in device pixels (left, top, right, bottom); zero when maximized.
     inset: (u32, u32, u32, u32),
     /// The border edge under the mouse (drags resize the OS window).
     edge: Option<ResizeDirection>,
     /// A title-bar move or edge resize done by hand: cursor and window rect (screen px) at the press, and the edge
     /// (None = move). The system's own move / size loops block the event loop, which froze all drawing.
+    dropped_files: Vec<std::path::PathBuf>,
+    stem_anchor:Option<(u16,u32)>,
     grab: Option<Grab>,
     /// A press on the maximized window's title bar: the cursor (screen px) and its height in the window (physical px).
     /// The window is restored under the cursor and moved once the cursor travels past the drag distance; a click
@@ -532,27 +563,24 @@ impl Shell {
             Some(_) => app::Cursor::NeswResize,
             None => self.app.cursor(),
         };
-        let scale = (ui_scale(window)*100.0).round().clamp(50.0,400.0) as u16;
-        if c != self.cursor || self.cursor_scale != scale {
+        let appearance = if self.app.state.vintage_2005 {
+            os_theme::design::vintage_2005().appearance
+        } else {
+            self.app.theme.colors.appearance
+        };
+        let pack = playlist_tools::resolved_cursor_pack(appearance, c);
+        let size = if pack == 0 { 100.0 } else { appearance.cursor_size.unwrap_or(100.0) };
+        let scale = (ui_scale(window)*f64::from(size)).round().clamp(50.0,400.0) as u16;
+        let color = if pack == 0 { None } else { appearance.cursor_color };
+        if self.cursor_color != color {
+            self.tool_cursors.clear();
+        }
+        if c != self.cursor || self.cursor_scale != scale || self.cursor_pack != pack || self.cursor_color != color {
+            self.cursor_color = color;
             self.cursor = c;
             self.cursor_scale = scale;
-            if let app::Cursor::Playlist(tool,phase) = c {
-                let found=self.tool_cursors.iter().position(|(t,p,k,_)| *t==tool && *p==phase && *k==scale);
-                let index=found.or_else(|| {
-                    let source=playlist_tools::cursor_source(tool,phase,f32::from(scale)/100.)?;
-                    self.tool_cursors.push((tool,phase,scale,el.create_custom_cursor(source)));
-                    Some(self.tool_cursors.len()-1)
-                });
-                if let Some(i)=index { window.set_cursor(self.tool_cursors[i].3.clone()); return; }
-            }
-            window.set_cursor(match c {
-                app::Cursor::Playlist(..) => CursorIcon::Default,
-                app::Cursor::Default => CursorIcon::Default,
-                app::Cursor::EwResize => CursorIcon::EwResize,
-                app::Cursor::NsResize => CursorIcon::NsResize,
-                app::Cursor::NwseResize => CursorIcon::NwseResize,
-                app::Cursor::NeswResize => CursorIcon::NeswResize,
-            });
+            self.cursor_pack = pack;
+            apply_window_cursor(window, el, c, scale, pack, &mut self.tool_cursors);
         }
     }
 
@@ -632,7 +660,7 @@ impl Shell {
 
     fn step(&mut self, el: &ActiveEventLoop, held: bool) {
         if self.app.state.native_view.is_none() {self.main_mouse=self.app.mouse;}
-        self.detached.sync(&mut self.app,el);
+        self.detached.sync(&mut self.app,el,&mut self.tool_cursors);
         let current=screens(el);
         if current!=self.display_layout {
             self.display_layout=current.clone();
@@ -642,10 +670,29 @@ impl Shell {
             }
         }
         self.prepare_main();
+        if let Some(main) = &self.window {
+            let state = &self.app.state;
+            let target = if !state.show_browser { None }
+            else if state.native_detached.contains(&app::Win::Browser) {
+                self.detached.browser_window().map(|window| (window, 0.0, f64::from(window.inner_size().width)))
+            } else if !state.browser_auto_hidden {
+                let k = ui_scale(main);
+                Some((main.as_ref(), f64::from(views::work_y(state))*k, f64::from(views::browser_w(state))*k))
+            } else { None };
+            edited_sample::update_target(&self.app,target);
+            edited_sample::finish(&mut self.app);
+        }
         // Animate while playing; otherwise repaint a few times a second (peaks, clock).
-        let ms = if self.app.animating() { 16 } else { 100 };
+        let animating = self.app.animating();
+        let interval = if animating || self.app.state.sample_drop.active() {
+            paced(self.frame, animating)
+        } else if self.app.vintage_title_scrolling() {
+            Duration::from_millis(50)
+        } else {
+            Duration::from_millis(100)
+        };
         let now = Instant::now();
-        let mut wake = now + Duration::from_millis(ms);
+        let mut wake = now + interval;
         // Unsaved changes were answered (or there were none): the window closes.
         if self.app.want_exit {
             el.exit();
@@ -678,6 +725,14 @@ impl Shell {
                 self.pending = true;
             }
             menu_bar::update(views::menus::bar_model(&self.app.state));
+        }
+        if self.app.state.sample_drop.external && self.app.state.sample_drop.surface.is_none() {
+            if let Some(window)=self.window.clone() {
+                if let (Some((at,_)),Ok(pos))=(screen_state(&window),window.inner_position()) {
+                    let (x,y)=self.to_app(&window,f64::from(at.0-pos.x),f64::from(at.1-pos.y));
+                    self.app.mouse_move(x,y);
+                }
+            }
         }
         self.detached.prepare_drag(&mut self.app);
         self.pending |= self.app.tick();
@@ -719,7 +774,7 @@ impl Shell {
                     // Hidden Win32 windows are not guaranteed WM_PAINT delivery. Prepare their
                     // first frames directly through the normal rendering path before showing them.
                     #[cfg(windows)]
-                    if !self.shown {
+                    if !self.shown || (held&&self.app.state.sample_drop.external) {
                         self.window_event(el, w.id(), WindowEvent::RedrawRequested);
                     } else {
                         w.request_redraw();
@@ -861,6 +916,12 @@ impl ApplicationHandler for Shell {
     }
 
     fn about_to_wait(&mut self, el: &ActiveEventLoop) {
+        self.detached.flush_stems(&mut self.app);
+        let files=std::mem::take(&mut self.dropped_files);
+        if let Some((track,tick))=self.stem_anchor.take().filter(|_|files.len()>1 &&
+            files.iter().all(|p|crate::views::browser::file_icon(&p.to_string_lossy())==crate::icons::Icon::FileAudio)) {
+            self.app.import_stems(files,track,tick);
+        } else { for file in files {self.app.drop_file(file);} }
         self.step(el, false);
     }
 
@@ -900,7 +961,7 @@ impl ApplicationHandler for Shell {
     }
 
     fn window_event(&mut self, el: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
-        if self.detached.owns(_id) {if self.app.state.native_view.is_none(){self.main_mouse=self.app.mouse;}self.detached.event(&mut self.app,el,_id,event);self.prepare_main();self.pending|=self.app.has_damage();return;}
+        if self.detached.owns(_id) {if self.app.state.native_view.is_none(){self.main_mouse=self.app.mouse;}self.detached.event(&mut self.app,el,_id,event,&mut self.tool_cursors);self.prepare_main();self.pending|=self.app.has_damage();return;}
         self.prepare_main();
         if matches!(event,WindowEvent::MouseInput{state:ElementState::Pressed,..}|WindowEvent::KeyboardInput{..}|WindowEvent::Focused(true)) {
             if self.app.state.native_input.take().is_some() {let popup=self.app.state.playlist.popup.is_some()||self.app.state.menu_open.is_some();self.app.state.playlist.popup=None;self.app.state.menu_open=None;if popup {self.app.invalidate();}}
@@ -1153,6 +1214,7 @@ impl ApplicationHandler for Shell {
             // Audio files dropped on the playlist become audio clips (spec: ui/playlist.md §9); a dropped project opens.
             WindowEvent::DroppedFile(path) => {
                 // No mouse moves arrive during a drag and drop: take the cursor position now.
+                if !self.dropped_files.is_empty() {self.dropped_files.push(path); return;}
                 let at = screen_state(&window).map(|s| s.0);
                 // X11 main window (Linux): the X server knows where the pointer is.
                 #[cfg(target_os = "linux")]
@@ -1161,10 +1223,15 @@ impl ApplicationHandler for Shell {
                     let (mx, my) = self.to_app(&window, f64::from(cx - p.x), f64::from(cy - p.y));
                     self.app.mouse_move(mx, my);
                 }
-                self.app.drop_file(path);
+                self.stem_anchor=if !self.app.modal_open() && self.app.top_hit(self.app.mouse.0,self.app.mouse.1).and_then(|h|h.win)==Some(app::Win::Playlist){
+                    self.app.playlist_drop_position()
+                }else{None};
+                self.dropped_files.push(path);
+                drop_preview::clear(&mut self.app);
                 window.request_redraw();
             }
-            WindowEvent::HoveredFile(_) => {}
+            WindowEvent::HoveredFile(path) => {drop_preview::hover_file(&mut self.app,path,None);window.request_redraw();}
+            WindowEvent::HoveredFileCancelled => {drop_preview::clear(&mut self.app);window.request_redraw();}
             WindowEvent::Focused(focused) => {
                 // Linux: plugin windows stay above the main window while Lemon Studio is the active application.
                 #[cfg(target_os = "linux")]
@@ -1325,7 +1392,7 @@ impl ApplicationHandler for Shell {
                 // Retire the splash only after the visible window received its full frame.
                 if presented && !self.shown && self.app.project_loading().is_none() {
                     self.shown = true;
-                    startup_sound::play();
+                    startup_sound::play_launch(self.app.state.vintage_2005);
                 }
                 if !presented {self.app.invalidate();self.pending=true;}
                 if let Some(log) = &mut self.frames {
@@ -1607,6 +1674,10 @@ fn screenshot(args: &[String]) {
     }
     app.state.z = match view.as_str() {
         "mixer" => vec![app::Win::Mixer],
+        "traditional-mixer" => {
+            mixer::set_layout(&mut app.state,mixer::TRADITIONAL);
+            vec![app::Win::Mixer]
+        }
         "piano" => vec![app::Win::PianoRoll],
         "none" => vec![],
         _ => vec![app::Win::Playlist],
@@ -1759,7 +1830,7 @@ fn screenshot(args: &[String]) {
         // Playback: what each tick repaints (spec: audio/transport.md; no device, the shown state is set directly).
         // About 4 ticks per frame = 60 frames a second at 140 BPM, 96 PPQ.
         for song in [false, true] {
-            let shown = |tick: f64, sounding: Vec<(u16, u16)>| app::Shown { playing: true, paused: false, tick, song, sounding, tempo: None };
+            let shown = |tick: f64, sounding: Vec<(u16, u16)>| app::Shown { playing: true, paused: false, tick, piano_tick: None, song, sounding, tempo: None };
             app.show_playback(shown(0.0, Vec::new()));
             let d = app.take_damage();
             app.paint_region(&mut canvas, d.flatten().as_deref());
@@ -1845,6 +1916,40 @@ fn wake_ui() {
             }
         }
     }
+}
+
+type CursorCache = Vec<((app::Cursor, u16, u8), winit::window::CustomCursor)>;
+
+fn apply_window_cursor(window: &Window, el: &ActiveEventLoop, c: app::Cursor, scale: u16, pack: u8, cache: &mut CursorCache) {
+    let key = (c, scale, pack);
+    if let Some((_, cursor)) = cache.iter().find(|(k, _)| *k == key) {
+        window.set_cursor(cursor.clone());
+        return;
+    }
+    let size = f32::from(scale) / 100.0;
+    let source = match c {
+        app::Cursor::Playlist(tool, phase) => playlist_tools::packed_cursor_source(tool, phase, size, pack),
+        _ => playlist_tools::window_cursor_source(c, size, pack),
+    };
+    if let Some(source) = source {
+        let cursor = el.create_custom_cursor(source);
+        if cache.len() >= 96 { cache.remove(0); }
+        cache.push((key, cursor.clone()));
+        window.set_cursor(cursor);
+        return;
+    }
+            window.set_cursor(match c {
+                app::Cursor::Playlist(_,playlist_tools::RESIZE) => CursorIcon::EwResize,
+                app::Cursor::Playlist(_,playlist_tools::GAIN) => CursorIcon::Pointer,
+                app::Cursor::Playlist(_,playlist_tools::GRAB) => CursorIcon::Grab,
+                app::Cursor::Playlist(_,playlist_tools::GRABBING | playlist_tools::COPYING) => CursorIcon::Grabbing,
+                app::Cursor::Playlist(..) => CursorIcon::Default,
+                app::Cursor::Default => CursorIcon::Default,
+                app::Cursor::EwResize => CursorIcon::EwResize,
+                app::Cursor::NsResize => CursorIcon::NsResize,
+                app::Cursor::NwseResize => CursorIcon::NwseResize,
+                app::Cursor::NeswResize => CursorIcon::NeswResize,
+            });
 }
 
 fn main() {
@@ -2001,9 +2106,13 @@ fn main() {
         pointer_locked: false,
         cursor: app::Cursor::Default,
         cursor_scale: 0,
+        cursor_pack: 0,
+        cursor_color: None,
         tool_cursors: Vec::new(),
         inset: (0, 0, 0, 0),
         edge: None,
+        dropped_files: Vec::new(),
+        stem_anchor:None,
         grab: None,
         unmax: None,
         pending: false,

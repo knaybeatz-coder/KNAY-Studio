@@ -22,16 +22,20 @@ fn component(eq:&mut Equalizer,mask:u8,pad:&mut DryDelay,gain:f32,l:&mut[f32],r:
 }
 pub struct RoutedEq {
  eq:[Equalizer;4], params:[i32;PARAMS],opts:Options,routes:[u8;7],ms:bool,split:bool,
- scratch:[Vec<f32>;2],masks:[u8;4],dry:[DryDelay;4],gain:f32,
+ dynamics:super::dynamic::Processor, scratch:[Vec<f32>;2],masks:[u8;4],dry:[DryDelay;4],gain:f32,
 }
 impl RoutedEq {
  pub fn new(rate:f64,p:&[i32;PARAMS],opts:Options)->Self{
-  let mut s=Self{eq:std::array::from_fn(|_|Equalizer::new(rate,p,opts)),params:*p,opts,routes:[0;7],ms:false,split:false,masks:[0;4],dry:std::array::from_fn(|_|DryDelay::default()),gain:1.,scratch:std::array::from_fn(|_|Vec::with_capacity(8192))};s.refresh();s
+  let mut s=Self{dynamics:super::dynamic::Processor::new(rate),eq:std::array::from_fn(|_|Equalizer::new(rate,p,opts)),params:*p,opts,routes:[0;7],ms:false,split:false,masks:[0;4],dry:std::array::from_fn(|_|DryDelay::default()),gain:1.,scratch:std::array::from_fn(|_|Vec::with_capacity(8192))};s.refresh();s
  }
  pub fn from_state(b:&[u8],rate:f64)->Option<Self>{
   if b.len()<148{return None;}let p=std::array::from_fn(|i|i32::from_le_bytes(b[4+4*i..8+4*i].try_into().unwrap()));
-  let mut s=Self::new(rate,&p,Options::from_state(b));s.set_routes(routes(b,false));Some(s)
+  let mut s=Self::new(rate,&p,Options::from_state(b));s.set_routes(routes(b,false));s.set_dynamic(super::dynamic::Config::load(b,false));Some(s)
  }
+ pub fn set_dynamic(&mut self,c:super::dynamic::Config){self.dynamics.configure(c);}
+ pub fn spectral_response(&self)->[f32;256]{self.dynamics.spectral_response()}
+ pub fn detector_meters(&self)->([f32;7],[f32;7]){(self.dynamics.trigger,self.dynamics.threshold)}
+ pub fn dynamic_meters(&self)->[f32;8]{self.dynamics.meters}
  pub fn mode(&self)->Mode{self.eq[0].mode()}
  pub fn set_routes(&mut self,r:[u8;7]){let r=r.map(|v|v.min(4));if self.routes!=r{self.routes=r;self.refresh();}}
  pub fn set_param(&mut self,i:usize,v:i32){if i<PARAMS && self.params[i]!=v{self.params[i]=v;if i==MAIN{self.gain=(f64::from(v as f32*0.01*super::design::db_unit())).exp() as f32;}for(j,e)in self.eq.iter_mut().enumerate(){e.set_param(i,if j>=2 && i==MAIN{0}else{v});}}}
@@ -42,10 +46,14 @@ impl RoutedEq {
   self.split=masks[0]!=masks[1];self.ms=masks[2]!=0||masks[3]!=0;
   for(c,e)in self.eq.iter_mut().enumerate(){e.set_options(Options{mask:masks[c],..self.opts});e.set_param(MAIN,if c<2{self.params[MAIN]}else{0});self.dry[c].resize(e.latency());}
  }
- pub fn latency(&self)->usize{self.eq[0].latency()*(if self.ms{2}else{1})}
- pub fn reset(&mut self){for e in &mut self.eq{e.reset();}for d in &mut self.dry{d.line.fill(0.);d.at=0;}}
+ pub fn latency(&self)->usize{self.eq[0].latency()*(if self.ms{2}else{1})+self.dynamics.latency()}
+ pub fn reset(&mut self){self.dynamics.reset();for e in &mut self.eq{e.reset();}for d in &mut self.dry{d.line.fill(0.);d.at=0;}}
  pub fn preroll(&mut self){for e in &mut self.eq{e.preroll();}}
  pub fn process(&mut self,l:&mut[f32],r:&mut[f32]){
+  self.process_static(l,r);
+  self.dynamics.process(l,r,&super::Settings {bands:std::array::from_fn(|k| super::Band{db:f64::from(self.params[k])/100.,freq:f64::from(self.params[7+k])/65536.,width:f64::from(self.params[14+k])/65536.,kind:self.params[21+k],order:self.params[28+k]}),main_db:0.,mask:self.opts.mask},self.routes);
+ }
+ fn process_static(&mut self,l:&mut[f32],r:&mut[f32]){
   let n=l.len().min(r.len());let(l,r)=(&mut l[..n],&mut r[..n]);
   if self.routes==[0;7]{self.eq[0].process(l,r);return;}
   if self.split {self.scratch[0].clear();self.scratch[0].extend_from_slice(l);self.scratch[1].clear();self.scratch[1].extend_from_slice(r);

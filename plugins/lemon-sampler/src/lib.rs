@@ -12,6 +12,7 @@ pub mod editor;
 pub mod fx;
 pub mod params;
 pub mod stream;
+pub mod sample_drop;
 pub mod view;
 
 use std::num::NonZeroU32;
@@ -62,6 +63,8 @@ struct SummarySlot {
 
 /// State shared by the audio thread, the background task and the editor.
 pub struct Shared {
+    /// Native editor parent, used to match a waveform drop to its channel pitch.
+    editor_parent: AtomicUsize,
     /// The loaded file decoded, while the played sample comes from memory (none while it plays from disk).
     pub raw: Mutex<Option<Arc<Sample>>>,
     /// Bumped on every load / clear.
@@ -93,6 +96,7 @@ impl Default for Shared {
     fn default() -> Self {
         Shared {
             raw: Mutex::new(None),
+            editor_parent: AtomicUsize::new(0),
             raw_version: AtomicU64::new(0),
             processed: Mutex::new(None),
             processed_version: AtomicU64::new(0),
@@ -686,6 +690,7 @@ impl LemonSampler {
             NoteEvent::PolyModulation { voice_id, poly_modulation_id, normalized_offset, .. } => match poly_modulation_id {
                 params::START_OFFSET_POLY => self.engine.start_later(voice_id, normalized_offset, blk),
                 // The note's mod X / mod Y in knob units (the filter knobs' 0..1), added to the knobs for its voice.
+                7 => self.engine.note_drive(voice_id,normalized_offset),
                 params::MOD_X_POLY => self.engine.modulate(voice_id, Some(normalized_offset), None),
                 params::MOD_Y_POLY => self.engine.modulate(voice_id, None, Some(normalized_offset)),
                 _ => {}
@@ -886,6 +891,12 @@ mod tests {
 
     // spec: audio/voice-levels.md "Final levels": the note's pan reaches its voice; with the channel's pan centred the
     // host's split times the voice's makes the note's own split.
+    #[test]
+    fn per_note_drive_only_clips_the_target_hit(){
+        let event=|voice_id|NoteEvent::PolyModulation{timing:0,voice_id,poly_modulation_id:7,normalized_offset:0.8};
+        let clean=level(880.,&[]);assert_eq!(level(880.,&[event(4)]),clean);
+        assert!(level(880.,&[event(3)]).0>clean.0*1.5);
+    }
     #[test]
     fn a_note_pan_reaches_its_voice() {
         let (l0, r0) = level(1000.0, &[]);
