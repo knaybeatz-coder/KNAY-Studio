@@ -15,6 +15,11 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
 
+# KNAY: each build on main is also published on the repository's Releases page (tag knay-latest), so it downloads
+# without signing in.
+permissions:
+  contents: write
+
 jobs:
   build:
     name: ${{ matrix.name }}
@@ -89,3 +94,18 @@ jobs:
         with:
           name: KNAY-Studio-Mac
           path: target/KNAY-Studio-Mac.zip
+
+      - name: Publish to Releases
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && ((runner.os == 'Windows' && steps.build.outcome == 'success') || (runner.os == 'macOS' && steps.bundle.outcome == 'success')) }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view knay-latest >/dev/null 2>&1 || gh release create knay-latest --title "KNAY Studio - latest build" --notes "The newest KNAY Studio build from main. Windows: KNAY-Studio-Windows.exe. Mac: KNAY-Studio-Mac.zip." --latest || true
+          sleep 5
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cp "target/release/KNAY Studio.exe" KNAY-Studio-Windows.exe
+            gh release upload knay-latest KNAY-Studio-Windows.exe --clobber
+          else
+            gh release upload knay-latest target/KNAY-Studio-Mac.zip --clobber
+          fi
