@@ -206,7 +206,7 @@ pub fn act(app:&mut App,cmd:u8) {
                 select(app,&path);app.state.browser_preview.position=position;app.state.browser_preview.resume=resume;
             }
         },
-        6=>crate::prefs::set_text("browser_preview_sync",if sync_on(){"0"}else{"1"}),
+        20=>crate::prefs::set_text("browser_preview_sync",if sync_on(){"0"}else{"1"}),
         _=>{},
     }
     app.invalidate();
@@ -236,15 +236,15 @@ pub fn paint(ui:&mut Ui,s:&State,r:Rect) {
         let hover=ui.hit(b,Action::BrowserPreview(i),label);
         ui.c.fill_rrect(b,3.,if hover {t.button_hi}else{t.sunken});ui.c.text_center(Font::new(11),b,t.text,label);
     }
-    for (cmd,label,on,x,w,hint) in [(3,"Norm",normalize(),80.,36.,"Auto Normalize: preview only, peak target 0 dBFS"),(4,"Rev",reverse(),120.,28.,"Auto Reverse: preview only"),(5,"Trim",auto_trim(),152.,42.,"Auto-trim silence: previews and newly added samples; original files unchanged"),(6,"Sync",sync_on(),198.,40.,"Sync: while the song plays, loops preview at the song's tempo, in time with the playlist")] {
+    for (cmd,label,on,x,w,hint) in [(3,"Norm",normalize(),80.,36.,"Auto Normalize: preview only, peak target 0 dBFS"),(4,"Rev",reverse(),120.,28.,"Auto Reverse: preview only"),(5,"Trim",auto_trim(),152.,42.,"Auto-trim silence: previews and newly added samples; original files unchanged")] {
         let b=Rect::new(r.x+x,r.y+80.,w,23.);
         let hover=ui.hit(b,Action::BrowserPreview(cmd),hint);
         ui.c.fill_rrect(b,3.,if on{t.accent}else if hover{t.button_hi}else{t.sunken});
         ui.c.text_center(Font::new(11),b,if on{t.sunken}else{t.text},label);
     }
-    for (cmd,label,x,w,on) in [(6,format!("+{} dB",boost_db()),8.,52.,boost_db()>0),(7,"Clip".to_owned(),64.,34.,clip_on())] {
+    for (cmd,label,x,w,on) in [(6,format!("+{} dB",boost_db()),8.,52.,boost_db()>0),(7,"Clip".to_owned(),64.,34.,clip_on()),(20,"Sync".to_owned(),102.,40.,sync_on())] {
         let b=Rect::new(r.x+x,r.y+105.,w,21.);
-        let hover=ui.hit(b,Action::BrowserPreview(cmd),if cmd==6{"Preview boost: click to cycle 0 to 18 dB"}else{"Clip boosted preview peaks"});
+        let hover=ui.hit(b,Action::BrowserPreview(cmd),match cmd {6=>"Preview boost: click to cycle 0 to 18 dB",7=>"Clip boosted preview peaks",_=>"KNAY Sync: while the song plays, loops preview at the song's tempo, in time with the playlist"});
         ui.c.fill_rrect(b,3.,if on{t.accent}else if hover{t.button_hi}else{t.sunken});
         ui.c.text_center(Font::new(11),b,if on{t.sunken}else{t.text},&label);
     }

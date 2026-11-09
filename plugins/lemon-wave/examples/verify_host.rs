@@ -139,6 +139,7 @@ fn verify(lib: Arc<dyn Library>) {
             }),
         ],
         oscillators: [Some(source), None],
+        noise: None,
     };
     if !lemon_wave::included_library::PACK.is_empty() {
         let sample = lemon_wave::included_library::load(0).unwrap();
